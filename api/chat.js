@@ -1,3 +1,6 @@
+// api/chat.js — función serverless de Vercel.
+// Vercel detecta cualquier archivo dentro de /api automáticamente:
+// este queda disponible en /api/chat sin configuración adicional.
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: { message: 'Method Not Allowed' } });
@@ -24,8 +27,16 @@ module.exports = async (req, res) => {
       const role = m.role === 'assistant' ? 'model' : 'user';
       if (typeof m.content === 'string') return { role, parts: [{ text: m.content }] };
       const parts = (m.content || []).map(b => {
-        if (b.type === 'text') return { text: b.text };
-        if (b.type === 'tool_use') return { functionCall: { name: b.name, args: b.input || {} } };
+        if (b.type === 'text') {
+          const part = { text: b.text };
+          if (b._ts) part.thoughtSignature = b._ts;
+          return part;
+        }
+        if (b.type === 'tool_use') {
+          const part = { functionCall: { name: b.name, args: b.input || {} } };
+          if (b._ts) part.thoughtSignature = b._ts;
+          return part;
+        }
         if (b.type === 'tool_result') {
           const name = idToName[b.tool_use_id] || 'resultado';
           return { functionResponse: { name, response: { content: String(b.content) } } };
@@ -63,10 +74,16 @@ module.exports = async (req, res) => {
     const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
     let fcCounter = 0;
     const content = parts.map(p => {
-      if (p.text) return { type: 'text', text: p.text };
       if (p.functionCall) {
         fcCounter++;
-        return { type: 'tool_use', id: 'call_' + Date.now() + '_' + fcCounter, name: p.functionCall.name, input: p.functionCall.args || {} };
+        const block = { type: 'tool_use', id: 'call_' + Date.now() + '_' + fcCounter, name: p.functionCall.name, input: p.functionCall.args || {} };
+        if (p.thoughtSignature) block._ts = p.thoughtSignature;
+        return block;
+      }
+      if (p.text) {
+        const block = { type: 'text', text: p.text };
+        if (p.thoughtSignature) block._ts = p.thoughtSignature;
+        return block;
       }
       return null;
     }).filter(Boolean);
