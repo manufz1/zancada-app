@@ -29,6 +29,14 @@ function activityToRun(act) {
   };
 }
 
+function getMondayISO(d) {
+  const dt = new Date(d);
+  const day = dt.getUTCDay();
+  dt.setUTCDate(dt.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  dt.setUTCHours(0, 0, 0, 0);
+  return dt.toISOString().slice(0, 10);
+}
+
 module.exports = async (req, res) => {
   const { code, state } = req.query;
   if (!code || !state) { res.status(400).send('Falta code o state'); return; }
@@ -79,7 +87,18 @@ module.exports = async (req, res) => {
         data.runs = data.runs || [];
         runActs.forEach(act => {
           if (data.runs.find(r => r.stravaId === act.id)) return;
-          data.runs.push(activityToRun(act));
+          const newRun = activityToRun(act);
+          data.runs.push(newRun);
+          if (data.plan && data.plan.length && data.weekStart) {
+            const monday = getMondayISO(act.start_date);
+            if (monday === data.weekStart) {
+              const dayIdx = (new Date(act.start_date).getUTCDay() + 6) % 7;
+              if (data.plan[dayIdx] && !data.plan[dayIdx].status) {
+                data.plan[dayIdx].status = 'done';
+                data.plan[dayIdx].linkedRunId = newRun.id;
+              }
+            }
+          }
         });
         await fetch(`${base}/rest/v1/app_state?user_id=eq.${state}`, {
           method: 'PATCH', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
