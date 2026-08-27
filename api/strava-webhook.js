@@ -29,6 +29,14 @@ function activityToRun(act) {
   };
 }
 
+function getMondayISO(d) {
+  const dt = new Date(d);
+  const day = dt.getUTCDay();
+  dt.setUTCDate(dt.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  dt.setUTCHours(0, 0, 0, 0);
+  return dt.toISOString().slice(0, 10);
+}
+
 async function syncActivity(athleteId, activityId) {
   const base = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_KEY;
@@ -66,8 +74,20 @@ async function syncActivity(athleteId, activityId) {
   const data = stateRows[0].data || {};
   data.runs = data.runs || [];
   const newRun = activityToRun(act);
-  const idx = data.runs.findIndex(r => r.stravaId === act.id);
-  if (idx >= 0) data.runs[idx] = newRun; else data.runs.push(newRun);
+  const idx2 = data.runs.findIndex(r => r.stravaId === act.id);
+  if (idx2 >= 0) data.runs[idx2] = newRun; else data.runs.push(newRun);
+
+  // Marcar la sesión del plan como hecha, si la carrera cae en la semana actual
+  if (data.plan && data.plan.length && data.weekStart) {
+    const monday = getMondayISO(act.start_date);
+    if (monday === data.weekStart) {
+      const dayIdx = (new Date(act.start_date).getUTCDay() + 6) % 7;
+      if (data.plan[dayIdx] && !data.plan[dayIdx].status) {
+        data.plan[dayIdx].status = 'done';
+        data.plan[dayIdx].linkedRunId = newRun.id;
+      }
+    }
+  }
 
   await fetch(`${base}/rest/v1/app_state?user_id=eq.${conn.user_id}`, {
     method: 'PATCH', headers, body: JSON.stringify({ data })
