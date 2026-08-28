@@ -52,6 +52,7 @@ module.exports = async (req, res) => {
     const conns = await connsRes.json();
 
     let synced = 0, errors = 0;
+    let debugInfo = [];
     for (const conn of (Array.isArray(conns) ? conns : [])) {
       try {
         let accessToken = conn.access_token;
@@ -75,6 +76,11 @@ module.exports = async (req, res) => {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         const acts = await actsRes.json();
+        debugInfo.push({
+          after,
+          rawCount: Array.isArray(acts) ? acts.length : 'not-array',
+          rawResponse: Array.isArray(acts) ? acts.slice(0,5).map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date})) : acts
+        });
         const runActs = Array.isArray(acts) ? acts.filter(a => ((a.sport_type || a.type || '').includes('Run'))) : [];
 
         if (runActs.length) {
@@ -113,7 +119,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0 });
+    res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0, debugInfo });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
