@@ -12,7 +12,17 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { system, tools, messages } = req.body || {};
+    const { system, tools, messages, lang } = req.body || {};
+
+    const BUSY_MSG = {
+      es: 'El coach está muy solicitado ahora mismo. Probá de nuevo en un minuto.',
+      en: 'The coach is very busy right now. Try again in a minute.',
+      pt: 'O coach está muito solicitado agora. Tente de novo em um minuto.',
+      fr: 'Le coach est très sollicité en ce moment. Réessaie dans une minute.',
+      it: 'Il coach è molto richiesto in questo momento. Riprova tra un minuto.',
+      de: 'Der Coach ist gerade sehr gefragt. Versuch es in einer Minute noch mal.'
+    };
+    const busyMessage = BUSY_MSG[lang] || BUSY_MSG.es;
 
     const idToName = {};
     (messages || []).forEach(m => {
@@ -50,7 +60,7 @@ module.exports = async (req, res) => {
       parameters: t.input_schema
     }));
 
-    const model = 'gemini-3.7-flash';
+    const model = 'gemini-3.6-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const body = JSON.stringify({
       system_instruction: { parts: [{ text: system }] },
@@ -62,6 +72,12 @@ module.exports = async (req, res) => {
     let data, lastError;
     const delays = [4000, 8000]; // reintenta a los 4s y a los 8s si está saturado
 
+    const isRetryable = (err) => {
+      if (!err) return false;
+      const text = `${err.status || ''} ${err.message || ''}`;
+      return err.code === 429 || err.code === 503 || /quota|RESOURCE_EXHAUSTED|UNAVAILABLE|overloaded|high demand/i.test(text);
+    };
+
     for (let attempt = 0; attempt <= delays.length; attempt++) {
       const geminiRes = await fetch(url, {
         method: 'POST',
@@ -70,17 +86,15 @@ module.exports = async (req, res) => {
       });
       data = await geminiRes.json();
 
-      const isQuotaError = data.error && (data.error.code === 429 || /quota|RESOURCE_EXHAUSTED/i.test(data.error.status || data.error.message || ''));
-      if (!isQuotaError) break;
+      if (!isRetryable(data.error)) break;
 
       lastError = data.error;
       if (attempt < delays.length) await sleep(delays[attempt]);
     }
 
     if (data.error) {
-      const isQuotaError = /quota|RESOURCE_EXHAUSTED/i.test((lastError || data.error).status || (lastError || data.error).message || '');
-      const friendlyMessage = isQuotaError
-        ? 'El coach está muy solicitado ahora mismo (varias personas escribiendo a la vez). Probá de nuevo en un minuto.'
+      const friendlyMessage = isRetryable(lastError || data.error)
+        ? busyMessage
         : data.error.message;
       res.status(200).json({ error: { message: friendlyMessage } });
       return;
