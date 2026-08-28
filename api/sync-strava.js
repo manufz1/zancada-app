@@ -71,7 +71,7 @@ module.exports = async (req, res) => {
           }
         }
 
-        const after = conn.last_synced_at || (Math.floor(Date.now() / 1000) - 7 * 24 * 3600);
+        const after = Math.floor(Date.now() / 1000) - 3 * 24 * 3600;
         const actsRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
@@ -110,9 +110,6 @@ module.exports = async (req, res) => {
           }
         }
 
-        await fetch(`${base}/rest/v1/strava_connections?user_id=eq.${conn.user_id}`, {
-          method: 'PATCH', headers, body: JSON.stringify({ last_synced_at: Math.floor(Date.now() / 1000) })
-        });
         synced++;
       } catch (e) {
         errors++;
