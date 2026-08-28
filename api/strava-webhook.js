@@ -15,7 +15,44 @@ function decodePolyline(encoded) {
   return points;
 }
 
-function activityToRun(act) {
+async function fetchSplits(activityId, accessToken) {
+  try {
+    const res = await fetch(`https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,distance,altitude,heartrate&key_by_type=true`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const streams = await res.json();
+    if (!streams || !streams.distance || !streams.time) return [];
+    const distArr = streams.distance.data, timeArr = streams.time.data;
+    const altArr = streams.altitude ? streams.altitude.data : null;
+    const hrArr = streams.heartrate ? streams.heartrate.data : null;
+    const totalKm = distArr[distArr.length - 1] / 1000;
+    const numSplits = Math.floor(totalKm);
+    if (numSplits < 1) return [];
+    const splits = [];
+    let startIdx = 0, startTime = 0;
+    for (let km = 1; km <= numSplits; km++) {
+      const targetDist = km * 1000;
+      let idx = startIdx;
+      while (idx < distArr.length && distArr[idx] < targetDist) idx++;
+      if (idx >= distArr.length) idx = distArr.length - 1;
+      const paceMin = (timeArr[idx] - startTime) / 60;
+      let elevGain = 0;
+      if (altArr) {
+        for (let j = startIdx + 1; j <= idx; j++) { const d = altArr[j] - altArr[j - 1]; if (d > 0) elevGain += d; }
+      }
+      let avgHr = null;
+      if (hrArr) {
+        const slice = hrArr.slice(startIdx, idx + 1);
+        if (slice.length) avgHr = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
+      }
+      splits.push({ km, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr });
+      startIdx = idx; startTime = timeArr[idx];
+    }
+    return splits;
+  } catch (e) { return []; }
+}
+async function activityToRun(act, accessToken) {
+  const splits = accessToken ? await fetchSplits(act.id, accessToken) : [];
   return {
     id: 'strava_' + act.id,
     stravaId: act.id,
@@ -30,6 +67,7 @@ function activityToRun(act) {
     calories: act.calories ? Math.round(act.calories) : null,
     hrLog: act.average_heartrate ? [{ t: 0, bpm: Math.round(act.average_heartrate) }] : [],
     points: act.map ? decodePolyline(act.map.summary_polyline) : [],
+    splits,
     shoeId: null,
     source: 'strava'
   };
@@ -79,7 +117,7 @@ async function syncActivity(athleteId, activityId) {
   if (!stateRows || !stateRows.length) return;
   const data = stateRows[0].data || {};
   data.runs = data.runs || [];
-  const newRun = activityToRun(act);
+  const newRun = await activityToRun(act, conn.access_token);
   const idx2 = data.runs.findIndex(r => r.stravaId === act.id);
   if (idx2 >= 0) data.runs[idx2] = newRun; else data.runs.push(newRun);
 
