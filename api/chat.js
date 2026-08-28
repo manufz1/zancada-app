@@ -50,7 +50,7 @@ module.exports = async (req, res) => {
       parameters: t.input_schema
     }));
 
-    const model = 'gemini-3.6-flash';
+    const model = 'gemini-3.7-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const body = JSON.stringify({
       system_instruction: { parts: [{ text: system }] },
