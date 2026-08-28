@@ -59,4 +59,72 @@ module.exports = async (req, res) => {
         if (conn.expires_at < Math.floor(Date.now() / 1000)) {
           const refreshRes = await fetch('https://www.strava.com/oauth/token', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ client_id: process.env.STRAVA_CLIENT_ID, client_secret: process.env.STRAVA_CLIENT_SECRET, grant_type: 'refresh_token', refresh_token:
+            body: JSON.stringify({ client_id: process.env.STRAVA_CLIENT_ID, client_secret: process.env.STRAVA_CLIENT_SECRET, grant_type: 'refresh_token', refresh_token: conn.refresh_token })
+          });
+          const refreshed = await refreshRes.json();
+          if (refreshed.access_token) {
+            accessToken = refreshed.access_token;
+            await fetch(`${base}/rest/v1/strava_connections?user_id=eq.${conn.user_id}`, {
+              method: 'PATCH', headers,
+              body: JSON.stringify({ access_token: refreshed.access_token, refresh_token: refreshed.refresh_token, expires_at: refreshed.expires_at })
+            });
+          }
+        }
+
+        const meRes = await fetch('https://www.strava.com/api/v3/athlete', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const me = await meRes.json();
+
+        const after = Math.floor(Date.now() / 1000) - 3 * 24 * 3600;
+        const actsRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const acts = await actsRes.json();
+        debugInfo.push({
+          connectedAthlete: { id: me.id, name: `${me.firstname||''} ${me.lastname||''}`.trim() },
+          after,
+          rawCount: Array.isArray(acts) ? acts.length : 'not-array',
+          rawResponse: Array.isArray(acts) ? acts.slice(0,5).map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date})) : acts
+        });
+        const runActs = Array.isArray(acts) ? acts.filter(a => ((a.sport_type || a.type || '').includes('Run'))) : [];
+
+        if (runActs.length) {
+          const stateRes = await fetch(`${base}/rest/v1/app_state?user_id=eq.${conn.user_id}&select=data`, { headers });
+          const stateRows = await stateRes.json();
+          if (stateRows && stateRows.length) {
+            const data = stateRows[0].data || {};
+            data.runs = data.runs || [];
+            runActs.forEach(act => {
+              if (data.runs.find(r => r.stravaId === act.id)) return;
+              const newRun = activityToRun(act);
+              data.runs.push(newRun);
+              if (data.plan && data.plan.length && data.weekStart) {
+                const monday = getMondayISO(act.start_date);
+                if (monday === data.weekStart) {
+                  const dayIdx = (new Date(act.start_date).getUTCDay() + 6) % 7;
+                  if (data.plan[dayIdx] && !data.plan[dayIdx].status) {
+                    data.plan[dayIdx].status = 'done';
+                    data.plan[dayIdx].linkedRunId = newRun.id;
+                  }
+                }
+              }
+            });
+            await fetch(`${base}/rest/v1/app_state?user_id=eq.${conn.user_id}`, {
+              method: 'PATCH', headers, body: JSON.stringify({ data })
+            });
+          }
+        }
+
+        synced++;
+      } catch (e) {
+        errors++;
+      }
+    }
+
+    console.log('SYNC_DEBUG', JSON.stringify(debugInfo));
+    res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0, debugInfo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
