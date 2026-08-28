@@ -52,7 +52,6 @@ module.exports = async (req, res) => {
     const conns = await connsRes.json();
 
     let synced = 0, errors = 0;
-    let debugInfo = [];
     for (const conn of (Array.isArray(conns) ? conns : [])) {
       try {
         let accessToken = conn.access_token;
@@ -71,28 +70,11 @@ module.exports = async (req, res) => {
           }
         }
 
-        const meRes = await fetch('https://www.strava.com/api/v3/athlete', {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const me = await meRes.json();
-
-        const anyRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=5`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const anyActs = await anyRes.json();
-
         const after = Math.floor(Date.now() / 1000) - 3 * 24 * 3600;
         const actsRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         const acts = await actsRes.json();
-        debugInfo.push({
-          connectedAthlete: { id: me.id, name: `${me.firstname||''} ${me.lastname||''}`.trim() },
-          anyActivitiesNoDateFilter: Array.isArray(anyActs) ? anyActs.map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date, private:a.private})) : anyActs,
-          after,
-          rawCount: Array.isArray(acts) ? acts.length : 'not-array',
-          rawResponse: Array.isArray(acts) ? acts.slice(0,5).map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date})) : acts
-        });
         const runActs = Array.isArray(acts) ? acts.filter(a => ((a.sport_type || a.type || '').includes('Run'))) : [];
 
         if (runActs.length) {
@@ -128,8 +110,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    console.log('SYNC_DEBUG', JSON.stringify(debugInfo));
-    res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0, debugInfo });
+    res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
