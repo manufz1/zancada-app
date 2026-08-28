@@ -76,6 +76,11 @@ module.exports = async (req, res) => {
         });
         const me = await meRes.json();
 
+        const anyRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=5`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const anyActs = await anyRes.json();
+
         const after = Math.floor(Date.now() / 1000) - 3 * 24 * 3600;
         const actsRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
           headers: { Authorization: `Bearer ${accessToken}` }
@@ -83,6 +88,7 @@ module.exports = async (req, res) => {
         const acts = await actsRes.json();
         debugInfo.push({
           connectedAthlete: { id: me.id, name: `${me.firstname||''} ${me.lastname||''}`.trim() },
+          anyActivitiesNoDateFilter: Array.isArray(anyActs) ? anyActs.map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date, private:a.private})) : anyActs,
           after,
           rawCount: Array.isArray(acts) ? acts.length : 'not-array',
           rawResponse: Array.isArray(acts) ? acts.slice(0,5).map(a=>({name:a.name, type:a.type, sport_type:a.sport_type, start_date:a.start_date})) : acts
