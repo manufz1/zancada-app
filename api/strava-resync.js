@@ -15,6 +15,43 @@ function decodePolyline(encoded) {
   return points;
 }
 
+async function fetchSplits(activityId, accessToken) {
+  try {
+    const res = await fetch(`https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,distance,altitude,heartrate&key_by_type=true`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const streams = await res.json();
+    if (!streams || !streams.distance || !streams.time) return [];
+    const distArr = streams.distance.data, timeArr = streams.time.data;
+    const altArr = streams.altitude ? streams.altitude.data : null;
+    const hrArr = streams.heartrate ? streams.heartrate.data : null;
+    const totalKm = distArr[distArr.length - 1] / 1000;
+    const numSplits = Math.floor(totalKm);
+    if (numSplits < 1) return [];
+    const splits = [];
+    let startIdx = 0, startTime = 0;
+    for (let km = 1; km <= numSplits; km++) {
+      const targetDist = km * 1000;
+      let idx = startIdx;
+      while (idx < distArr.length && distArr[idx] < targetDist) idx++;
+      if (idx >= distArr.length) idx = distArr.length - 1;
+      const paceMin = (timeArr[idx] - startTime) / 60;
+      let elevGain = 0;
+      if (altArr) {
+        for (let j = startIdx + 1; j <= idx; j++) { const d = altArr[j] - altArr[j - 1]; if (d > 0) elevGain += d; }
+      }
+      let avgHr = null;
+      if (hrArr) {
+        const slice = hrArr.slice(startIdx, idx + 1);
+        if (slice.length) avgHr = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
+      }
+      splits.push({ km, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr });
+      startIdx = idx; startTime = timeArr[idx];
+    }
+    return splits;
+  } catch (e) { return []; }
+}
+
 module.exports = async (req, res) => {
   if (req.query.secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -50,22 +87,29 @@ module.exports = async (req, res) => {
         let changed = false;
         for (const run of data.runs) {
           if (run.source !== 'strava' || !run.stravaId) continue;
-          if (run.elevationGain !== undefined && run.calories !== undefined) continue; // ya tiene los datos nuevos
+          const hasBasics = run.elevationGain !== undefined && run.calories !== undefined;
+          const hasSplits = run.splits && run.splits.length;
+          if (hasBasics && hasSplits) continue; // ya tiene todo
 
-          const actRes = await fetch(`https://www.strava.com/api/v3/activities/${run.stravaId}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
-          const act = await actRes.json();
-          if (!act || act.errors) continue;
+          if (!hasBasics) {
+            const actRes = await fetch(`https://www.strava.com/api/v3/activities/${run.stravaId}`, {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const act = await actRes.json();
+            if (!act || act.errors) continue;
 
-          run.name = act.name || null;
-          run.elevationGain = act.total_elevation_gain || 0;
-          run.avgHr = act.average_heartrate ? Math.round(act.average_heartrate) : (run.avgHr || null);
-          run.maxHr = act.max_heartrate ? Math.round(act.max_heartrate) : null;
-          run.avgCadence = act.average_cadence || null;
-          run.calories = act.calories ? Math.round(act.calories) : null;
-          if (act.map && act.map.summary_polyline && (!run.points || !run.points.length)) {
-            run.points = decodePolyline(act.map.summary_polyline);
+            run.name = act.name || null;
+            run.elevationGain = act.total_elevation_gain || 0;
+            run.avgHr = act.average_heartrate ? Math.round(act.average_heartrate) : (run.avgHr || null);
+            run.maxHr = act.max_heartrate ? Math.round(act.max_heartrate) : null;
+            run.avgCadence = act.average_cadence || null;
+            run.calories = act.calories ? Math.round(act.calories) : null;
+            if (act.map && act.map.summary_polyline && (!run.points || !run.points.length)) {
+              run.points = decodePolyline(act.map.summary_polyline);
+            }
+          }
+          if (!hasSplits) {
+            run.splits = await fetchSplits(run.stravaId, accessToken);
           }
           changed = true;
           runsUpdated++;
