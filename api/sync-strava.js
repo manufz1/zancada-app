@@ -119,6 +119,7 @@ module.exports = async (req, res) => {
       }
     }
 
+    console.log('SYNC_DEBUG', JSON.stringify(debugInfo));
     res.status(200).json({ synced, errors, total: Array.isArray(conns) ? conns.length : 0, debugInfo });
   } catch (err) {
     res.status(500).json({ error: err.message });
