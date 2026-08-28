@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
           }
         }
 
-        const after = Math.floor(Date.now() / 1000) - 3 * 24 * 3600;
+        const after = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
         const actsRes = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
