@@ -25,28 +25,42 @@ async function fetchSplits(activityId, accessToken) {
     const distArr = streams.distance.data, timeArr = streams.time.data;
     const altArr = streams.altitude ? streams.altitude.data : null;
     const hrArr = streams.heartrate ? streams.heartrate.data : null;
-    const totalKm = distArr[distArr.length - 1] / 1000;
-    const numSplits = Math.floor(totalKm);
-    if (numSplits < 1) return [];
+    const totalDistM = distArr[distArr.length - 1];
+    const numFullKm = Math.floor(totalDistM / 1000);
+    if (numFullKm < 1 && totalDistM < 50) return [];
+
+    function buildSegment(fromIdx, toIdx, fromTime, label) {
+      const segDistKm = (distArr[toIdx] - distArr[fromIdx]) / 1000;
+      const segTime = timeArr[toIdx] - fromTime;
+      const paceMin = segDistKm > 0 ? (segTime / 60) / segDistKm : 0;
+      let elevGain = 0;
+      if (altArr) {
+        for (let j = fromIdx + 1; j <= toIdx; j++) { const d = altArr[j] - altArr[j - 1]; if (d > 0) elevGain += d; }
+      }
+      let avgHr = null;
+      if (hrArr) {
+        const slice = hrArr.slice(fromIdx, toIdx + 1);
+        if (slice.length) avgHr = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
+      }
+      return { km: label, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr };
+    }
+
     const splits = [];
     let startIdx = 0, startTime = 0;
-    for (let km = 1; km <= numSplits; km++) {
+    for (let km = 1; km <= numFullKm; km++) {
       const targetDist = km * 1000;
       let idx = startIdx;
       while (idx < distArr.length && distArr[idx] < targetDist) idx++;
       if (idx >= distArr.length) idx = distArr.length - 1;
-      const paceMin = (timeArr[idx] - startTime) / 60;
-      let elevGain = 0;
-      if (altArr) {
-        for (let j = startIdx + 1; j <= idx; j++) { const d = altArr[j] - altArr[j - 1]; if (d > 0) elevGain += d; }
-      }
-      let avgHr = null;
-      if (hrArr) {
-        const slice = hrArr.slice(startIdx, idx + 1);
-        if (slice.length) avgHr = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
-      }
-      splits.push({ km, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr });
+      splits.push(buildSegment(startIdx, idx, startTime, km));
       startIdx = idx; startTime = timeArr[idx];
+    }
+    // último tramo suelto, si quedó algo más que unos metros sin contar
+    const lastIdx = distArr.length - 1;
+    const remainderM = distArr[lastIdx] - distArr[startIdx];
+    if (remainderM > 50) {
+      const remainderKmLabel = Math.round((remainderM / 1000) * 100) / 100;
+      splits.push(buildSegment(startIdx, lastIdx, startTime, remainderKmLabel));
     }
     return splits;
   } catch (e) { return []; }
