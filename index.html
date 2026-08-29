@@ -194,7 +194,7 @@
   .stat-box .l{font-size:10px; color:var(--mist); text-transform:uppercase; letter-spacing:.05em;}
   .week-bars{display:flex; align-items:flex-end; gap:6px; height:70px; margin-top:14px;}
   .week-bars .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
-  .week-bars .bar{width:100%; flex-shrink:0; border-radius:5px 5px 0 0; background:var(--asphalt-4); transition:height .5s cubic-bezier(.22,1,.36,1);}
+  .week-bars .bar{width:100%; border-radius:5px 5px 0 0; background:var(--asphalt-4); transition:height .5s cubic-bezier(.22,1,.36,1);}
   .week-bars .bar.rest-day{background:transparent; border:1px dashed var(--asphalt-4); height:4px !important;}
   .week-bars .bar.planned-day{background:transparent; border:1.5px dashed var(--mist-dim);}
   .week-bars .bar.hivis{background:var(--hivis);}
@@ -859,7 +859,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-29T18:34:17Z';
+const APP_VERSION = '2026-08-29T18:40:31Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador, cualquier terreno.",start:"Comenzar",
@@ -2337,7 +2337,9 @@ async function checkForAppUpdate(){
     if(m && m[1] && m[1] !== APP_VERSION){
       haptic([10,30,10]);
       showToast(t('update_found_msg'), 'success');
-      setTimeout(()=>{ location.reload(); }, 700);
+      /* location.reload() puede volver a servir una copia vieja de la caché del navegador —
+         navegar a una URL con un parámetro único fuerza a pedirla de nuevo al servidor. */
+      setTimeout(()=>{ location.href = location.pathname + '?_r=' + Date.now(); }, 700);
       return true;
     }
     return false;
