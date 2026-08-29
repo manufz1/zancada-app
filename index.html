@@ -59,6 +59,12 @@
   .overlay h2{font-size:28px;}
   .overlay .lead{color:var(--mist); margin-top:6px; font-size:14px; line-height:1.5;}
 
+  .ob-progress-wrap{display:flex; align-items:center; gap:10px; margin-bottom:22px;}
+  .ob-progress{flex:1; height:5px; background:var(--asphalt-3); border-radius:999px; overflow:hidden;}
+  .ob-progress-fill{height:100%; width:20%; background:var(--hivis); border-radius:999px; transition:width .3s ease;}
+  .ob-step{display:none;}
+  .ob-step.active{display:block; animation:viewFadeIn .22s ease;}
+
   .toast-wrap{position:fixed; left:0; right:0; bottom:calc(78px + var(--safe-bottom)); display:flex; justify-content:center; z-index:85; pointer-events:none; padding:0 24px;}
   .toast{background:var(--asphalt-4); color:var(--chalk); padding:13px 18px; border-radius:999px; font-size:13.5px; font-weight:600;
     box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; align-items:center; gap:8px; max-width:360px; text-align:center;
@@ -179,7 +185,7 @@
   .stat-box .l{font-size:10px; color:var(--mist); text-transform:uppercase; letter-spacing:.05em;}
   .week-bars{display:flex; align-items:flex-end; gap:6px; height:70px; margin-top:14px;}
   .week-bars .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
-  .week-bars .bar{width:100%; border-radius:5px 5px 0 0; background:var(--asphalt-4);}
+  .week-bars .bar{width:100%; border-radius:5px 5px 0 0; background:var(--asphalt-4); transition:height .5s cubic-bezier(.22,1,.36,1);}
   .week-bars .bar.rest-day{background:transparent; border:1px dashed var(--asphalt-4); height:4px !important;}
   .week-bars .bar.planned-day{background:transparent; border:1.5px dashed var(--mist-dim);}
   .week-bars .bar.hivis{background:var(--hivis);}
@@ -235,6 +241,12 @@
   .day-pill.active{border-color:var(--hivis); color:var(--hivis); background:var(--hivis-dim);}
 
   .hist-card{margin-bottom:12px;}
+  .swipe-item{position:relative; overflow:hidden; border-radius:var(--radius); margin-bottom:12px;}
+  .swipe-item .hist-card{margin-bottom:0;}
+  .swipe-action-delete{position:absolute; top:0; right:0; bottom:0; width:78px; background:var(--danger);
+    color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .swipe-content{position:relative; touch-action:pan-y; will-change:transform;}
+  .swipe-content.swipe-anim{transition:transform .25s cubic-bezier(.22,1,.36,1);}
   .hist-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
   .hist-date{font-size:12px; color:var(--mist);}
   .hist-route{width:100%; height:104px; background:var(--asphalt-3); border-radius:var(--radius-sm); margin:10px 0;}
@@ -358,81 +370,100 @@
   </div>
 
   <div class="overlay" id="onboard">
-    <h2 class="display" data-i18n="ob_title"></h2>
-    <p class="lead" data-i18n="ob_lead"></p>
-
-    <div class="field"><label data-i18n="ob_name_label"></label><input type="text" id="ob-name" data-i18n-ph="ob_name_ph"></div>
-
-    <div class="two-col">
-      <div class="field"><label data-i18n="ob_weight_label"></label><input type="number" id="ob-weight" value="70" min="30" max="200"></div>
-      <div class="field"><label data-i18n="ob_height_label"></label><input type="number" id="ob-height" value="170" min="120" max="230"></div>
+    <div class="ob-progress-wrap">
+      <button class="week-nav-btn" id="ob-back-btn" onclick="obPrevStep()" style="display:none;"><span class="icon-sq" style="width:15px; height:15px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg></span></button>
+      <div class="ob-progress"><div class="ob-progress-fill" id="ob-progress-fill"></div></div>
     </div>
 
-    <div class="field"><label data-i18n="ob_birth_label"></label>
-      <div class="date-box" onclick="openCalendar('ob-birth','ob-birth-text')"><span class="date-box-text" id="ob-birth-text"></span></div>
-      <input type="hidden" id="ob-birth" value="1995-01-01">
+    <div class="ob-step active" data-step="1">
+      <h2 class="display" data-i18n="ob_title"></h2>
+      <p class="lead" data-i18n="ob_lead"></p>
+      <div class="field"><label data-i18n="ob_name_label"></label><input type="text" id="ob-name" data-i18n-ph="ob_name_ph"></div>
+      <div class="field"><button class="btn btn-primary" data-i18n="login_continue" onclick="obNextStep()"></button></div>
     </div>
 
-    <div class="field">
-      <label data-i18n="ob_runnertype_label"></label>
-      <div class="choice-row" id="ob-runnertype">
-        <div class="choice" data-v="new" data-i18n="ob_runnertype_new"></div>
-        <div class="choice active" data-v="active" data-i18n="ob_runnertype_active"></div>
+    <div class="ob-step" data-step="2">
+      <h2 class="display" data-i18n="ob_step2_title"></h2>
+      <div class="two-col">
+        <div class="field"><label data-i18n="ob_weight_label"></label><input type="number" id="ob-weight" value="70" min="30" max="200"></div>
+        <div class="field"><label data-i18n="ob_height_label"></label><input type="number" id="ob-height" value="170" min="120" max="230"></div>
       </div>
-      <div id="ob-currentkm-wrap" style="margin-top:14px;">
-        <label data-i18n="ob_currentkm_label"></label>
-        <input type="number" id="ob-currentkm" placeholder="20" min="0" max="200">
+      <div class="field"><label data-i18n="ob_birth_label"></label>
+        <div class="date-box" onclick="openCalendar('ob-birth','ob-birth-text')"><span class="date-box-text" id="ob-birth-text"></span></div>
+        <input type="hidden" id="ob-birth" value="1995-01-01">
       </div>
-      <p class="muted" id="ob-newrunner-note" style="margin-top:8px; display:none;" data-i18n="ob_newrunner_note"></p>
+      <div class="field"><button class="btn btn-primary" data-i18n="login_continue" onclick="obNextStep()"></button></div>
     </div>
 
-    <div class="field">
-      <label data-i18n="ob_terrain_label"></label>
-      <div class="choice-row" id="ob-terrain">
-        <div class="choice active" data-v="asfalto" data-i18n="ob_terrain_asfalto"></div>
-        <div class="choice" data-v="trail" data-i18n="ob_terrain_trail"></div>
-        <div class="choice" data-v="mixto" data-i18n="ob_terrain_mixto"></div>
+    <div class="ob-step" data-step="3">
+      <h2 class="display" data-i18n="ob_step3_title"></h2>
+      <div class="field">
+        <label data-i18n="ob_runnertype_label"></label>
+        <div class="choice-row" id="ob-runnertype">
+          <div class="choice" data-v="new" data-i18n="ob_runnertype_new"></div>
+          <div class="choice active" data-v="active" data-i18n="ob_runnertype_active"></div>
+        </div>
+        <div id="ob-currentkm-wrap" style="margin-top:14px;">
+          <label data-i18n="ob_currentkm_label"></label>
+          <input type="number" id="ob-currentkm" placeholder="20" min="0" max="200">
+        </div>
+        <p class="muted" id="ob-newrunner-note" style="margin-top:8px; display:none;" data-i18n="ob_newrunner_note"></p>
       </div>
-    </div>
-
-    <div class="field">
-      <label data-i18n="ob_days_label"></label>
-      <div class="day-picker" id="ob-days">
-        <div class="day-pill" data-v="mon"></div>
-        <div class="day-pill active" data-v="tue"></div>
-        <div class="day-pill" data-v="wed"></div>
-        <div class="day-pill active" data-v="thu"></div>
-        <div class="day-pill" data-v="fri"></div>
-        <div class="day-pill" data-v="sat"></div>
-        <div class="day-pill active" data-v="sun"></div>
+      <div class="field">
+        <label data-i18n="ob_terrain_label"></label>
+        <div class="choice-row" id="ob-terrain">
+          <div class="choice active" data-v="asfalto" data-i18n="ob_terrain_asfalto"></div>
+          <div class="choice" data-v="trail" data-i18n="ob_terrain_trail"></div>
+          <div class="choice" data-v="mixto" data-i18n="ob_terrain_mixto"></div>
+        </div>
       </div>
+      <div class="field"><button class="btn btn-primary" data-i18n="login_continue" onclick="obNextStep()"></button></div>
     </div>
 
-    <div class="field">
-      <label data-i18n="ob_goal_label"></label>
-      <select id="ob-goal">
-        <option value="start" data-i18n="ob_goal_start"></option>
-        <option value="5k" data-i18n="ob_goal_5k"></option>
-        <option value="10k" data-i18n="ob_goal_10k"></option>
-        <option value="15k" data-i18n="ob_goal_15k"></option>
-        <option value="21k" data-i18n="ob_goal_21k"></option>
-        <option value="42k" data-i18n="ob_goal_42k"></option>
-        <option value="ultra" data-i18n="ob_goal_ultra"></option>
-        <option value="lifestyle" data-i18n="ob_goal_lifestyle"></option>
-      </select>
-      <label style="margin-top:14px;" data-i18n="ob_racedate_label"></label>
-      <div class="date-box" onclick="openCalendar('ob-racedate','ob-racedate-text')"><span class="date-box-text placeholder" id="ob-racedate-text"></span></div>
-      <input type="hidden" id="ob-racedate">
-      <p class="muted" style="margin-top:6px;" data-i18n="ob_racedate_hint"></p>
+    <div class="ob-step" data-step="4">
+      <h2 class="display" data-i18n="ob_step4_title"></h2>
+      <div class="field">
+        <label data-i18n="ob_days_label"></label>
+        <div class="day-picker" id="ob-days">
+          <div class="day-pill" data-v="mon"></div>
+          <div class="day-pill active" data-v="tue"></div>
+          <div class="day-pill" data-v="wed"></div>
+          <div class="day-pill active" data-v="thu"></div>
+          <div class="day-pill" data-v="fri"></div>
+          <div class="day-pill" data-v="sat"></div>
+          <div class="day-pill active" data-v="sun"></div>
+        </div>
+      </div>
+      <div class="field"><button class="btn btn-primary" data-i18n="login_continue" onclick="obNextStep()"></button></div>
     </div>
 
-    <div class="field"><button class="btn btn-primary" data-i18n="ob_submit" onclick="finishOnboard()"></button></div>
+    <div class="ob-step" data-step="5">
+      <h2 class="display" data-i18n="ob_step5_title"></h2>
+      <div class="field">
+        <label data-i18n="ob_goal_label"></label>
+        <select id="ob-goal">
+          <option value="start" data-i18n="ob_goal_start"></option>
+          <option value="5k" data-i18n="ob_goal_5k"></option>
+          <option value="10k" data-i18n="ob_goal_10k"></option>
+          <option value="15k" data-i18n="ob_goal_15k"></option>
+          <option value="21k" data-i18n="ob_goal_21k"></option>
+          <option value="42k" data-i18n="ob_goal_42k"></option>
+          <option value="ultra" data-i18n="ob_goal_ultra"></option>
+          <option value="lifestyle" data-i18n="ob_goal_lifestyle"></option>
+        </select>
+        <label style="margin-top:14px;" data-i18n="ob_racedate_label"></label>
+        <div class="date-box" onclick="openCalendar('ob-racedate','ob-racedate-text')"><span class="date-box-text placeholder" id="ob-racedate-text"></span></div>
+        <input type="hidden" id="ob-racedate">
+        <p class="muted" style="margin-top:6px;" data-i18n="ob_racedate_hint"></p>
+      </div>
+      <div class="field"><button class="btn btn-primary" data-i18n="ob_submit" onclick="finishOnboard()"></button></div>
+    </div>
   </div>
 
   <header class="top" id="mainHeader" style="display:none;">
     <div class="brand"><div class="dot"></div><span>ZANCADA</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
-      <span id="sync-pending-badge" class="tag tag-soon" style="display:none;" title="">⏳</span>
+      <span id="sync-pending-badge" class="tag tag-soon" style="display:none; align-items:center; gap:4px; cursor:pointer;" onclick="showToast(t('sync_pending_title'),'info')"><span class="icon-sq" style="width:11px; height:11px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span></span>
       <div class="muted mono" id="headerDate" style="font-size:12px;"></div>
     </div>
   </header>
@@ -805,7 +836,7 @@ const I18N = {
 es:{app_tag:"Tu entrenador, cualquier terreno.",start:"Comenzar",
 login_title:"Iniciá sesión",login_lead:"Iniciá sesión o creá tu cuenta. Tus datos quedan guardados de verdad, y los podés ver desde cualquier dispositivo.",login_email_label:"Tu email",login_email_ph:"vos@email.com",login_password_label:"Contraseña",login_password_ph:"Mínimo 6 caracteres",login_err:"Ingresá un email válido.",login_err_password:"La contraseña debe tener al menos 6 caracteres.",login_err_wrong_password:"Contraseña incorrecta.",login_continue:"Continuar",login_or:"o continuá con",login_google:"Continuar con Google",login_apple:"Continuar con Apple",login_soon:"Próximamente",login_soon_note:"Google Sign-In necesita un backend real (ver el blueprint) — todavía no está activo en este prototipo.",login_forgot:"¿Olvidaste tu contraseña?",login_recovery_find:"Buscar cuenta",login_recovery_submit:"Restablecer contraseña",login_new_password_label:"Nueva contraseña",login_recovery_answer_ph:"Tu respuesta",login_recovery_no_account:"No encontramos una cuenta con ese email.",login_recovery_no_question:"Esta cuenta no tiene pregunta de seguridad configurada (se creó antes de esta función). No se puede recuperar así — podés crear una cuenta nueva con otro email.",login_recovery_wrong:"Respuesta incorrecta.",login_create_account:"Crear cuenta",login_err_exists:"Ya existe una cuenta con ese email.",login_check_email:"Revisá tu email para confirmar la cuenta.",login_recovery_sent:"Te mandamos un mail con el link para restablecer tu contraseña.",login_recovery_title:"Elegí una nueva contraseña",login_recovery_lead:"Confirmaste tu identidad por mail. Ahora poné tu nueva contraseña.",login_lead_signin:"Ingresá con tu email y contraseña.",login_go_signup:"¿No tenés cuenta? Creá una",signup_title:"Creá tu cuenta",signup_lead:"Elegí un email y una contraseña para empezar.",signup_go_login:"¿Ya tenés cuenta? Iniciá sesión",
 ob_security_q_label:"Pregunta de seguridad",security_q_fixed:"¿Cómo se llamaba tu primera mascota?",
-ob_title:"Contame de vos",ob_lead:"Con esto arma tu coach un plan inicial. Después se afina hablando con vos.",ob_name_label:"Tu nombre",ob_name_ph:"¿Cómo te llamás?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Fecha de nacimiento",ob_runnertype_label:"¿Ya corrés activamente o sos nuevo en esto?",ob_runnertype_new:"Soy nuevo/a",ob_runnertype_active:"Ya corro",ob_currentkm_label:"¿Cuántos km corrés por semana actualmente?",ob_newrunner_note:"Perfecto — vamos a arrancar con carga baja para que tu cuerpo se adapte bien, y subimos de a poco. Contale al coach en cuánto tiempo te gustaría prepararte, si tenés una fecha en mente.",ob_weeklykm_label:"¿Cuántos km corriste esta última semana?",ob_weeklykm_hint:"Si ponés 0, armamos un plan para arrancar desde cero.",ob_terrain_label:"Terreno donde más corrés",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixto",ob_goal_label:"¿Qué querés trabajar?",ob_goal_start:"Empezar a correr desde cero",ob_goal_5k:"Preparar un 5K",ob_goal_10k:"Preparar un 10K",ob_goal_15k:"Preparar un 15K",ob_goal_21k:"Preparar una media maratón",ob_goal_42k:"Preparar una maratón",ob_goal_ultra:"Más de 42K / ultra",ob_goal_lifestyle:"Salud y estilo de vida, sin carrera puntual",ob_racedate_label:"Fecha de tu carrera (opcional)",ob_racedate_hint:"Si la tenés, el coach arma el plan con el tiempo justo para llegar bien.",date_placeholder:"Elegir fecha",perfil_weeklykm_auto_note:"Los km semanales los calcula el coach solo, según tu objetivo y la fecha de carrera.",perfil_goal_km_check_hint:"Como cambiaste el objetivo, contanos cuánto corrés ahora para armar el plan desde tu realidad actual.",ob_hrmax_label:"¿Conocés tu frecuencia cardíaca máxima?",ob_hrmax_yes:"Sí, la sé",ob_hrmax_no:"No la sé",ob_hrmax_unknown_msg:"Sin un test no la podemos calcular con precisión. Te recomendamos un test de lactato o una prueba de esfuerzo con un profesional. Mientras tanto usamos una estimación según tu edad.",ob_submit:"Crear mi plan",
+ob_title:"Contame de vos",ob_lead:"Con esto arma tu coach un plan inicial. Después se afina hablando con vos.",ob_step2_title:"Tus datos físicos",ob_step3_title:"Tu experiencia",ob_step4_title:"Tus días de entrenamiento",ob_step5_title:"Tu objetivo",ob_name_label:"Tu nombre",ob_name_ph:"¿Cómo te llamás?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Fecha de nacimiento",ob_runnertype_label:"¿Ya corrés activamente o sos nuevo en esto?",ob_runnertype_new:"Soy nuevo/a",ob_runnertype_active:"Ya corro",ob_currentkm_label:"¿Cuántos km corrés por semana actualmente?",ob_newrunner_note:"Perfecto — vamos a arrancar con carga baja para que tu cuerpo se adapte bien, y subimos de a poco. Contale al coach en cuánto tiempo te gustaría prepararte, si tenés una fecha en mente.",ob_weeklykm_label:"¿Cuántos km corriste esta última semana?",ob_weeklykm_hint:"Si ponés 0, armamos un plan para arrancar desde cero.",ob_terrain_label:"Terreno donde más corrés",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixto",ob_goal_label:"¿Qué querés trabajar?",ob_goal_start:"Empezar a correr desde cero",ob_goal_5k:"Preparar un 5K",ob_goal_10k:"Preparar un 10K",ob_goal_15k:"Preparar un 15K",ob_goal_21k:"Preparar una media maratón",ob_goal_42k:"Preparar una maratón",ob_goal_ultra:"Más de 42K / ultra",ob_goal_lifestyle:"Salud y estilo de vida, sin carrera puntual",ob_racedate_label:"Fecha de tu carrera (opcional)",ob_racedate_hint:"Si la tenés, el coach arma el plan con el tiempo justo para llegar bien.",date_placeholder:"Elegir fecha",perfil_weeklykm_auto_note:"Los km semanales los calcula el coach solo, según tu objetivo y la fecha de carrera.",perfil_goal_km_check_hint:"Como cambiaste el objetivo, contanos cuánto corrés ahora para armar el plan desde tu realidad actual.",ob_hrmax_label:"¿Conocés tu frecuencia cardíaca máxima?",ob_hrmax_yes:"Sí, la sé",ob_hrmax_no:"No la sé",ob_hrmax_unknown_msg:"Sin un test no la podemos calcular con precisión. Te recomendamos un test de lactato o una prueba de esfuerzo con un profesional. Mientras tanto usamos una estimación según tu edad.",ob_submit:"Crear mi plan",
 nav_home:"Inicio",nav_plan:"Plan",nav_run:"Correr",nav_history:"Historial",nav_coach:"Coach",nav_profile:"Perfil",
 home_hi:"Hola,",home_next:"Tu próxima sesión",home_week:"Esta semana",home_km_done:"Hechos",home_km_planned:"Planeados",home_sessions:"Sesiones",home_logged:"Registradas",home_coach_cta:"Hablar con tu coach →",home_load_title:"Carga de entrenamiento",home_load_low:"Baja",home_load_optimal:"Óptima",home_load_caution:"Atención",home_load_risk:"Riesgo",home_load_hint_low:"Corriste bastante menos que tu promedio de las últimas semanas. Está bien si es un descanso buscado.",home_load_hint_optimal:"Tu carga de esta semana está en línea con tu promedio reciente. Vas bien.",home_load_hint_caution:"Esta semana corriste bastante más que tu promedio. Prestá atención a cómo te sentís.",home_load_hint_risk:"Subiste el volumen muy rápido respecto a tus últimas semanas. Considerá bajar un poco para evitar lesiones.",plan_taper_tag:"Semana de afinamiento",plan_taper_note:"Bajamos el volumen a propósito: se viene tu carrera y esta es la puesta a punto final.",sync_pending_title:"Tenés cambios guardados en el teléfono, sin subir todavía — se van a sincronizar solos apenas vuelva la conexión.",home_msg_new:"Todavía no registraste ninguna carrera — cuando quieras, arrancamos. ¿Cómo dormiste anoche?",home_msg_going:"Vas bien, seguí así. ¿Cómo te sentís hoy?",home_msg_pain:"Si algo te duele en la sesión de hoy, contame en el chat antes de forzar.",
 plan_title:"Tu semana",plan_lead:"Tocá un día para ver el detalle.",plan_adjust:"Pedir un ajuste al coach",
@@ -830,7 +861,7 @@ ob_days_label:"¿Qué días de la semana vas a entrenar?",perfil_personal_title:
 en:{app_tag:"Your coach, any terrain.",start:"Get started",
 login_title:"Sign in",login_lead:"Sign in or create your account. Your data is really saved, and you can see it from any device.",login_email_label:"Your email",login_email_ph:"you@email.com",login_password_label:"Password",login_password_ph:"At least 6 characters",login_err:"Enter a valid email.",login_err_password:"Password must be at least 6 characters.",login_err_wrong_password:"Wrong password.",login_continue:"Continue",login_or:"or continue with",login_google:"Continue with Google",login_apple:"Continue with Apple",login_soon:"Coming soon",login_soon_note:"Google Sign-In needs a real backend (see the blueprint) — not active yet in this prototype.",login_forgot:"Forgot your password?",login_recovery_find:"Find account",login_recovery_submit:"Reset password",login_new_password_label:"New password",login_recovery_answer_ph:"Your answer",login_recovery_no_account:"We couldn't find an account with that email.",login_recovery_no_question:"This account doesn't have a security question set (it was created before this feature existed). It can't be recovered this way — you can create a new account with a different email.",login_recovery_wrong:"Wrong answer.",login_create_account:"Create account",login_err_exists:"An account with that email already exists.",login_check_email:"Check your email to confirm your account.",login_recovery_sent:"We sent you an email with a link to reset your password.",login_recovery_title:"Choose a new password",login_recovery_lead:"You confirmed your identity by email. Now set your new password.",login_lead_signin:"Sign in with your email and password.",login_go_signup:"Don't have an account? Create one",signup_title:"Create your account",signup_lead:"Choose an email and password to get started.",signup_go_login:"Already have an account? Sign in",
 ob_security_q_label:"Security question",security_q_fixed:"What was the name of your first pet?",
-ob_title:"Tell us about you",ob_lead:"Your coach uses this to build a first plan, then fine-tunes it by talking with you.",ob_name_label:"Your name",ob_name_ph:"What should we call you?",ob_weight_label:"Weight (kg)",ob_height_label:"Height (cm)",ob_birth_label:"Date of birth",ob_runnertype_label:"Are you already running actively, or new to this?",ob_runnertype_new:"I'm new",ob_runnertype_active:"I already run",ob_currentkm_label:"How many km do you currently run per week?",ob_newrunner_note:"Perfect — we'll start light so your body adapts well, and build up gradually. Tell your coach how much time you'd like to prepare, if you have a date in mind.",ob_weeklykm_label:"How many km did you run last week?",ob_weeklykm_hint:"If you enter 0, we build a plan to start from zero.",ob_terrain_label:"Terrain you run most",ob_terrain_asfalto:"Road",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixed",ob_goal_label:"What do you want to work on?",ob_goal_start:"Start running from scratch",ob_goal_5k:"Train for a 5K",ob_goal_10k:"Train for a 10K",ob_goal_15k:"Train for a 15K",ob_goal_21k:"Train for a half marathon",ob_goal_42k:"Train for a marathon",ob_goal_ultra:"Beyond 42K / ultra",ob_goal_lifestyle:"Health and lifestyle, no specific race",ob_racedate_label:"Your race date (optional)",ob_racedate_hint:"If you have one, your coach builds the plan around the time you actually have.",date_placeholder:"Choose date",perfil_weeklykm_auto_note:"Weekly km are calculated automatically by the coach, based on your goal and race date.",perfil_goal_km_check_hint:"Since you changed your goal, tell us how much you currently run so we can build the plan from where you actually are.",ob_hrmax_label:"Do you know your max heart rate?",ob_hrmax_yes:"Yes, I know it",ob_hrmax_no:"I don't know it",ob_hrmax_unknown_msg:"Without a test we can't calculate it precisely. We recommend a lactate test or a stress test with a professional. Meanwhile we use an age-based estimate.",ob_submit:"Create my plan",
+ob_title:"Tell us about you",ob_lead:"Your coach uses this to build a first plan, then fine-tunes it by talking with you.",ob_step2_title:"Your physical info",ob_step3_title:"Your experience",ob_step4_title:"Your training days",ob_step5_title:"Your goal",ob_name_label:"Your name",ob_name_ph:"What should we call you?",ob_weight_label:"Weight (kg)",ob_height_label:"Height (cm)",ob_birth_label:"Date of birth",ob_runnertype_label:"Are you already running actively, or new to this?",ob_runnertype_new:"I'm new",ob_runnertype_active:"I already run",ob_currentkm_label:"How many km do you currently run per week?",ob_newrunner_note:"Perfect — we'll start light so your body adapts well, and build up gradually. Tell your coach how much time you'd like to prepare, if you have a date in mind.",ob_weeklykm_label:"How many km did you run last week?",ob_weeklykm_hint:"If you enter 0, we build a plan to start from zero.",ob_terrain_label:"Terrain you run most",ob_terrain_asfalto:"Road",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixed",ob_goal_label:"What do you want to work on?",ob_goal_start:"Start running from scratch",ob_goal_5k:"Train for a 5K",ob_goal_10k:"Train for a 10K",ob_goal_15k:"Train for a 15K",ob_goal_21k:"Train for a half marathon",ob_goal_42k:"Train for a marathon",ob_goal_ultra:"Beyond 42K / ultra",ob_goal_lifestyle:"Health and lifestyle, no specific race",ob_racedate_label:"Your race date (optional)",ob_racedate_hint:"If you have one, your coach builds the plan around the time you actually have.",date_placeholder:"Choose date",perfil_weeklykm_auto_note:"Weekly km are calculated automatically by the coach, based on your goal and race date.",perfil_goal_km_check_hint:"Since you changed your goal, tell us how much you currently run so we can build the plan from where you actually are.",ob_hrmax_label:"Do you know your max heart rate?",ob_hrmax_yes:"Yes, I know it",ob_hrmax_no:"I don't know it",ob_hrmax_unknown_msg:"Without a test we can't calculate it precisely. We recommend a lactate test or a stress test with a professional. Meanwhile we use an age-based estimate.",ob_submit:"Create my plan",
 nav_home:"Home",nav_plan:"Plan",nav_run:"Run",nav_history:"History",nav_coach:"Coach",nav_profile:"Profile",
 home_hi:"Hi,",home_next:"Your next session",home_week:"This week",home_km_done:"Done",home_km_planned:"Planned",home_sessions:"Sessions",home_logged:"Logged",home_coach_cta:"Talk to your coach →",home_load_title:"Training load",home_load_low:"Low",home_load_optimal:"Optimal",home_load_caution:"Caution",home_load_risk:"Risk",home_load_hint_low:"You ran quite a bit less than your recent average. That's fine if it's a planned rest.",home_load_hint_optimal:"Your load this week is in line with your recent average. You're doing great.",home_load_hint_caution:"You ran quite a bit more than your average this week. Pay attention to how you feel.",home_load_hint_risk:"You ramped up volume too fast compared to recent weeks. Consider easing off a bit to avoid injury.",plan_taper_tag:"Taper week",plan_taper_note:"We lowered the volume on purpose: your race is coming up and this is the final taper.",sync_pending_title:"You have changes saved on your phone that haven't uploaded yet — they'll sync automatically once you're back online.",home_msg_new:"You haven't logged a run yet — whenever you're ready. How did you sleep last night?",home_msg_going:"You're doing great, keep it up. How are you feeling today?",home_msg_pain:"If anything hurts during today's session, tell me in the chat before pushing through.",
 plan_title:"Your week",plan_lead:"Tap a day to see the detail.",plan_adjust:"Ask your coach for a change",
@@ -855,7 +886,7 @@ ob_days_label:"Which days of the week will you train?",perfil_personal_title:"Pe
 pt:{app_tag:"Seu treinador, qualquer terreno.",start:"Começar",
 login_title:"Entrar",login_lead:"Entre ou crie sua conta. Seus dados ficam salvos de verdade, e você pode vê-los em qualquer dispositivo.",login_email_label:"Seu email",login_email_ph:"voce@email.com",login_password_label:"Senha",login_password_ph:"Mínimo 6 caracteres",login_err:"Digite um email válido.",login_err_password:"A senha deve ter pelo menos 6 caracteres.",login_err_wrong_password:"Senha incorreta.",login_continue:"Continuar",login_or:"ou continue com",login_google:"Continuar com Google",login_apple:"Continuar com Apple",login_soon:"Em breve",login_soon_note:"Google Sign-In precisa de um backend real (veja o blueprint) — ainda não está ativo neste protótipo.",login_forgot:"Esqueceu sua senha?",login_recovery_find:"Buscar conta",login_recovery_submit:"Redefinir senha",login_new_password_label:"Nova senha",login_recovery_answer_ph:"Sua resposta",login_recovery_no_account:"Não encontramos uma conta com esse email.",login_recovery_no_question:"Esta conta não tem pergunta de segurança configurada (foi criada antes dessa função existir). Não é possível recuperar assim — você pode criar uma conta nova com outro email.",login_recovery_wrong:"Resposta incorreta.",login_create_account:"Criar conta",login_err_exists:"Já existe uma conta com esse email.",login_check_email:"Verifique seu email para confirmar a conta.",login_recovery_sent:"Enviamos um email com o link para redefinir sua senha.",login_recovery_title:"Escolha uma nova senha",login_recovery_lead:"Você confirmou sua identidade por email. Agora defina sua nova senha.",login_lead_signin:"Entre com seu email e senha.",login_go_signup:"Não tem conta? Crie uma",signup_title:"Crie sua conta",signup_lead:"Escolha um email e uma senha para começar.",signup_go_login:"Já tem conta? Entrar",
 ob_security_q_label:"Pergunta de segurança",security_q_fixed:"Qual era o nome do seu primeiro animal de estimação?",
-ob_title:"Conte sobre você",ob_lead:"Seu coach usa isso para montar um plano inicial. Depois ajusta conversando com você.",ob_name_label:"Seu nome",ob_name_ph:"Como podemos te chamar?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Data de nascimento",ob_runnertype_label:"Você já corre ativamente ou é novo nisso?",ob_runnertype_new:"Sou novo/a",ob_runnertype_active:"Já corro",ob_currentkm_label:"Quantos km você corre por semana atualmente?",ob_newrunner_note:"Perfeito — vamos começar leve para seu corpo se adaptar bem, e subir aos poucos. Conte ao coach em quanto tempo você gostaria de se preparar, se tiver uma data em mente.",ob_weeklykm_label:"Quantos km você correu na última semana?",ob_weeklykm_hint:"Se colocar 0, montamos um plano para começar do zero.",ob_terrain_label:"Terreno onde mais corre",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trilha",ob_terrain_mixto:"Misto",ob_goal_label:"O que você quer trabalhar?",ob_goal_start:"Começar a correr do zero",ob_goal_5k:"Treinar para um 5K",ob_goal_10k:"Treinar para um 10K",ob_goal_15k:"Treinar para um 15K",ob_goal_21k:"Treinar para uma meia maratona",ob_goal_42k:"Treinar para uma maratona",ob_goal_ultra:"Mais de 42K / ultra",ob_goal_lifestyle:"Saúde e estilo de vida, sem prova específica",ob_racedate_label:"Data da sua prova (opcional)",ob_racedate_hint:"Se tiver uma, o coach monta o plano com o tempo certo até lá.",date_placeholder:"Escolher data",perfil_weeklykm_auto_note:"Os km semanais são calculados automaticamente pelo coach, de acordo com seu objetivo e a data da prova.",perfil_goal_km_check_hint:"Como você mudou o objetivo, conte quanto você corre agora para montar o plano a partir da sua realidade atual.",ob_hrmax_label:"Você conhece sua frequência cardíaca máxima?",ob_hrmax_yes:"Sim, eu sei",ob_hrmax_no:"Não sei",ob_hrmax_unknown_msg:"Sem um teste não conseguimos calcular com precisão. Recomendamos um teste de lactato ou de esforço com um profissional. Enquanto isso, usamos uma estimativa pela sua idade.",ob_submit:"Criar meu plano",
+ob_title:"Conte sobre você",ob_lead:"Seu coach usa isso para montar um plano inicial. Depois ajusta conversando com você.",ob_step2_title:"Seus dados físicos",ob_step3_title:"Sua experiência",ob_step4_title:"Seus dias de treino",ob_step5_title:"Seu objetivo",ob_name_label:"Seu nome",ob_name_ph:"Como podemos te chamar?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Data de nascimento",ob_runnertype_label:"Você já corre ativamente ou é novo nisso?",ob_runnertype_new:"Sou novo/a",ob_runnertype_active:"Já corro",ob_currentkm_label:"Quantos km você corre por semana atualmente?",ob_newrunner_note:"Perfeito — vamos começar leve para seu corpo se adaptar bem, e subir aos poucos. Conte ao coach em quanto tempo você gostaria de se preparar, se tiver uma data em mente.",ob_weeklykm_label:"Quantos km você correu na última semana?",ob_weeklykm_hint:"Se colocar 0, montamos um plano para começar do zero.",ob_terrain_label:"Terreno onde mais corre",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trilha",ob_terrain_mixto:"Misto",ob_goal_label:"O que você quer trabalhar?",ob_goal_start:"Começar a correr do zero",ob_goal_5k:"Treinar para um 5K",ob_goal_10k:"Treinar para um 10K",ob_goal_15k:"Treinar para um 15K",ob_goal_21k:"Treinar para uma meia maratona",ob_goal_42k:"Treinar para uma maratona",ob_goal_ultra:"Mais de 42K / ultra",ob_goal_lifestyle:"Saúde e estilo de vida, sem prova específica",ob_racedate_label:"Data da sua prova (opcional)",ob_racedate_hint:"Se tiver uma, o coach monta o plano com o tempo certo até lá.",date_placeholder:"Escolher data",perfil_weeklykm_auto_note:"Os km semanais são calculados automaticamente pelo coach, de acordo com seu objetivo e a data da prova.",perfil_goal_km_check_hint:"Como você mudou o objetivo, conte quanto você corre agora para montar o plano a partir da sua realidade atual.",ob_hrmax_label:"Você conhece sua frequência cardíaca máxima?",ob_hrmax_yes:"Sim, eu sei",ob_hrmax_no:"Não sei",ob_hrmax_unknown_msg:"Sem um teste não conseguimos calcular com precisão. Recomendamos um teste de lactato ou de esforço com um profissional. Enquanto isso, usamos uma estimativa pela sua idade.",ob_submit:"Criar meu plano",
 nav_home:"Início",nav_plan:"Plano",nav_run:"Correr",nav_history:"Histórico",nav_coach:"Coach",nav_profile:"Perfil",
 home_hi:"Olá,",home_next:"Sua próxima sessão",home_week:"Esta semana",home_km_done:"Feitos",home_km_planned:"Planejados",home_sessions:"Sessões",home_logged:"Registradas",home_coach_cta:"Falar com seu coach →",home_load_title:"Carga de treino",home_load_low:"Baixa",home_load_optimal:"Ótima",home_load_caution:"Atenção",home_load_risk:"Risco",home_load_hint_low:"Você correu bem menos que sua média recente. Tudo bem se for um descanso planejado.",home_load_hint_optimal:"Sua carga desta semana está alinhada com sua média recente. Você está indo bem.",home_load_hint_caution:"Você correu bem mais que sua média esta semana. Preste atenção em como está se sentindo.",home_load_hint_risk:"Você aumentou o volume rápido demais em relação às últimas semanas. Considere reduzir um pouco para evitar lesões.",plan_taper_tag:"Semana de polimento",plan_taper_note:"Baixamos o volume de propósito: sua prova está chegando e essa é a polida final.",sync_pending_title:"Você tem alterações salvas no celular que ainda não foram enviadas — vão sincronizar sozinhas assim que a conexão voltar.",home_msg_new:"Você ainda não registrou nenhuma corrida — quando quiser, começamos. Como você dormiu ontem?",home_msg_going:"Você está indo bem, continue assim. Como está se sentindo hoje?",home_msg_pain:"Se algo doer na sessão de hoje, me conte no chat antes de forçar.",
 plan_title:"Sua semana",plan_lead:"Toque em um dia para ver o detalhe.",plan_adjust:"Pedir um ajuste ao coach",
@@ -880,7 +911,7 @@ ob_days_label:"Em quais dias da semana você vai treinar?",perfil_personal_title
 fr:{app_tag:"Ton coach, tout terrain.",start:"Commencer",
 login_title:"Connexion",login_lead:"Connecte-toi ou crée ton compte. Tes données sont vraiment sauvegardées, et tu peux les voir depuis n'importe quel appareil.",login_email_label:"Ton email",login_email_ph:"toi@email.com",login_password_label:"Mot de passe",login_password_ph:"6 caractères minimum",login_err:"Entre un email valide.",login_err_password:"Le mot de passe doit avoir au moins 6 caractères.",login_err_wrong_password:"Mot de passe incorrect.",login_continue:"Continuer",login_or:"ou continue avec",login_google:"Continuer avec Google",login_apple:"Continuer avec Apple",login_soon:"Bientôt",login_soon_note:"Google Sign-In nécessite un vrai backend (voir le blueprint) — pas encore actif dans ce prototype.",login_forgot:"Mot de passe oublié ?",login_recovery_find:"Trouver le compte",login_recovery_submit:"Réinitialiser le mot de passe",login_new_password_label:"Nouveau mot de passe",login_recovery_answer_ph:"Ta réponse",login_recovery_no_account:"Aucun compte trouvé avec cet email.",login_recovery_no_question:"Ce compte n'a pas de question de sécurité configurée (il a été créé avant cette fonction). Impossible de le récupérer ainsi — tu peux créer un nouveau compte avec un autre email.",login_recovery_wrong:"Réponse incorrecte.",login_create_account:"Créer un compte",login_err_exists:"Un compte avec cet email existe déjà.",login_check_email:"Vérifie ton email pour confirmer le compte.",login_recovery_sent:"On t'a envoyé un email avec un lien pour réinitialiser ton mot de passe.",login_recovery_title:"Choisis un nouveau mot de passe",login_recovery_lead:"Tu as confirmé ton identité par email. Choisis maintenant ton nouveau mot de passe.",login_lead_signin:"Connecte-toi avec ton email et ton mot de passe.",login_go_signup:"Pas de compte ? Crée-en un",signup_title:"Crée ton compte",signup_lead:"Choisis un email et un mot de passe pour commencer.",signup_go_login:"Déjà un compte ? Connexion",
 ob_security_q_label:"Question de sécurité",security_q_fixed:"Quel était le nom de ton premier animal de compagnie ?",
-ob_title:"Parle-nous de toi",ob_lead:"Ton coach s'en sert pour créer un premier plan, puis l'ajuste en discutant avec toi.",ob_name_label:"Ton prénom",ob_name_ph:"Comment tu t'appelles ?",ob_weight_label:"Poids (kg)",ob_height_label:"Taille (cm)",ob_birth_label:"Date de naissance",ob_runnertype_label:"Tu cours déjà activement, ou tu débutes ?",ob_runnertype_new:"Je débute",ob_runnertype_active:"Je cours déjà",ob_currentkm_label:"Combien de km cours-tu par semaine actuellement ?",ob_newrunner_note:"Parfait — on va commencer léger pour que ton corps s'adapte bien, et augmenter petit à petit. Dis à ton coach en combien de temps tu aimerais te préparer, si tu as une date en tête.",ob_weeklykm_label:"Combien de km as-tu couru la semaine dernière ?",ob_weeklykm_hint:"Si tu mets 0, on crée un plan pour démarrer de zéro.",ob_terrain_label:"Terrain où tu cours le plus",ob_terrain_asfalto:"Route",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixte",ob_goal_label:"Sur quoi veux-tu travailler ?",ob_goal_start:"Commencer à courir de zéro",ob_goal_5k:"Préparer un 5K",ob_goal_10k:"Préparer un 10K",ob_goal_15k:"Préparer un 15K",ob_goal_21k:"Préparer un semi-marathon",ob_goal_42k:"Préparer un marathon",ob_goal_ultra:"Plus de 42K / ultra",ob_goal_lifestyle:"Santé et hygiène de vie, sans course précise",ob_racedate_label:"Date de ta course (facultatif)",ob_racedate_hint:"Si tu en as une, ton coach construit le plan avec le temps qu'il te reste vraiment.",date_placeholder:"Choisir une date",perfil_weeklykm_auto_note:"Les km hebdomadaires sont calculés automatiquement par le coach, selon ton objectif et la date de course.",perfil_goal_km_check_hint:"Comme tu as changé d'objectif, dis-nous combien tu cours actuellement pour construire le plan à partir de ta réalité.",ob_hrmax_label:"Connais-tu ta fréquence cardiaque max ?",ob_hrmax_yes:"Oui, je la connais",ob_hrmax_no:"Je ne la connais pas",ob_hrmax_unknown_msg:"Sans test, on ne peut pas la calculer précisément. On te recommande un test lactate ou une épreuve d'effort avec un professionnel. En attendant, on utilise une estimation selon ton âge.",ob_submit:"Créer mon plan",
+ob_title:"Parle-nous de toi",ob_lead:"Ton coach s'en sert pour créer un premier plan, puis l'ajuste en discutant avec toi.",ob_step2_title:"Tes infos physiques",ob_step3_title:"Ton expérience",ob_step4_title:"Tes jours d'entraînement",ob_step5_title:"Ton objectif",ob_name_label:"Ton prénom",ob_name_ph:"Comment tu t'appelles ?",ob_weight_label:"Poids (kg)",ob_height_label:"Taille (cm)",ob_birth_label:"Date de naissance",ob_runnertype_label:"Tu cours déjà activement, ou tu débutes ?",ob_runnertype_new:"Je débute",ob_runnertype_active:"Je cours déjà",ob_currentkm_label:"Combien de km cours-tu par semaine actuellement ?",ob_newrunner_note:"Parfait — on va commencer léger pour que ton corps s'adapte bien, et augmenter petit à petit. Dis à ton coach en combien de temps tu aimerais te préparer, si tu as une date en tête.",ob_weeklykm_label:"Combien de km as-tu couru la semaine dernière ?",ob_weeklykm_hint:"Si tu mets 0, on crée un plan pour démarrer de zéro.",ob_terrain_label:"Terrain où tu cours le plus",ob_terrain_asfalto:"Route",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixte",ob_goal_label:"Sur quoi veux-tu travailler ?",ob_goal_start:"Commencer à courir de zéro",ob_goal_5k:"Préparer un 5K",ob_goal_10k:"Préparer un 10K",ob_goal_15k:"Préparer un 15K",ob_goal_21k:"Préparer un semi-marathon",ob_goal_42k:"Préparer un marathon",ob_goal_ultra:"Plus de 42K / ultra",ob_goal_lifestyle:"Santé et hygiène de vie, sans course précise",ob_racedate_label:"Date de ta course (facultatif)",ob_racedate_hint:"Si tu en as une, ton coach construit le plan avec le temps qu'il te reste vraiment.",date_placeholder:"Choisir une date",perfil_weeklykm_auto_note:"Les km hebdomadaires sont calculés automatiquement par le coach, selon ton objectif et la date de course.",perfil_goal_km_check_hint:"Comme tu as changé d'objectif, dis-nous combien tu cours actuellement pour construire le plan à partir de ta réalité.",ob_hrmax_label:"Connais-tu ta fréquence cardiaque max ?",ob_hrmax_yes:"Oui, je la connais",ob_hrmax_no:"Je ne la connais pas",ob_hrmax_unknown_msg:"Sans test, on ne peut pas la calculer précisément. On te recommande un test lactate ou une épreuve d'effort avec un professionnel. En attendant, on utilise une estimation selon ton âge.",ob_submit:"Créer mon plan",
 nav_home:"Accueil",nav_plan:"Plan",nav_run:"Courir",nav_history:"Historique",nav_coach:"Coach",nav_profile:"Profil",
 home_hi:"Salut,",home_next:"Ta prochaine séance",home_week:"Cette semaine",home_km_done:"Faits",home_km_planned:"Prévus",home_sessions:"Séances",home_logged:"Enregistrées",home_coach_cta:"Parler à ton coach →",home_load_title:"Charge d'entraînement",home_load_low:"Faible",home_load_optimal:"Optimale",home_load_caution:"Attention",home_load_risk:"Risque",home_load_hint_low:"Tu as couru pas mal moins que ta moyenne récente. C'est ok si c'est un repos voulu.",home_load_hint_optimal:"Ta charge cette semaine est alignée avec ta moyenne récente. Tu es sur la bonne voie.",home_load_hint_caution:"Tu as couru pas mal plus que ta moyenne cette semaine. Fais attention à comment tu te sens.",home_load_hint_risk:"Tu as augmenté le volume trop vite par rapport aux dernières semaines. Pense à lever un peu le pied pour éviter une blessure.",plan_taper_tag:"Semaine d'affûtage",plan_taper_note:"On a baissé le volume exprès : ta course approche et c'est l'affûtage final.",sync_pending_title:"Tu as des changements enregistrés sur ton téléphone qui ne sont pas encore envoyés — ils vont se synchroniser tout seuls dès que la connexion revient.",home_msg_new:"Tu n'as encore enregistré aucune course — quand tu veux. Tu as bien dormi cette nuit ?",home_msg_going:"Tu progresses bien, continue comme ça. Comment tu te sens aujourd'hui ?",home_msg_pain:"Si quelque chose te fait mal pendant la séance, dis-le-moi dans le chat avant de forcer.",
 plan_title:"Ta semaine",plan_lead:"Touche un jour pour voir le détail.",plan_adjust:"Demander un ajustement au coach",
@@ -905,7 +936,7 @@ ob_days_label:"Quels jours de la semaine vas-tu t'entraîner ?",perfil_personal_
 it:{app_tag:"Il tuo coach, ogni terreno.",start:"Inizia",
 login_title:"Accedi",login_lead:"Accedi o crea il tuo account. I tuoi dati vengono salvati per davvero, e puoi vederli da qualsiasi dispositivo.",login_email_label:"La tua email",login_email_ph:"tu@email.com",login_password_label:"Password",login_password_ph:"Minimo 6 caratteri",login_err:"Inserisci un'email valida.",login_err_password:"La password deve avere almeno 6 caratteri.",login_err_wrong_password:"Password errata.",login_continue:"Continua",login_or:"oppure continua con",login_google:"Continua con Google",login_apple:"Continua con Apple",login_soon:"Presto",login_soon_note:"Google Sign-In richiede un vero backend (vedi il blueprint) — non ancora attivo in questo prototipo.",login_forgot:"Hai dimenticato la password?",login_recovery_find:"Cerca account",login_recovery_submit:"Reimposta password",login_new_password_label:"Nuova password",login_recovery_answer_ph:"La tua risposta",login_recovery_no_account:"Non abbiamo trovato un account con quell'email.",login_recovery_no_question:"Questo account non ha una domanda di sicurezza configurata (è stato creato prima di questa funzione). Non si può recuperare così — puoi creare un nuovo account con un'altra email.",login_recovery_wrong:"Risposta errata.",login_create_account:"Crea account",login_err_exists:"Esiste già un account con quell'email.",login_check_email:"Controlla la tua email per confermare l'account.",login_recovery_sent:"Ti abbiamo mandato un'email con il link per reimpostare la password.",login_recovery_title:"Scegli una nuova password",login_recovery_lead:"Hai confermato la tua identità via email. Ora imposta la tua nuova password.",login_lead_signin:"Accedi con la tua email e password.",login_go_signup:"Non hai un account? Creane uno",signup_title:"Crea il tuo account",signup_lead:"Scegli un'email e una password per iniziare.",signup_go_login:"Hai già un account? Accedi",
 ob_security_q_label:"Domanda di sicurezza",security_q_fixed:"Come si chiamava il tuo primo animale domestico?",
-ob_title:"Parlaci di te",ob_lead:"Il coach usa queste info per creare un primo piano, poi lo affina parlando con te.",ob_name_label:"Il tuo nome",ob_name_ph:"Come ti chiami?",ob_weight_label:"Peso (kg)",ob_height_label:"Altezza (cm)",ob_birth_label:"Data di nascita",ob_runnertype_label:"Corri già attivamente o sei nuovo/a?",ob_runnertype_new:"Sono nuovo/a",ob_runnertype_active:"Corro già",ob_currentkm_label:"Quanti km corri attualmente a settimana?",ob_newrunner_note:"Perfetto — inizieremo con un carico basso perché il tuo corpo si adatti bene, e aumenteremo poco alla volta. Di' al coach in quanto tempo vorresti prepararti, se hai una data in mente.",ob_weeklykm_label:"Quanti km hai corso la settimana scorsa?",ob_weeklykm_hint:"Se metti 0, creiamo un piano per partire da zero.",ob_terrain_label:"Terreno dove corri di più",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Misto",ob_goal_label:"Su cosa vuoi lavorare?",ob_goal_start:"Iniziare a correre da zero",ob_goal_5k:"Preparare una 5K",ob_goal_10k:"Preparare una 10K",ob_goal_15k:"Preparare una 15K",ob_goal_21k:"Preparare una mezza maratona",ob_goal_42k:"Preparare una maratona",ob_goal_ultra:"Oltre 42K / ultra",ob_goal_lifestyle:"Salute e stile di vita, senza gara specifica",ob_racedate_label:"Data della tua gara (opzionale)",ob_racedate_hint:"Se ne hai una, il coach costruisce il piano con il tempo che hai davvero.",date_placeholder:"Scegli data",perfil_weeklykm_auto_note:"I km settimanali sono calcolati automaticamente dal coach, in base al tuo obiettivo e alla data della gara.",perfil_goal_km_check_hint:"Dato che hai cambiato obiettivo, dicci quanto corri adesso per costruire il piano dalla tua situazione reale.",ob_hrmax_label:"Conosci la tua frequenza cardiaca massima?",ob_hrmax_yes:"Sì, la conosco",ob_hrmax_no:"Non la conosco",ob_hrmax_unknown_msg:"Senza un test non possiamo calcolarla con precisione. Ti consigliamo un test del lattato o una prova da sforzo con un professionista. Nel frattempo usiamo una stima in base all'età.",ob_submit:"Crea il mio piano",
+ob_title:"Parlaci di te",ob_lead:"Il coach usa queste info per creare un primo piano, poi lo affina parlando con te.",ob_step2_title:"I tuoi dati fisici",ob_step3_title:"La tua esperienza",ob_step4_title:"I tuoi giorni di allenamento",ob_step5_title:"Il tuo obiettivo",ob_name_label:"Il tuo nome",ob_name_ph:"Come ti chiami?",ob_weight_label:"Peso (kg)",ob_height_label:"Altezza (cm)",ob_birth_label:"Data di nascita",ob_runnertype_label:"Corri già attivamente o sei nuovo/a?",ob_runnertype_new:"Sono nuovo/a",ob_runnertype_active:"Corro già",ob_currentkm_label:"Quanti km corri attualmente a settimana?",ob_newrunner_note:"Perfetto — inizieremo con un carico basso perché il tuo corpo si adatti bene, e aumenteremo poco alla volta. Di' al coach in quanto tempo vorresti prepararti, se hai una data in mente.",ob_weeklykm_label:"Quanti km hai corso la settimana scorsa?",ob_weeklykm_hint:"Se metti 0, creiamo un piano per partire da zero.",ob_terrain_label:"Terreno dove corri di più",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Misto",ob_goal_label:"Su cosa vuoi lavorare?",ob_goal_start:"Iniziare a correre da zero",ob_goal_5k:"Preparare una 5K",ob_goal_10k:"Preparare una 10K",ob_goal_15k:"Preparare una 15K",ob_goal_21k:"Preparare una mezza maratona",ob_goal_42k:"Preparare una maratona",ob_goal_ultra:"Oltre 42K / ultra",ob_goal_lifestyle:"Salute e stile di vita, senza gara specifica",ob_racedate_label:"Data della tua gara (opzionale)",ob_racedate_hint:"Se ne hai una, il coach costruisce il piano con il tempo che hai davvero.",date_placeholder:"Scegli data",perfil_weeklykm_auto_note:"I km settimanali sono calcolati automaticamente dal coach, in base al tuo obiettivo e alla data della gara.",perfil_goal_km_check_hint:"Dato che hai cambiato obiettivo, dicci quanto corri adesso per costruire il piano dalla tua situazione reale.",ob_hrmax_label:"Conosci la tua frequenza cardiaca massima?",ob_hrmax_yes:"Sì, la conosco",ob_hrmax_no:"Non la conosco",ob_hrmax_unknown_msg:"Senza un test non possiamo calcolarla con precisione. Ti consigliamo un test del lattato o una prova da sforzo con un professionista. Nel frattempo usiamo una stima in base all'età.",ob_submit:"Crea il mio piano",
 nav_home:"Home",nav_plan:"Piano",nav_run:"Corri",nav_history:"Storico",nav_coach:"Coach",nav_profile:"Profilo",
 home_hi:"Ciao,",home_next:"La tua prossima sessione",home_week:"Questa settimana",home_km_done:"Fatti",home_km_planned:"Previsti",home_sessions:"Sessioni",home_logged:"Registrate",home_coach_cta:"Parla con il tuo coach →",home_load_title:"Carico di allenamento",home_load_low:"Basso",home_load_optimal:"Ottimale",home_load_caution:"Attenzione",home_load_risk:"Rischio",home_load_hint_low:"Hai corso parecchio meno della tua media recente. Va bene se è un riposo cercato.",home_load_hint_optimal:"Il tuo carico di questa settimana è in linea con la tua media recente. Stai andando bene.",home_load_hint_caution:"Questa settimana hai corso parecchio più della tua media. Presta attenzione a come ti senti.",home_load_hint_risk:"Hai aumentato il volume troppo in fretta rispetto alle ultime settimane. Valuta di rallentare un po' per evitare infortuni.",plan_taper_tag:"Settimana di tapering",plan_taper_note:"Abbiamo abbassato il volume di proposito: la tua gara si avvicina ed è la fase finale di scarico.",sync_pending_title:"Hai modifiche salvate sul telefono non ancora caricate — si sincronizzeranno da sole appena torna la connessione.",home_msg_new:"Non hai ancora registrato nessuna corsa — quando vuoi iniziamo. Come hai dormito stanotte?",home_msg_going:"Stai andando bene, continua così. Come ti senti oggi?",home_msg_pain:"Se qualcosa fa male durante la sessione di oggi, scrivimelo in chat prima di forzare.",
 plan_title:"La tua settimana",plan_lead:"Tocca un giorno per vedere il dettaglio.",plan_adjust:"Chiedi una modifica al coach",
@@ -930,7 +961,7 @@ ob_days_label:"In quali giorni della settimana ti allenerai?",perfil_personal_ti
 de:{app_tag:"Dein Coach, jedes Terrain.",start:"Loslegen",
 login_title:"Anmelden",login_lead:"Melde dich an oder erstelle dein Konto. Deine Daten werden wirklich gespeichert und sind auf jedem Gerät sichtbar.",login_email_label:"Deine E-Mail",login_email_ph:"du@email.com",login_password_label:"Passwort",login_password_ph:"Mindestens 6 Zeichen",login_err:"Gib eine gültige E-Mail ein.",login_err_password:"Das Passwort muss mindestens 6 Zeichen haben.",login_err_wrong_password:"Falsches Passwort.",login_continue:"Weiter",login_or:"oder weiter mit",login_google:"Weiter mit Google",login_apple:"Weiter mit Apple",login_soon:"Demnächst",login_soon_note:"Google Sign-In braucht ein echtes Backend (siehe Blueprint) — in diesem Prototyp noch nicht aktiv.",login_forgot:"Passwort vergessen?",login_recovery_find:"Konto suchen",login_recovery_submit:"Passwort zurücksetzen",login_new_password_label:"Neues Passwort",login_recovery_answer_ph:"Deine Antwort",login_recovery_no_account:"Wir haben kein Konto mit dieser E-Mail gefunden.",login_recovery_no_question:"Dieses Konto hat keine Sicherheitsfrage eingerichtet (es wurde vor dieser Funktion erstellt). Es kann so nicht wiederhergestellt werden — du kannst ein neues Konto mit einer anderen E-Mail anlegen.",login_recovery_wrong:"Falsche Antwort.",login_create_account:"Konto erstellen",login_err_exists:"Es gibt bereits ein Konto mit dieser E-Mail.",login_check_email:"Überprüfe deine E-Mail, um das Konto zu bestätigen.",login_recovery_sent:"Wir haben dir eine E-Mail mit einem Link zum Zurücksetzen deines Passworts geschickt.",login_recovery_title:"Wähle ein neues Passwort",login_recovery_lead:"Du hast deine Identität per E-Mail bestätigt. Lege jetzt dein neues Passwort fest.",login_lead_signin:"Melde dich mit deiner E-Mail und deinem Passwort an.",login_go_signup:"Kein Konto? Erstelle eins",signup_title:"Konto erstellen",signup_lead:"Wähle eine E-Mail und ein Passwort, um loszulegen.",signup_go_login:"Schon ein Konto? Anmelden",
 ob_security_q_label:"Sicherheitsfrage",security_q_fixed:"Wie hieß dein erstes Haustier?",
-ob_title:"Erzähl uns von dir",ob_lead:"Dein Coach nutzt das für einen ersten Plan und feilt ihn dann im Gespräch mit dir weiter aus.",ob_name_label:"Dein Name",ob_name_ph:"Wie heißt du?",ob_weight_label:"Gewicht (kg)",ob_height_label:"Größe (cm)",ob_birth_label:"Geburtsdatum",ob_runnertype_label:"Läufst du schon aktiv oder bist du neu dabei?",ob_runnertype_new:"Ich bin neu",ob_runnertype_active:"Ich laufe schon",ob_currentkm_label:"Wie viele km läufst du aktuell pro Woche?",ob_newrunner_note:"Perfekt — wir starten locker, damit sich dein Körper gut anpasst, und steigern langsam. Sag deinem Coach, in wie viel Zeit du dich vorbereiten möchtest, falls du ein Datum im Kopf hast.",ob_weeklykm_label:"Wie viele km bist du letzte Woche gelaufen?",ob_weeklykm_hint:"Bei 0 erstellen wir einen Plan für den Einstieg bei null.",ob_terrain_label:"Terrain, auf dem du am meisten läufst",ob_terrain_asfalto:"Straße",ob_terrain_trail:"Trail",ob_terrain_mixto:"Gemischt",ob_goal_label:"Woran willst du arbeiten?",ob_goal_start:"Von null mit dem Laufen anfangen",ob_goal_5k:"Für einen 5K trainieren",ob_goal_10k:"Für einen 10K trainieren",ob_goal_15k:"Für einen 15K trainieren",ob_goal_21k:"Für einen Halbmarathon trainieren",ob_goal_42k:"Für einen Marathon trainieren",ob_goal_ultra:"Über 42K / Ultra",ob_goal_lifestyle:"Gesundheit und Lifestyle, kein bestimmtes Rennen",ob_racedate_label:"Datum deines Rennens (optional)",ob_racedate_hint:"Falls vorhanden, plant dein Coach mit der Zeit, die dir wirklich bleibt.",date_placeholder:"Datum wählen",perfil_weeklykm_auto_note:"Die wöchentlichen Km werden vom Coach automatisch berechnet, basierend auf deinem Ziel und dem Renndatum.",perfil_goal_km_check_hint:"Da du dein Ziel geändert hast, sag uns, wie viel du aktuell läufst, damit wir den Plan von deiner echten Ausgangslage aus erstellen.",ob_hrmax_label:"Kennst du deine maximale Herzfrequenz?",ob_hrmax_yes:"Ja, ich kenne sie",ob_hrmax_no:"Ich kenne sie nicht",ob_hrmax_unknown_msg:"Ohne Test können wir sie nicht genau berechnen. Wir empfehlen einen Laktattest oder eine Leistungsdiagnostik mit einer Fachperson. In der Zwischenzeit nutzen wir eine Schätzung nach Alter.",ob_submit:"Meinen Plan erstellen",
+ob_title:"Erzähl uns von dir",ob_lead:"Dein Coach nutzt das für einen ersten Plan und feilt ihn dann im Gespräch mit dir weiter aus.",ob_step2_title:"Deine körperlichen Daten",ob_step3_title:"Deine Erfahrung",ob_step4_title:"Deine Trainingstage",ob_step5_title:"Dein Ziel",ob_name_label:"Dein Name",ob_name_ph:"Wie heißt du?",ob_weight_label:"Gewicht (kg)",ob_height_label:"Größe (cm)",ob_birth_label:"Geburtsdatum",ob_runnertype_label:"Läufst du schon aktiv oder bist du neu dabei?",ob_runnertype_new:"Ich bin neu",ob_runnertype_active:"Ich laufe schon",ob_currentkm_label:"Wie viele km läufst du aktuell pro Woche?",ob_newrunner_note:"Perfekt — wir starten locker, damit sich dein Körper gut anpasst, und steigern langsam. Sag deinem Coach, in wie viel Zeit du dich vorbereiten möchtest, falls du ein Datum im Kopf hast.",ob_weeklykm_label:"Wie viele km bist du letzte Woche gelaufen?",ob_weeklykm_hint:"Bei 0 erstellen wir einen Plan für den Einstieg bei null.",ob_terrain_label:"Terrain, auf dem du am meisten läufst",ob_terrain_asfalto:"Straße",ob_terrain_trail:"Trail",ob_terrain_mixto:"Gemischt",ob_goal_label:"Woran willst du arbeiten?",ob_goal_start:"Von null mit dem Laufen anfangen",ob_goal_5k:"Für einen 5K trainieren",ob_goal_10k:"Für einen 10K trainieren",ob_goal_15k:"Für einen 15K trainieren",ob_goal_21k:"Für einen Halbmarathon trainieren",ob_goal_42k:"Für einen Marathon trainieren",ob_goal_ultra:"Über 42K / Ultra",ob_goal_lifestyle:"Gesundheit und Lifestyle, kein bestimmtes Rennen",ob_racedate_label:"Datum deines Rennens (optional)",ob_racedate_hint:"Falls vorhanden, plant dein Coach mit der Zeit, die dir wirklich bleibt.",date_placeholder:"Datum wählen",perfil_weeklykm_auto_note:"Die wöchentlichen Km werden vom Coach automatisch berechnet, basierend auf deinem Ziel und dem Renndatum.",perfil_goal_km_check_hint:"Da du dein Ziel geändert hast, sag uns, wie viel du aktuell läufst, damit wir den Plan von deiner echten Ausgangslage aus erstellen.",ob_hrmax_label:"Kennst du deine maximale Herzfrequenz?",ob_hrmax_yes:"Ja, ich kenne sie",ob_hrmax_no:"Ich kenne sie nicht",ob_hrmax_unknown_msg:"Ohne Test können wir sie nicht genau berechnen. Wir empfehlen einen Laktattest oder eine Leistungsdiagnostik mit einer Fachperson. In der Zwischenzeit nutzen wir eine Schätzung nach Alter.",ob_submit:"Meinen Plan erstellen",
 nav_home:"Start",nav_plan:"Plan",nav_run:"Laufen",nav_history:"Verlauf",nav_coach:"Coach",nav_profile:"Profil",
 home_hi:"Hallo,",home_next:"Deine nächste Einheit",home_week:"Diese Woche",home_km_done:"Gelaufen",home_km_planned:"Geplant",home_sessions:"Einheiten",home_logged:"Erfasst",home_coach_cta:"Mit deinem Coach sprechen →",home_load_title:"Trainingsbelastung",home_load_low:"Niedrig",home_load_optimal:"Optimal",home_load_caution:"Achtung",home_load_risk:"Risiko",home_load_hint_low:"Du bist deutlich weniger gelaufen als im letzten Durchschnitt. Passt schon, wenn das eine geplante Pause war.",home_load_hint_optimal:"Deine Belastung diese Woche passt zu deinem letzten Durchschnitt. Läuft gut.",home_load_hint_caution:"Du bist diese Woche deutlich mehr gelaufen als im Durchschnitt. Achte darauf, wie du dich fühlst.",home_load_hint_risk:"Du hast das Volumen im Vergleich zu den letzten Wochen zu schnell gesteigert. Überlege, etwas zurückzufahren, um Verletzungen zu vermeiden.",plan_taper_tag:"Tapering-Woche",plan_taper_note:"Wir haben das Volumen bewusst gesenkt: dein Rennen steht bevor, das ist der letzte Feinschliff.",sync_pending_title:"Du hast Änderungen auf deinem Handy gespeichert, die noch nicht hochgeladen wurden — sie synchronisieren sich automatisch, sobald du wieder online bist.",home_msg_new:"Du hast noch keinen Lauf erfasst — wann immer du bereit bist. Wie hast du letzte Nacht geschlafen?",home_msg_going:"Du machst das gut, weiter so. Wie fühlst du dich heute?",home_msg_pain:"Wenn heute etwas wehtut, sag es mir im Chat, bevor du weitermachst.",
 plan_title:"Deine Woche",plan_lead:"Tippe auf einen Tag für Details.",plan_adjust:"Coach um Anpassung bitten",
@@ -1007,6 +1038,24 @@ const ICONS = {
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
 function haptic(pattern){
   try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+const countUpTimers = new WeakMap();
+function animateCountUp(el, target, decimals, duration){
+  if(!el) return;
+  decimals = decimals || 0;
+  duration = duration || 650;
+  const prevTimer = countUpTimers.get(el);
+  if(prevTimer) cancelAnimationFrame(prevTimer);
+  if(!(target > 0)){ el.textContent = (0).toFixed(decimals); return; }
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now-start)/duration);
+    const eased = 1 - Math.pow(1-p, 3);
+    el.textContent = (target*eased).toFixed(decimals);
+    if(p < 1){ countUpTimers.set(el, requestAnimationFrame(tick)); }
+    else { el.textContent = target.toFixed(decimals); countUpTimers.delete(el); }
+  }
+  countUpTimers.set(el, requestAnimationFrame(tick));
 }
 let toastHideTimer = null;
 function showToast(message, type){
@@ -1151,7 +1200,7 @@ function hasPendingBackup(){
 function updateSyncBadge(){
   const badge = document.getElementById('sync-pending-badge');
   if(!badge) return;
-  if(hasPendingBackup()){ badge.style.display = 'inline-block'; badge.title = t('sync_pending_title'); }
+  if(hasPendingBackup()){ badge.style.display = 'inline-flex'; }
   else { badge.style.display = 'none'; }
 }
 async function persist(){
@@ -1195,6 +1244,7 @@ async function loadUserAndEnter(user){
   document.getElementById('splash').style.display='none';
   document.getElementById('login').style.display='none';
   document.getElementById('onboard').style.display='block';
+  resetOnboardSteps();
 }
 function translateAuthError(error){
   const msg = (error && error.message) || '';
@@ -1267,6 +1317,7 @@ async function handleSignUp(){
   currentUserId = data.user.id;
   document.getElementById('signup').style.display='none';
   document.getElementById('onboard').style.display='block';
+  resetOnboardSteps();
 }
 async function handleForgotPassword(){
   const email = document.getElementById('login-email').value.trim();
@@ -1502,6 +1553,27 @@ function computeZones(hrmax){
   return {1:{min:Math.round(hrmax*0.50),max:Math.round(hrmax*0.60)},2:{min:Math.round(hrmax*0.60)+1,max:Math.round(hrmax*0.70)},
     3:{min:Math.round(hrmax*0.70)+1,max:Math.round(hrmax*0.80)},4:{min:Math.round(hrmax*0.80)+1,max:Math.round(hrmax*0.90)},
     5:{min:Math.round(hrmax*0.90)+1,max:hrmax}};
+}
+const OB_STEP_COUNT = 5;
+let obCurrentStep = 1;
+function resetOnboardSteps(){
+  obCurrentStep = 1;
+  obGotoStep(1);
+}
+function obGotoStep(n){
+  obCurrentStep = n;
+  document.querySelectorAll('.ob-step').forEach(el=>el.classList.toggle('active', parseInt(el.dataset.step,10)===n));
+  document.getElementById('ob-progress-fill').style.width = ((n/OB_STEP_COUNT)*100)+'%';
+  document.getElementById('ob-back-btn').style.display = n>1 ? 'flex' : 'none';
+  document.getElementById('onboard').scrollTop = 0;
+}
+function obNextStep(){
+  haptic(10);
+  if(obCurrentStep < OB_STEP_COUNT) obGotoStep(obCurrentStep+1);
+}
+function obPrevStep(){
+  haptic(10);
+  if(obCurrentStep > 1) obGotoStep(obCurrentStep-1);
 }
 async function finishOnboard(){
   const name = document.getElementById('ob-name').value.trim() || 'Runner';
@@ -1779,9 +1851,11 @@ function renderHome(){
   const weekRuns = (state.runs||[]).filter(r => getMondayISO(new Date(r.date)) === state.weekStart);
   const doneKm = weekRuns.reduce((a,r)=>a+r.distanceKm, 0);
   const weekKm = state.plan.reduce((a,d)=>a+d.dist,0);
-  document.getElementById('home-week-done-km').textContent = fmtDist(doneKm,1);
-  document.getElementById('home-week-km').textContent = fmtDist(weekKm,1);
-  document.getElementById('home-week-sessions').textContent = state.plan.filter(d=>d.dist>0).length;
+  const doneKmDisplay = isImperial() ? doneKm * MI_PER_KM : doneKm;
+  const weekKmDisplay = isImperial() ? weekKm * MI_PER_KM : weekKm;
+  animateCountUp(document.getElementById('home-week-done-km'), doneKmDisplay, 1);
+  animateCountUp(document.getElementById('home-week-km'), weekKmDisplay, 1);
+  animateCountUp(document.getElementById('home-week-sessions'), state.plan.filter(d=>d.dist>0).length, 0);
   document.getElementById('home-runs-count').textContent = weekRuns.length;
 
   const goalWrap = document.getElementById('goal-progress-wrap');
@@ -1795,11 +1869,17 @@ function renderHome(){
   }
 
   const maxD = Math.max(...state.plan.map(d=>d.dist),1);
-  document.getElementById('home-week-bars').innerHTML = state.plan.map(d=>{
+  const barsEl = document.getElementById('home-week-bars');
+  barsEl.innerHTML = state.plan.map((d,i)=>{
     if(d.dist===0) return `<div class="bar-col"><div class="bar rest-day"></div><div class="lbl">${t('day_'+d.day).slice(0,2)}</div></div>`;
     const h = Math.max(14, Math.round((d.dist/maxD)*70));
-    return `<div class="bar-col"><div class="bar hivis" style="height:${h}px;"></div><div class="lbl">${t('day_'+d.day).slice(0,2)}</div></div>`;
+    return `<div class="bar-col"><div class="bar hivis" data-h="${h}" style="height:0px; transition-delay:${i*35}ms;"></div><div class="lbl">${t('day_'+d.day).slice(0,2)}</div></div>`;
   }).join('');
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      barsEl.querySelectorAll('.bar[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
+    });
+  });
 
   const msgs = [t('home_msg_new'), t('home_msg_going'), t('home_msg_pain')];
   document.getElementById('home-coach-msg').textContent = msgs[state.runs.length % msgs.length];
@@ -2109,6 +2189,68 @@ document.addEventListener('touchmove', e=>{
   }
 }, {passive:true});
 document.addEventListener('touchend', ()=>{ pullActive = false; }, {passive:true});
+
+/* ---- swipe-to-delete (history list) ---- */
+let swipeStartX = 0, swipeStartY = 0, swipeContentEl = null, swipeDragging = false, swipeBaseX = 0, swipeLastX = 0, swipeSuppressClick = false;
+const SWIPE_REVEAL = 78;
+function swipeCloseAll(except){
+  document.querySelectorAll('.swipe-content.swipe-open').forEach(el=>{
+    if(el === except) return;
+    el.classList.add('swipe-anim');
+    el.style.transform = 'translateX(0px)';
+    el.classList.remove('swipe-open');
+  });
+}
+document.addEventListener('touchstart', e=>{
+  const item = e.target.closest ? e.target.closest('.swipe-item') : null;
+  if(!item){ swipeCloseAll(); swipeContentEl = null; return; }
+  swipeContentEl = item.querySelector('.swipe-content');
+  swipeCloseAll(swipeContentEl);
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+  swipeDragging = false;
+  swipeBaseX = swipeContentEl.classList.contains('swipe-open') ? -SWIPE_REVEAL : 0;
+  swipeLastX = swipeBaseX;
+  swipeContentEl.classList.remove('swipe-anim');
+}, {passive:true});
+document.addEventListener('touchmove', e=>{
+  if(!swipeContentEl) return;
+  const dx = e.touches[0].clientX - swipeStartX;
+  const dy = e.touches[0].clientY - swipeStartY;
+  if(!swipeDragging){
+    if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)){
+      swipeDragging = true;
+    } else if(Math.abs(dy) > 6){
+      swipeContentEl = null;
+      return;
+    } else {
+      return;
+    }
+  }
+  let x = swipeBaseX + dx;
+  x = Math.max(-SWIPE_REVEAL - 12, Math.min(0, x));
+  swipeLastX = x;
+  swipeContentEl.style.transform = `translateX(${x}px)`;
+  e.preventDefault();
+}, {passive:false});
+document.addEventListener('touchend', ()=>{
+  if(!swipeContentEl){ return; }
+  if(swipeDragging){
+    swipeContentEl.classList.add('swipe-anim');
+    if(swipeLastX < -SWIPE_REVEAL/2){
+      swipeContentEl.style.transform = `translateX(-${SWIPE_REVEAL}px)`;
+      swipeContentEl.classList.add('swipe-open');
+      haptic(10);
+    } else {
+      swipeContentEl.style.transform = 'translateX(0px)';
+      swipeContentEl.classList.remove('swipe-open');
+    }
+    swipeSuppressClick = true;
+    setTimeout(()=>{ swipeSuppressClick = false; }, 300);
+  }
+  swipeContentEl = null;
+  swipeDragging = false;
+}, {passive:true});
 async function doPullRefresh(){
   const indicator = document.getElementById('pull-refresh-indicator');
   if(indicator) indicator.style.display = 'flex';
@@ -2422,18 +2564,21 @@ function renderHistory(){
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
     const cal = r.calories || Math.round((state.profile.weight||70)*r.distanceKm*1.036);
     const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'short', day:'numeric', month:'short'});
-    return `<div class="card hist-card" onclick="openRunDetail('${r.id}')" style="cursor:pointer;">
-      <div class="hist-top"><span style="font-weight:700;">${dateStr}</span><span class="hist-date">${r.manual? `<span class="tag tag-soon" style="margin-right:6px;">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto" style="margin-right:6px;">Strava</span>`:''}${fmtTime(r.durationSec)}</span></div>
-      ${r.points && r.points.length>1 ? `<div class="hist-map" id="hist-map-${r.id}"></div>` : ''}
-      <div class="stat-row">
-        <div class="stat-box"><div class="n mono">${fmtDist(r.distanceKm)}</div><div class="l">${distUnit()}</div></div>
-        <div class="stat-box"><div class="n mono">${fmtPace(paceMin)}</div><div class="l">${t('run_pace_word')}</div></div>
-        <div class="stat-box"><div class="n mono">${avgHr||'—'}</div><div class="l">${t('hist_avg_hr')}</div></div>
-        <div class="stat-box"><div class="n mono">${cal}</div><div class="l">${t('run_calories')}</div></div>
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
-        <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? shoe.name : t('hist_no_shoe')}</p>
-        <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
+    return `<div class="swipe-item" data-swipe-id="${r.id}">
+      <div class="swipe-action-delete" onclick="deleteRun('${r.id}')"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
+      <div class="card hist-card swipe-content" onclick="openRunDetail('${r.id}')" style="cursor:pointer;">
+        <div class="hist-top"><span style="font-weight:700;">${dateStr}</span><span class="hist-date">${r.manual? `<span class="tag tag-soon" style="margin-right:6px;">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto" style="margin-right:6px;">Strava</span>`:''}${fmtTime(r.durationSec)}</span></div>
+        ${r.points && r.points.length>1 ? `<div class="hist-map" id="hist-map-${r.id}"></div>` : ''}
+        <div class="stat-row">
+          <div class="stat-box"><div class="n mono">${fmtDist(r.distanceKm)}</div><div class="l">${distUnit()}</div></div>
+          <div class="stat-box"><div class="n mono">${fmtPace(paceMin)}</div><div class="l">${t('run_pace_word')}</div></div>
+          <div class="stat-box"><div class="n mono">${avgHr||'—'}</div><div class="l">${t('hist_avg_hr')}</div></div>
+          <div class="stat-box"><div class="n mono">${cal}</div><div class="l">${t('run_calories')}</div></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
+          <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? shoe.name : t('hist_no_shoe')}</p>
+          <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -2478,6 +2623,7 @@ function renderSplitsSection(splits){
   </div>`;
 }
 function openRunDetail(runId){
+  if(swipeSuppressClick) return;
   const r = state.runs.find(x => String(x.id) === String(runId));
   if(!r) return;
   const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
