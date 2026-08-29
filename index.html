@@ -241,8 +241,11 @@
   .day-pill.active{border-color:var(--hivis); color:var(--hivis); background:var(--hivis-dim);}
 
   .hist-card{margin-bottom:12px;}
-  .swipe-item{position:relative; overflow:hidden; border-radius:var(--radius); margin-bottom:12px;}
-  .swipe-item .hist-card{margin-bottom:0;}
+  .swipe-item{position:relative; overflow:hidden;}
+  #history-list .swipe-item{border-radius:var(--radius); margin-bottom:12px;}
+  #history-list .swipe-item .hist-card{margin-bottom:0;}
+  #shoe-list > *:last-child.shoe-item,#shoe-list > *:last-child .shoe-item{border-bottom-color:transparent;}
+  .shoe-item.swipe-content{background:var(--asphalt-2);}
   .swipe-action-delete{position:absolute; top:0; right:0; bottom:0; width:78px; background:var(--danger);
     color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
   .swipe-content{position:relative; touch-action:pan-y; will-change:transform;}
@@ -256,7 +259,6 @@
   .avatar-big{width:54px; height:54px; border-radius:50%; background:var(--hivis-dim); color:var(--hivis); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; flex-shrink:0;}
   .shoe-item{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--asphalt-3); transition:background .12s ease;}
   .shoe-item:active{background:rgba(255,255,255,.03);}
-  .shoe-item:last-child{border-bottom:none;}
   .shoe-icon{width:36px; height:36px; border-radius:11px; background:var(--asphalt-3); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--mist);}
   .shoe-icon svg{width:19px; height:19px;}
   .shoe-info{flex:1;}
@@ -2118,13 +2120,13 @@ function renderPerfil(){
     }
     const threshold = s.terrain==='trail'?400:s.terrain==='mixto'?500:600;
     const pct = Math.min(100,(s.km/threshold)*100);
-    return `<div class="shoe-item"><div class="shoe-icon">${ICONS.shoe}</div><div class="shoe-info">
-      <div class="n">${s.name} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
-      <div class="muted mono" style="font-size:11.5px; margin-top:2px;">${s.km.toFixed(0)} / ${threshold} km</div>
-      <div class="wearbar ${pct>80?'warn':''}"><div style="width:${pct}%;"></div></div></div>
-      <div style="display:flex; flex-direction:column; gap:8px;">
+    return `<div class="swipe-item">
+      <div class="swipe-action-delete" onclick="deleteShoe(${s.id})"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
+      <div class="shoe-item swipe-content"><div class="shoe-icon">${ICONS.shoe}</div><div class="shoe-info">
+        <div class="n">${s.name} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
+        <div class="muted mono" style="font-size:11.5px; margin-top:2px;">${s.km.toFixed(0)} / ${threshold} km</div>
+        <div class="wearbar ${pct>80?'warn':''}"><div style="width:${pct}%;"></div></div></div>
         <button class="small-link" style="display:inline-flex;" onclick="startEditShoe(${s.id})"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.edit}</span></button>
-        <button class="small-link" style="display:inline-flex; color:var(--danger);" onclick="deleteShoe(${s.id})"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.trash}</span></button>
       </div></div>`;
   }).join('');
 
