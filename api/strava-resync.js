@@ -102,8 +102,8 @@ module.exports = async (req, res) => {
         for (const run of data.runs) {
           if (run.source !== 'strava' || !run.stravaId) continue;
           const hasBasics = run.elevationGain !== undefined && run.calories !== undefined;
-          const hasSplits = run.splits && run.splits.length;
-          if (hasBasics && hasSplits) continue; // ya tiene todo
+          const hasCurrentSplits = run.splitsV === 2;
+          if (hasBasics && hasCurrentSplits) continue; // ya tiene todo, con la versión más nueva de parciales
 
           if (!hasBasics) {
             const actRes = await fetch(`https://www.strava.com/api/v3/activities/${run.stravaId}`, {
@@ -122,8 +122,9 @@ module.exports = async (req, res) => {
               run.points = decodePolyline(act.map.summary_polyline);
             }
           }
-          if (!hasSplits) {
+          if (!hasCurrentSplits) {
             run.splits = await fetchSplits(run.stravaId, accessToken);
+            run.splitsV = 2;
           }
           changed = true;
           runsUpdated++;
