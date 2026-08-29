@@ -2,5 +2,19 @@
   "crons": [
     { "path": "/api/send-reminders", "schedule": "0 11 * * *" },
     { "path": "/api/sync-strava", "schedule": "*/15 * * * *" }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
   ]
 }
