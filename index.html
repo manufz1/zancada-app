@@ -1974,6 +1974,7 @@ async function showView(v){
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   document.getElementById('chatBar').classList.toggle('active', v==='coach');
+  (document.scrollingElement || document.documentElement).scrollTop = 0;
   if(v==='coach'){ scrollChatToBottom(); }
   if(v==='inicio'){ await refreshStateFromServer(); renderHome(); renderPlan(); }
   if(v==='history'){ await refreshStateFromServer(); renderHistory(); }
