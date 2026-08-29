@@ -1698,13 +1698,21 @@ function calcTrainingLoad(){
   const runs = state.runs || [];
   if(!runs.length) return null;
   const now = Date.now();
+  const earliestRunTime = Math.min(...runs.map(r=>new Date(r.date).getTime()));
+  const daysOfHistory = (now - earliestRunTime) / 86400000;
+  if(daysOfHistory < 14) return null; // menos de 2 semanas de carreras reales: todavía no hay con qué comparar de forma confiable
   const kmWithin = days => runs.reduce((a,r)=>{
     const diff = now - new Date(r.date).getTime();
     return (diff >= 0 && diff <= days*86400000) ? a + r.distanceKm : a;
   }, 0);
   const acuteKm = kmWithin(7);
-  const chronicWeeklyAvg = kmWithin(28) / 4;
-  if(chronicWeeklyAvg < 1) return null; // todavía no hay suficiente historial para comparar
+  // el promedio "crónico" se divide por las semanas de historial real que hay (hasta 4), no siempre por 4:
+  // si el usuario recién empieza o hubo una semana sin datos, dividir por 4 fijo infla el promedio para abajo
+  // y hace parecer "riesgo" cualquier semana normal de entrenamiento.
+  const chronicWindowDays = Math.min(28, daysOfHistory);
+  const chronicWeeks = chronicWindowDays / 7;
+  const chronicWeeklyAvg = kmWithin(chronicWindowDays) / chronicWeeks;
+  if(chronicWeeklyAvg < 1) return null; // todavía no hay suficiente volumen para comparar
   const ratio = acuteKm / chronicWeeklyAvg;
   let level;
   if(ratio < 0.8) level = 'low';
