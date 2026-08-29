@@ -43,6 +43,11 @@
   @keyframes blink{0%,100%{opacity:1;} 50%{opacity:.25;}}
   @media (prefers-reduced-motion:reduce){ .pulse-strip svg{animation:none;} }
 
+  #offline-banner{position:fixed; top:0; left:0; right:0; z-index:90; display:flex; align-items:center; justify-content:center; gap:7px;
+    background:var(--clay); color:var(--asphalt); font-size:12px; font-weight:700; padding:calc(8px + var(--safe-top)) 16px 8px;
+    transform:translateY(-100%); transition:transform .25s ease; pointer-events:none;}
+  #offline-banner.show{transform:translateY(0); pointer-events:auto;}
+
   #splash{position:fixed; inset:0; z-index:60; background:var(--asphalt); display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center; padding:32px; max-width:480px; margin:0 auto;}
   #splash .word{font-size:60px; line-height:.9;}
@@ -65,7 +70,8 @@
   .ob-step{display:none;}
   .ob-step.active{display:block; animation:viewFadeIn .22s ease;}
 
-  .toast-wrap{position:fixed; left:0; right:0; bottom:calc(78px + var(--safe-bottom)); display:flex; justify-content:center; z-index:85; pointer-events:none; padding:0 24px;}
+  .toast-wrap{position:fixed; left:0; right:0; bottom:calc(78px + var(--safe-bottom)); display:flex; justify-content:center; z-index:85; pointer-events:none; padding:0 24px; transition:bottom .15s ease;}
+  body.chat-kb-open .toast-wrap{bottom:calc(85px + (var(--safe-bottom) * 2));}
   .toast{background:var(--asphalt-4); color:var(--chalk); padding:13px 18px; border-radius:999px; font-size:13.5px; font-weight:600;
     box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; align-items:center; gap:8px; max-width:360px; text-align:center;
     opacity:0; transform:translateY(10px) scale(.96); transition:opacity .22s ease, transform .22s ease; pointer-events:auto;}
@@ -221,16 +227,25 @@
   .map-recenter-btn{position:absolute; bottom:12px; right:12px; z-index:10; width:40px; height:40px; border-radius:50%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .run-controls{display:flex; gap:10px; margin-top:16px;}
 
-  #chatLog{display:flex; flex-direction:column; gap:10px; padding-bottom:10px;}
-  .msg{max-width:82%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.5;}
+  #chatLog{display:flex; flex-direction:column; padding-bottom:10px;}
+  .msg{max-width:82%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.5; margin-bottom:10px;}
+  .msg.first,.msg.mid{margin-bottom:2px;}
   .msg.coach{background:var(--asphalt-2); align-self:flex-start; border-bottom-left-radius:4px; white-space:pre-wrap;}
   .msg.user{background:var(--hivis); color:var(--asphalt); align-self:flex-end; border-bottom-right-radius:4px; font-weight:600;}
-  .msg.system{align-self:center; background:none; color:var(--hivis); font-size:11.5px; text-align:center; max-width:100%; font-weight:700;}
+  .msg.system{align-self:center; background:none; color:var(--hivis); font-size:11.5px; text-align:center; max-width:100%; font-weight:700; margin-bottom:10px;}
+  .msg.coach.mid,.msg.coach.last{border-top-left-radius:6px;}
+  .msg.coach.first,.msg.coach.mid{border-bottom-left-radius:6px;}
+  .msg.user.mid,.msg.user.last{border-top-right-radius:6px;}
+  .msg.user.first,.msg.user.mid{border-bottom-right-radius:6px;}
+  .msg-time{display:flex; font-size:10.5px; color:var(--mist-dim); margin:-4px 0 10px; padding:0 4px;}
+  .msg-time.left{justify-content:flex-start; padding-left:14px;}
+  .msg-time.right{justify-content:flex-end; padding-right:14px;}
   .typing span{display:inline-block; width:6px; height:6px; background:var(--mist); border-radius:50%; margin-right:3px; animation:blink 1s infinite;}
   .typing span:nth-child(2){animation-delay:.15s;} .typing span:nth-child(3){animation-delay:.3s;}
   .chat-input-bar{position:fixed; bottom:calc(56px + var(--safe-bottom)); left:0; right:0; max-width:480px; margin:0 auto; background:var(--asphalt);
-    padding:10px 16px calc(14px + var(--safe-bottom)); display:none; gap:8px; border-top:1px solid var(--asphalt-3); z-index:25;}
+    padding:10px 16px calc(14px + var(--safe-bottom)); display:none; gap:8px; border-top:1px solid var(--asphalt-3); z-index:25; transition:bottom .15s ease;}
   .chat-input-bar.active{display:flex;}
+  .chat-input-bar.kb-open{bottom:var(--safe-bottom);}
   .chat-input-bar input{flex:1; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:13px 16px; border-radius:999px; font-size:15px; outline:none;}
   .chat-input-bar input:focus{border-color:var(--hivis);}
   .chat-send{background:var(--hivis); color:var(--asphalt); border:none; width:44px; height:44px; border-radius:50%; flex-shrink:0; font-size:18px; cursor:pointer;}
@@ -244,12 +259,16 @@
   .swipe-item{position:relative; overflow:hidden;}
   #history-list .swipe-item{border-radius:var(--radius); margin-bottom:12px;}
   #history-list .swipe-item .hist-card{margin-bottom:0;}
-  #shoe-list > *:last-child.shoe-item,#shoe-list > *:last-child .shoe-item{border-bottom-color:transparent;}
-  .shoe-item.swipe-content{background:var(--asphalt-2);}
   .swipe-action-delete{position:absolute; top:0; right:0; bottom:0; width:78px; background:var(--danger);
     color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
-  .swipe-content{position:relative; touch-action:pan-y; will-change:transform;}
+  .swipe-content{position:relative; touch-action:pan-y; will-change:transform; backface-visibility:hidden;}
   .swipe-content.swipe-anim{transition:transform .25s cubic-bezier(.22,1,.36,1);}
+  .shoe-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--asphalt-3);}
+  .shoe-row:last-child, #shoe-list > .shoe-item:last-child{border-bottom:none;}
+  .shoe-row .swipe-item{flex:1; min-width:0;}
+  .shoe-row .swipe-content{background:var(--asphalt-2); display:flex; align-items:center; gap:10px;}
+  .shoe-row .shoe-info{min-width:0;}
+  .shoe-row .shoe-info .n{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .hist-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
   .hist-date{font-size:12px; color:var(--mist);}
   .hist-route{width:100%; height:104px; background:var(--asphalt-3); border-radius:var(--radius-sm); margin:10px 0;}
@@ -312,6 +331,8 @@
 </head>
 <body>
 <div id="app">
+
+  <div id="offline-banner"><span class="icon-sq" style="width:14px; height:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.5a10 10 0 0 1 5-2.7"/><path d="M19 12.5a10 10 0 0 0-2.3-1.9"/><path d="M2 8.5a15 15 0 0 1 4.2-2.8"/><path d="M22 8.5a15 15 0 0 0-9-4.4"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span><span data-i18n="offline_banner"></span></div>
 
   <div id="splash">
     <div class="pulse-strip"><svg viewBox="0 0 300 40" preserveAspectRatio="none"><path d="M0 20 H40 L48 6 L58 34 L66 20 H90 L98 8 L108 32 L116 20 H150 H190 L198 6 L208 34 L216 20 H240 L248 8 L258 32 L266 20 H300 L308 6 L318 34 L326 20 H350 H390 L398 6 L408 34 L416 20 H440 L448 8 L458 32 L466 20 H500 L508 6 L518 34 L526 20 H600" fill="none" stroke="#D6FF3F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
@@ -840,7 +861,7 @@ login_title:"Iniciá sesión",login_lead:"Iniciá sesión o creá tu cuenta. Tus
 ob_security_q_label:"Pregunta de seguridad",security_q_fixed:"¿Cómo se llamaba tu primera mascota?",
 ob_title:"Contame de vos",ob_lead:"Con esto arma tu coach un plan inicial. Después se afina hablando con vos.",ob_step2_title:"Tus datos físicos",ob_step3_title:"Tu experiencia",ob_step4_title:"Tus días de entrenamiento",ob_step5_title:"Tu objetivo",ob_name_label:"Tu nombre",ob_name_ph:"¿Cómo te llamás?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Fecha de nacimiento",ob_runnertype_label:"¿Ya corrés activamente o sos nuevo en esto?",ob_runnertype_new:"Soy nuevo/a",ob_runnertype_active:"Ya corro",ob_currentkm_label:"¿Cuántos km corrés por semana actualmente?",ob_newrunner_note:"Perfecto — vamos a arrancar con carga baja para que tu cuerpo se adapte bien, y subimos de a poco. Contale al coach en cuánto tiempo te gustaría prepararte, si tenés una fecha en mente.",ob_weeklykm_label:"¿Cuántos km corriste esta última semana?",ob_weeklykm_hint:"Si ponés 0, armamos un plan para arrancar desde cero.",ob_terrain_label:"Terreno donde más corrés",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixto",ob_goal_label:"¿Qué querés trabajar?",ob_goal_start:"Empezar a correr desde cero",ob_goal_5k:"Preparar un 5K",ob_goal_10k:"Preparar un 10K",ob_goal_15k:"Preparar un 15K",ob_goal_21k:"Preparar una media maratón",ob_goal_42k:"Preparar una maratón",ob_goal_ultra:"Más de 42K / ultra",ob_goal_lifestyle:"Salud y estilo de vida, sin carrera puntual",ob_racedate_label:"Fecha de tu carrera (opcional)",ob_racedate_hint:"Si la tenés, el coach arma el plan con el tiempo justo para llegar bien.",date_placeholder:"Elegir fecha",perfil_weeklykm_auto_note:"Los km semanales los calcula el coach solo, según tu objetivo y la fecha de carrera.",perfil_goal_km_check_hint:"Como cambiaste el objetivo, contanos cuánto corrés ahora para armar el plan desde tu realidad actual.",ob_hrmax_label:"¿Conocés tu frecuencia cardíaca máxima?",ob_hrmax_yes:"Sí, la sé",ob_hrmax_no:"No la sé",ob_hrmax_unknown_msg:"Sin un test no la podemos calcular con precisión. Te recomendamos un test de lactato o una prueba de esfuerzo con un profesional. Mientras tanto usamos una estimación según tu edad.",ob_submit:"Crear mi plan",
 nav_home:"Inicio",nav_plan:"Plan",nav_run:"Correr",nav_history:"Historial",nav_coach:"Coach",nav_profile:"Perfil",
-home_hi:"Hola,",home_next:"Tu próxima sesión",home_week:"Esta semana",home_km_done:"Hechos",home_km_planned:"Planeados",home_sessions:"Sesiones",home_logged:"Registradas",home_coach_cta:"Hablar con tu coach →",home_load_title:"Carga de entrenamiento",home_load_low:"Baja",home_load_optimal:"Óptima",home_load_caution:"Atención",home_load_risk:"Riesgo",home_load_hint_low:"Corriste bastante menos que tu promedio de las últimas semanas. Está bien si es un descanso buscado.",home_load_hint_optimal:"Tu carga de esta semana está en línea con tu promedio reciente. Vas bien.",home_load_hint_caution:"Esta semana corriste bastante más que tu promedio. Prestá atención a cómo te sentís.",home_load_hint_risk:"Subiste el volumen muy rápido respecto a tus últimas semanas. Considerá bajar un poco para evitar lesiones.",plan_taper_tag:"Semana de afinamiento",plan_taper_note:"Bajamos el volumen a propósito: se viene tu carrera y esta es la puesta a punto final.",sync_pending_title:"Tenés cambios guardados en el teléfono, sin subir todavía — se van a sincronizar solos apenas vuelva la conexión.",home_msg_new:"Todavía no registraste ninguna carrera — cuando quieras, arrancamos. ¿Cómo dormiste anoche?",home_msg_going:"Vas bien, seguí así. ¿Cómo te sentís hoy?",home_msg_pain:"Si algo te duele en la sesión de hoy, contame en el chat antes de forzar.",
+home_hi:"Hola,",home_next:"Tu próxima sesión",home_week:"Esta semana",home_km_done:"Hechos",home_km_planned:"Planeados",home_sessions:"Sesiones",home_logged:"Registradas",home_coach_cta:"Hablar con tu coach →",home_load_title:"Carga de entrenamiento",home_load_low:"Baja",home_load_optimal:"Óptima",home_load_caution:"Atención",home_load_risk:"Riesgo",home_load_hint_low:"Corriste bastante menos que tu promedio de las últimas semanas. Está bien si es un descanso buscado.",home_load_hint_optimal:"Tu carga de esta semana está en línea con tu promedio reciente. Vas bien.",home_load_hint_caution:"Esta semana corriste bastante más que tu promedio. Prestá atención a cómo te sentís.",home_load_hint_risk:"Subiste el volumen muy rápido respecto a tus últimas semanas. Considerá bajar un poco para evitar lesiones.",plan_taper_tag:"Semana de afinamiento",plan_taper_note:"Bajamos el volumen a propósito: se viene tu carrera y esta es la puesta a punto final.",sync_pending_title:"Tenés cambios guardados en el teléfono, sin subir todavía — se van a sincronizar solos apenas vuelva la conexión.",offline_banner:"Sin conexión — se guarda en tu teléfono y se sincroniza solo cuando vuelva.",home_msg_new:"Todavía no registraste ninguna carrera — cuando quieras, arrancamos. ¿Cómo dormiste anoche?",home_msg_going:"Vas bien, seguí así. ¿Cómo te sentís hoy?",home_msg_pain:"Si algo te duele en la sesión de hoy, contame en el chat antes de forzar.",
 plan_title:"Tu semana",plan_lead:"Tocá un día para ver el detalle.",plan_adjust:"Pedir un ajuste al coach",
 type_rest:"Descanso",type_easy:"Rodaje suave",type_intervals:"Series",type_tempo:"Ritmo medio",type_long:"Tirada larga",
 desc_rest:"Día libre. Movilidad opcional 10-15 min.",desc_easy:"Ritmo cómodo de punta a punta — deberías poder hablar en frases completas sin ahogarte. Si te cuesta hablar, vas muy rápido: bajá el ritmo.",desc_easy_beginner:"Trote suave, alternando con caminata cuando lo necesites, sin apuro. La idea es sumar minutos en movimiento, no velocidad.",desc_intervals:"Intervalos fuertes con trote de recuperación entre repeticiones.",desc_tempo:"10 minutos de trote suave para entrar en calor. Después mantené un ritmo exigente pero sostenible el resto de la sesión, y cerrá con 5-10 minutos de trote suave.",desc_long:"Arrancá relajado y mantené un ritmo parejo toda la sesión, sin buscar velocidad — el objetivo es el tiempo en las piernas. Llevá agua si hace calor o si son más de 10km.",desc_long_beginner:"Tu sesión más larga de la semana, sin ningún apuro. Caminá los tramos que necesites — completarla importa más que el ritmo.",desc_intervals_detail:"Hacé {reps} repeticiones de {meters}m fuerte (zona {zone}), con {rest} min de trote suave de recuperación entre cada una. Sumale 10-15 min de trote muy suave antes y después, para calentar y enfriar.",desc_zone_suffix:" Buscá mantenerte en zona {zone} durante el tramo principal.",
@@ -865,7 +886,7 @@ login_title:"Sign in",login_lead:"Sign in or create your account. Your data is r
 ob_security_q_label:"Security question",security_q_fixed:"What was the name of your first pet?",
 ob_title:"Tell us about you",ob_lead:"Your coach uses this to build a first plan, then fine-tunes it by talking with you.",ob_step2_title:"Your physical info",ob_step3_title:"Your experience",ob_step4_title:"Your training days",ob_step5_title:"Your goal",ob_name_label:"Your name",ob_name_ph:"What should we call you?",ob_weight_label:"Weight (kg)",ob_height_label:"Height (cm)",ob_birth_label:"Date of birth",ob_runnertype_label:"Are you already running actively, or new to this?",ob_runnertype_new:"I'm new",ob_runnertype_active:"I already run",ob_currentkm_label:"How many km do you currently run per week?",ob_newrunner_note:"Perfect — we'll start light so your body adapts well, and build up gradually. Tell your coach how much time you'd like to prepare, if you have a date in mind.",ob_weeklykm_label:"How many km did you run last week?",ob_weeklykm_hint:"If you enter 0, we build a plan to start from zero.",ob_terrain_label:"Terrain you run most",ob_terrain_asfalto:"Road",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixed",ob_goal_label:"What do you want to work on?",ob_goal_start:"Start running from scratch",ob_goal_5k:"Train for a 5K",ob_goal_10k:"Train for a 10K",ob_goal_15k:"Train for a 15K",ob_goal_21k:"Train for a half marathon",ob_goal_42k:"Train for a marathon",ob_goal_ultra:"Beyond 42K / ultra",ob_goal_lifestyle:"Health and lifestyle, no specific race",ob_racedate_label:"Your race date (optional)",ob_racedate_hint:"If you have one, your coach builds the plan around the time you actually have.",date_placeholder:"Choose date",perfil_weeklykm_auto_note:"Weekly km are calculated automatically by the coach, based on your goal and race date.",perfil_goal_km_check_hint:"Since you changed your goal, tell us how much you currently run so we can build the plan from where you actually are.",ob_hrmax_label:"Do you know your max heart rate?",ob_hrmax_yes:"Yes, I know it",ob_hrmax_no:"I don't know it",ob_hrmax_unknown_msg:"Without a test we can't calculate it precisely. We recommend a lactate test or a stress test with a professional. Meanwhile we use an age-based estimate.",ob_submit:"Create my plan",
 nav_home:"Home",nav_plan:"Plan",nav_run:"Run",nav_history:"History",nav_coach:"Coach",nav_profile:"Profile",
-home_hi:"Hi,",home_next:"Your next session",home_week:"This week",home_km_done:"Done",home_km_planned:"Planned",home_sessions:"Sessions",home_logged:"Logged",home_coach_cta:"Talk to your coach →",home_load_title:"Training load",home_load_low:"Low",home_load_optimal:"Optimal",home_load_caution:"Caution",home_load_risk:"Risk",home_load_hint_low:"You ran quite a bit less than your recent average. That's fine if it's a planned rest.",home_load_hint_optimal:"Your load this week is in line with your recent average. You're doing great.",home_load_hint_caution:"You ran quite a bit more than your average this week. Pay attention to how you feel.",home_load_hint_risk:"You ramped up volume too fast compared to recent weeks. Consider easing off a bit to avoid injury.",plan_taper_tag:"Taper week",plan_taper_note:"We lowered the volume on purpose: your race is coming up and this is the final taper.",sync_pending_title:"You have changes saved on your phone that haven't uploaded yet — they'll sync automatically once you're back online.",home_msg_new:"You haven't logged a run yet — whenever you're ready. How did you sleep last night?",home_msg_going:"You're doing great, keep it up. How are you feeling today?",home_msg_pain:"If anything hurts during today's session, tell me in the chat before pushing through.",
+home_hi:"Hi,",home_next:"Your next session",home_week:"This week",home_km_done:"Done",home_km_planned:"Planned",home_sessions:"Sessions",home_logged:"Logged",home_coach_cta:"Talk to your coach →",home_load_title:"Training load",home_load_low:"Low",home_load_optimal:"Optimal",home_load_caution:"Caution",home_load_risk:"Risk",home_load_hint_low:"You ran quite a bit less than your recent average. That's fine if it's a planned rest.",home_load_hint_optimal:"Your load this week is in line with your recent average. You're doing great.",home_load_hint_caution:"You ran quite a bit more than your average this week. Pay attention to how you feel.",home_load_hint_risk:"You ramped up volume too fast compared to recent weeks. Consider easing off a bit to avoid injury.",plan_taper_tag:"Taper week",plan_taper_note:"We lowered the volume on purpose: your race is coming up and this is the final taper.",sync_pending_title:"You have changes saved on your phone that haven't uploaded yet — they'll sync automatically once you're back online.",offline_banner:"No connection — saved on your phone, will sync automatically once you're back online.",home_msg_new:"You haven't logged a run yet — whenever you're ready. How did you sleep last night?",home_msg_going:"You're doing great, keep it up. How are you feeling today?",home_msg_pain:"If anything hurts during today's session, tell me in the chat before pushing through.",
 plan_title:"Your week",plan_lead:"Tap a day to see the detail.",plan_adjust:"Ask your coach for a change",
 type_rest:"Rest",type_easy:"Easy run",type_intervals:"Intervals",type_tempo:"Tempo run",type_long:"Long run",
 desc_rest:"Day off. Optional 10-15 min mobility.",desc_easy:"Comfortable pace the whole way — you should be able to talk in full sentences without gasping. If talking is hard, you're going too fast: slow down.",desc_easy_beginner:"Easy jog, mixing in walking breaks whenever you need to, no rush. The goal is time on your feet, not speed.",desc_intervals:"Hard intervals with easy jogging in between reps.",desc_tempo:"10 minutes of easy jogging to warm up. Then hold a hard but sustainable pace for the rest of the session, and finish with 5-10 minutes of easy jogging.",desc_long:"Start relaxed and hold a steady pace the whole way, not chasing speed — the goal is time on your legs. Bring water if it's hot or if it's over 10km.",desc_long_beginner:"Your longest session of the week, no rush at all. Walk any stretch you need to — finishing matters more than pace.",desc_intervals_detail:"Do {reps} reps of {meters}m hard (zone {zone}), with {rest} min of easy jogging to recover between each one. Add 10-15 min of very easy jogging before and after, to warm up and cool down.",desc_zone_suffix:" Try to stay in zone {zone} during the main portion.",
@@ -890,7 +911,7 @@ login_title:"Entrar",login_lead:"Entre ou crie sua conta. Seus dados ficam salvo
 ob_security_q_label:"Pergunta de segurança",security_q_fixed:"Qual era o nome do seu primeiro animal de estimação?",
 ob_title:"Conte sobre você",ob_lead:"Seu coach usa isso para montar um plano inicial. Depois ajusta conversando com você.",ob_step2_title:"Seus dados físicos",ob_step3_title:"Sua experiência",ob_step4_title:"Seus dias de treino",ob_step5_title:"Seu objetivo",ob_name_label:"Seu nome",ob_name_ph:"Como podemos te chamar?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Data de nascimento",ob_runnertype_label:"Você já corre ativamente ou é novo nisso?",ob_runnertype_new:"Sou novo/a",ob_runnertype_active:"Já corro",ob_currentkm_label:"Quantos km você corre por semana atualmente?",ob_newrunner_note:"Perfeito — vamos começar leve para seu corpo se adaptar bem, e subir aos poucos. Conte ao coach em quanto tempo você gostaria de se preparar, se tiver uma data em mente.",ob_weeklykm_label:"Quantos km você correu na última semana?",ob_weeklykm_hint:"Se colocar 0, montamos um plano para começar do zero.",ob_terrain_label:"Terreno onde mais corre",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trilha",ob_terrain_mixto:"Misto",ob_goal_label:"O que você quer trabalhar?",ob_goal_start:"Começar a correr do zero",ob_goal_5k:"Treinar para um 5K",ob_goal_10k:"Treinar para um 10K",ob_goal_15k:"Treinar para um 15K",ob_goal_21k:"Treinar para uma meia maratona",ob_goal_42k:"Treinar para uma maratona",ob_goal_ultra:"Mais de 42K / ultra",ob_goal_lifestyle:"Saúde e estilo de vida, sem prova específica",ob_racedate_label:"Data da sua prova (opcional)",ob_racedate_hint:"Se tiver uma, o coach monta o plano com o tempo certo até lá.",date_placeholder:"Escolher data",perfil_weeklykm_auto_note:"Os km semanais são calculados automaticamente pelo coach, de acordo com seu objetivo e a data da prova.",perfil_goal_km_check_hint:"Como você mudou o objetivo, conte quanto você corre agora para montar o plano a partir da sua realidade atual.",ob_hrmax_label:"Você conhece sua frequência cardíaca máxima?",ob_hrmax_yes:"Sim, eu sei",ob_hrmax_no:"Não sei",ob_hrmax_unknown_msg:"Sem um teste não conseguimos calcular com precisão. Recomendamos um teste de lactato ou de esforço com um profissional. Enquanto isso, usamos uma estimativa pela sua idade.",ob_submit:"Criar meu plano",
 nav_home:"Início",nav_plan:"Plano",nav_run:"Correr",nav_history:"Histórico",nav_coach:"Coach",nav_profile:"Perfil",
-home_hi:"Olá,",home_next:"Sua próxima sessão",home_week:"Esta semana",home_km_done:"Feitos",home_km_planned:"Planejados",home_sessions:"Sessões",home_logged:"Registradas",home_coach_cta:"Falar com seu coach →",home_load_title:"Carga de treino",home_load_low:"Baixa",home_load_optimal:"Ótima",home_load_caution:"Atenção",home_load_risk:"Risco",home_load_hint_low:"Você correu bem menos que sua média recente. Tudo bem se for um descanso planejado.",home_load_hint_optimal:"Sua carga desta semana está alinhada com sua média recente. Você está indo bem.",home_load_hint_caution:"Você correu bem mais que sua média esta semana. Preste atenção em como está se sentindo.",home_load_hint_risk:"Você aumentou o volume rápido demais em relação às últimas semanas. Considere reduzir um pouco para evitar lesões.",plan_taper_tag:"Semana de polimento",plan_taper_note:"Baixamos o volume de propósito: sua prova está chegando e essa é a polida final.",sync_pending_title:"Você tem alterações salvas no celular que ainda não foram enviadas — vão sincronizar sozinhas assim que a conexão voltar.",home_msg_new:"Você ainda não registrou nenhuma corrida — quando quiser, começamos. Como você dormiu ontem?",home_msg_going:"Você está indo bem, continue assim. Como está se sentindo hoje?",home_msg_pain:"Se algo doer na sessão de hoje, me conte no chat antes de forçar.",
+home_hi:"Olá,",home_next:"Sua próxima sessão",home_week:"Esta semana",home_km_done:"Feitos",home_km_planned:"Planejados",home_sessions:"Sessões",home_logged:"Registradas",home_coach_cta:"Falar com seu coach →",home_load_title:"Carga de treino",home_load_low:"Baixa",home_load_optimal:"Ótima",home_load_caution:"Atenção",home_load_risk:"Risco",home_load_hint_low:"Você correu bem menos que sua média recente. Tudo bem se for um descanso planejado.",home_load_hint_optimal:"Sua carga desta semana está alinhada com sua média recente. Você está indo bem.",home_load_hint_caution:"Você correu bem mais que sua média esta semana. Preste atenção em como está se sentindo.",home_load_hint_risk:"Você aumentou o volume rápido demais em relação às últimas semanas. Considere reduzir um pouco para evitar lesões.",plan_taper_tag:"Semana de polimento",plan_taper_note:"Baixamos o volume de propósito: sua prova está chegando e essa é a polida final.",sync_pending_title:"Você tem alterações salvas no celular que ainda não foram enviadas — vão sincronizar sozinhas assim que a conexão voltar.",offline_banner:"Sem conexão — fica salvo no celular e sincroniza sozinho quando voltar.",home_msg_new:"Você ainda não registrou nenhuma corrida — quando quiser, começamos. Como você dormiu ontem?",home_msg_going:"Você está indo bem, continue assim. Como está se sentindo hoje?",home_msg_pain:"Se algo doer na sessão de hoje, me conte no chat antes de forçar.",
 plan_title:"Sua semana",plan_lead:"Toque em um dia para ver o detalhe.",plan_adjust:"Pedir um ajuste ao coach",
 type_rest:"Descanso",type_easy:"Corrida leve",type_intervals:"Tiros",type_tempo:"Ritmo médio",type_long:"Longão",
 desc_rest:"Dia livre. Mobilidade opcional 10-15 min.",desc_easy:"Ritmo confortável do início ao fim — você deveria conseguir falar em frases completas sem ofegar. Se está difícil falar, você está rápido demais: diminua o ritmo.",desc_easy_beginner:"Trote leve, alternando com caminhada sempre que precisar, sem pressa. A ideia é somar minutos em movimento, não velocidade.",desc_intervals:"Tiros fortes com trote de recuperação entre as repetições.",desc_tempo:"10 minutos de trote leve para aquecer. Depois mantenha um ritmo exigente mas sustentável pelo resto da sessão, e feche com 5-10 minutos de trote leve.",desc_long:"Comece relaxado e mantenha um ritmo constante durante toda a sessão, sem buscar velocidade — o objetivo é tempo nas pernas. Leve água se estiver calor ou se forem mais de 10km.",desc_long_beginner:"Sua sessão mais longa da semana, sem nenhuma pressa. Caminhe nos trechos que precisar — terminar importa mais que o ritmo.",desc_intervals_detail:"Faça {reps} repetições de {meters}m forte (zona {zone}), com {rest} min de trote leve de recuperação entre cada uma. Some 10-15 min de trote bem leve antes e depois, para aquecer e desaquecer.",desc_zone_suffix:" Tente se manter na zona {zone} durante o trecho principal.",
@@ -915,7 +936,7 @@ login_title:"Connexion",login_lead:"Connecte-toi ou crée ton compte. Tes donné
 ob_security_q_label:"Question de sécurité",security_q_fixed:"Quel était le nom de ton premier animal de compagnie ?",
 ob_title:"Parle-nous de toi",ob_lead:"Ton coach s'en sert pour créer un premier plan, puis l'ajuste en discutant avec toi.",ob_step2_title:"Tes infos physiques",ob_step3_title:"Ton expérience",ob_step4_title:"Tes jours d'entraînement",ob_step5_title:"Ton objectif",ob_name_label:"Ton prénom",ob_name_ph:"Comment tu t'appelles ?",ob_weight_label:"Poids (kg)",ob_height_label:"Taille (cm)",ob_birth_label:"Date de naissance",ob_runnertype_label:"Tu cours déjà activement, ou tu débutes ?",ob_runnertype_new:"Je débute",ob_runnertype_active:"Je cours déjà",ob_currentkm_label:"Combien de km cours-tu par semaine actuellement ?",ob_newrunner_note:"Parfait — on va commencer léger pour que ton corps s'adapte bien, et augmenter petit à petit. Dis à ton coach en combien de temps tu aimerais te préparer, si tu as une date en tête.",ob_weeklykm_label:"Combien de km as-tu couru la semaine dernière ?",ob_weeklykm_hint:"Si tu mets 0, on crée un plan pour démarrer de zéro.",ob_terrain_label:"Terrain où tu cours le plus",ob_terrain_asfalto:"Route",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixte",ob_goal_label:"Sur quoi veux-tu travailler ?",ob_goal_start:"Commencer à courir de zéro",ob_goal_5k:"Préparer un 5K",ob_goal_10k:"Préparer un 10K",ob_goal_15k:"Préparer un 15K",ob_goal_21k:"Préparer un semi-marathon",ob_goal_42k:"Préparer un marathon",ob_goal_ultra:"Plus de 42K / ultra",ob_goal_lifestyle:"Santé et hygiène de vie, sans course précise",ob_racedate_label:"Date de ta course (facultatif)",ob_racedate_hint:"Si tu en as une, ton coach construit le plan avec le temps qu'il te reste vraiment.",date_placeholder:"Choisir une date",perfil_weeklykm_auto_note:"Les km hebdomadaires sont calculés automatiquement par le coach, selon ton objectif et la date de course.",perfil_goal_km_check_hint:"Comme tu as changé d'objectif, dis-nous combien tu cours actuellement pour construire le plan à partir de ta réalité.",ob_hrmax_label:"Connais-tu ta fréquence cardiaque max ?",ob_hrmax_yes:"Oui, je la connais",ob_hrmax_no:"Je ne la connais pas",ob_hrmax_unknown_msg:"Sans test, on ne peut pas la calculer précisément. On te recommande un test lactate ou une épreuve d'effort avec un professionnel. En attendant, on utilise une estimation selon ton âge.",ob_submit:"Créer mon plan",
 nav_home:"Accueil",nav_plan:"Plan",nav_run:"Courir",nav_history:"Historique",nav_coach:"Coach",nav_profile:"Profil",
-home_hi:"Salut,",home_next:"Ta prochaine séance",home_week:"Cette semaine",home_km_done:"Faits",home_km_planned:"Prévus",home_sessions:"Séances",home_logged:"Enregistrées",home_coach_cta:"Parler à ton coach →",home_load_title:"Charge d'entraînement",home_load_low:"Faible",home_load_optimal:"Optimale",home_load_caution:"Attention",home_load_risk:"Risque",home_load_hint_low:"Tu as couru pas mal moins que ta moyenne récente. C'est ok si c'est un repos voulu.",home_load_hint_optimal:"Ta charge cette semaine est alignée avec ta moyenne récente. Tu es sur la bonne voie.",home_load_hint_caution:"Tu as couru pas mal plus que ta moyenne cette semaine. Fais attention à comment tu te sens.",home_load_hint_risk:"Tu as augmenté le volume trop vite par rapport aux dernières semaines. Pense à lever un peu le pied pour éviter une blessure.",plan_taper_tag:"Semaine d'affûtage",plan_taper_note:"On a baissé le volume exprès : ta course approche et c'est l'affûtage final.",sync_pending_title:"Tu as des changements enregistrés sur ton téléphone qui ne sont pas encore envoyés — ils vont se synchroniser tout seuls dès que la connexion revient.",home_msg_new:"Tu n'as encore enregistré aucune course — quand tu veux. Tu as bien dormi cette nuit ?",home_msg_going:"Tu progresses bien, continue comme ça. Comment tu te sens aujourd'hui ?",home_msg_pain:"Si quelque chose te fait mal pendant la séance, dis-le-moi dans le chat avant de forcer.",
+home_hi:"Salut,",home_next:"Ta prochaine séance",home_week:"Cette semaine",home_km_done:"Faits",home_km_planned:"Prévus",home_sessions:"Séances",home_logged:"Enregistrées",home_coach_cta:"Parler à ton coach →",home_load_title:"Charge d'entraînement",home_load_low:"Faible",home_load_optimal:"Optimale",home_load_caution:"Attention",home_load_risk:"Risque",home_load_hint_low:"Tu as couru pas mal moins que ta moyenne récente. C'est ok si c'est un repos voulu.",home_load_hint_optimal:"Ta charge cette semaine est alignée avec ta moyenne récente. Tu es sur la bonne voie.",home_load_hint_caution:"Tu as couru pas mal plus que ta moyenne cette semaine. Fais attention à comment tu te sens.",home_load_hint_risk:"Tu as augmenté le volume trop vite par rapport aux dernières semaines. Pense à lever un peu le pied pour éviter une blessure.",plan_taper_tag:"Semaine d'affûtage",plan_taper_note:"On a baissé le volume exprès : ta course approche et c'est l'affûtage final.",sync_pending_title:"Tu as des changements enregistrés sur ton téléphone qui ne sont pas encore envoyés — ils vont se synchroniser tout seuls dès que la connexion revient.",offline_banner:"Pas de connexion — c'est enregistré sur ton téléphone et ça se synchronise tout seul au retour.",home_msg_new:"Tu n'as encore enregistré aucune course — quand tu veux. Tu as bien dormi cette nuit ?",home_msg_going:"Tu progresses bien, continue comme ça. Comment tu te sens aujourd'hui ?",home_msg_pain:"Si quelque chose te fait mal pendant la séance, dis-le-moi dans le chat avant de forcer.",
 plan_title:"Ta semaine",plan_lead:"Touche un jour pour voir le détail.",plan_adjust:"Demander un ajustement au coach",
 type_rest:"Repos",type_easy:"Footing",type_intervals:"Fractionné",type_tempo:"Allure soutenue",type_long:"Sortie longue",
 desc_rest:"Jour de repos. Mobilité optionnelle 10-15 min.",desc_easy:"Allure confortable du début à la fin — tu dois pouvoir parler en phrases complètes sans être essoufflé. Si parler est difficile, tu vas trop vite : ralentis.",desc_easy_beginner:"Footing tranquille, en alternant avec de la marche quand tu en as besoin, sans te presser. L'objectif, c'est du temps en mouvement, pas de la vitesse.",desc_intervals:"Fractionnés intenses avec trot de récupération entre les répétitions.",desc_tempo:"10 minutes de footing tranquille pour t'échauffer. Ensuite, tiens une allure exigeante mais tenable le reste de la séance, et termine par 5-10 minutes de footing tranquille.",desc_long:"Démarre détendu et garde une allure régulière toute la séance, sans chercher la vitesse — l'objectif, c'est le temps passé sur tes jambes. Emporte de l'eau s'il fait chaud ou si ça dépasse 10km.",desc_long_beginner:"Ta séance la plus longue de la semaine, sans te presser du tout. Marche les portions nécessaires — finir compte plus que l'allure.",desc_intervals_detail:"Fais {reps} répétitions de {meters}m soutenu (zone {zone}), avec {rest} min de trot de récupération entre chaque. Ajoute 10-15 min de trot très tranquille avant et après, pour t'échauffer et récupérer.",desc_zone_suffix:" Essaie de rester en zone {zone} pendant la portion principale.",
@@ -940,7 +961,7 @@ login_title:"Accedi",login_lead:"Accedi o crea il tuo account. I tuoi dati vengo
 ob_security_q_label:"Domanda di sicurezza",security_q_fixed:"Come si chiamava il tuo primo animale domestico?",
 ob_title:"Parlaci di te",ob_lead:"Il coach usa queste info per creare un primo piano, poi lo affina parlando con te.",ob_step2_title:"I tuoi dati fisici",ob_step3_title:"La tua esperienza",ob_step4_title:"I tuoi giorni di allenamento",ob_step5_title:"Il tuo obiettivo",ob_name_label:"Il tuo nome",ob_name_ph:"Come ti chiami?",ob_weight_label:"Peso (kg)",ob_height_label:"Altezza (cm)",ob_birth_label:"Data di nascita",ob_runnertype_label:"Corri già attivamente o sei nuovo/a?",ob_runnertype_new:"Sono nuovo/a",ob_runnertype_active:"Corro già",ob_currentkm_label:"Quanti km corri attualmente a settimana?",ob_newrunner_note:"Perfetto — inizieremo con un carico basso perché il tuo corpo si adatti bene, e aumenteremo poco alla volta. Di' al coach in quanto tempo vorresti prepararti, se hai una data in mente.",ob_weeklykm_label:"Quanti km hai corso la settimana scorsa?",ob_weeklykm_hint:"Se metti 0, creiamo un piano per partire da zero.",ob_terrain_label:"Terreno dove corri di più",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Misto",ob_goal_label:"Su cosa vuoi lavorare?",ob_goal_start:"Iniziare a correre da zero",ob_goal_5k:"Preparare una 5K",ob_goal_10k:"Preparare una 10K",ob_goal_15k:"Preparare una 15K",ob_goal_21k:"Preparare una mezza maratona",ob_goal_42k:"Preparare una maratona",ob_goal_ultra:"Oltre 42K / ultra",ob_goal_lifestyle:"Salute e stile di vita, senza gara specifica",ob_racedate_label:"Data della tua gara (opzionale)",ob_racedate_hint:"Se ne hai una, il coach costruisce il piano con il tempo che hai davvero.",date_placeholder:"Scegli data",perfil_weeklykm_auto_note:"I km settimanali sono calcolati automaticamente dal coach, in base al tuo obiettivo e alla data della gara.",perfil_goal_km_check_hint:"Dato che hai cambiato obiettivo, dicci quanto corri adesso per costruire il piano dalla tua situazione reale.",ob_hrmax_label:"Conosci la tua frequenza cardiaca massima?",ob_hrmax_yes:"Sì, la conosco",ob_hrmax_no:"Non la conosco",ob_hrmax_unknown_msg:"Senza un test non possiamo calcolarla con precisione. Ti consigliamo un test del lattato o una prova da sforzo con un professionista. Nel frattempo usiamo una stima in base all'età.",ob_submit:"Crea il mio piano",
 nav_home:"Home",nav_plan:"Piano",nav_run:"Corri",nav_history:"Storico",nav_coach:"Coach",nav_profile:"Profilo",
-home_hi:"Ciao,",home_next:"La tua prossima sessione",home_week:"Questa settimana",home_km_done:"Fatti",home_km_planned:"Previsti",home_sessions:"Sessioni",home_logged:"Registrate",home_coach_cta:"Parla con il tuo coach →",home_load_title:"Carico di allenamento",home_load_low:"Basso",home_load_optimal:"Ottimale",home_load_caution:"Attenzione",home_load_risk:"Rischio",home_load_hint_low:"Hai corso parecchio meno della tua media recente. Va bene se è un riposo cercato.",home_load_hint_optimal:"Il tuo carico di questa settimana è in linea con la tua media recente. Stai andando bene.",home_load_hint_caution:"Questa settimana hai corso parecchio più della tua media. Presta attenzione a come ti senti.",home_load_hint_risk:"Hai aumentato il volume troppo in fretta rispetto alle ultime settimane. Valuta di rallentare un po' per evitare infortuni.",plan_taper_tag:"Settimana di tapering",plan_taper_note:"Abbiamo abbassato il volume di proposito: la tua gara si avvicina ed è la fase finale di scarico.",sync_pending_title:"Hai modifiche salvate sul telefono non ancora caricate — si sincronizzeranno da sole appena torna la connessione.",home_msg_new:"Non hai ancora registrato nessuna corsa — quando vuoi iniziamo. Come hai dormito stanotte?",home_msg_going:"Stai andando bene, continua così. Come ti senti oggi?",home_msg_pain:"Se qualcosa fa male durante la sessione di oggi, scrivimelo in chat prima di forzare.",
+home_hi:"Ciao,",home_next:"La tua prossima sessione",home_week:"Questa settimana",home_km_done:"Fatti",home_km_planned:"Previsti",home_sessions:"Sessioni",home_logged:"Registrate",home_coach_cta:"Parla con il tuo coach →",home_load_title:"Carico di allenamento",home_load_low:"Basso",home_load_optimal:"Ottimale",home_load_caution:"Attenzione",home_load_risk:"Rischio",home_load_hint_low:"Hai corso parecchio meno della tua media recente. Va bene se è un riposo cercato.",home_load_hint_optimal:"Il tuo carico di questa settimana è in linea con la tua media recente. Stai andando bene.",home_load_hint_caution:"Questa settimana hai corso parecchio più della tua media. Presta attenzione a come ti senti.",home_load_hint_risk:"Hai aumentato il volume troppo in fretta rispetto alle ultime settimane. Valuta di rallentare un po' per evitare infortuni.",plan_taper_tag:"Settimana di tapering",plan_taper_note:"Abbiamo abbassato il volume di proposito: la tua gara si avvicina ed è la fase finale di scarico.",sync_pending_title:"Hai modifiche salvate sul telefono non ancora caricate — si sincronizzeranno da sole appena torna la connessione.",offline_banner:"Nessuna connessione — resta salvato sul telefono e si sincronizza da solo al ritorno.",home_msg_new:"Non hai ancora registrato nessuna corsa — quando vuoi iniziamo. Come hai dormito stanotte?",home_msg_going:"Stai andando bene, continua così. Come ti senti oggi?",home_msg_pain:"Se qualcosa fa male durante la sessione di oggi, scrivimelo in chat prima di forzare.",
 plan_title:"La tua settimana",plan_lead:"Tocca un giorno per vedere il dettaglio.",plan_adjust:"Chiedi una modifica al coach",
 type_rest:"Riposo",type_easy:"Corsa lenta",type_intervals:"Ripetute",type_tempo:"Ritmo medio",type_long:"Lungo",
 desc_rest:"Giorno libero. Mobilità opzionale 10-15 min.",desc_easy:"Ritmo comodo dall'inizio alla fine — dovresti riuscire a parlare a frasi complete senza affanno. Se fai fatica a parlare, stai andando troppo veloce: rallenta.",desc_easy_beginner:"Corsa leggera, alternando con camminata quando ti serve, senza fretta. L'obiettivo è tempo in movimento, non velocità.",desc_intervals:"Ripetute intense con trotto di recupero tra le serie.",desc_tempo:"10 minuti di corsa leggera per riscaldarti. Poi mantieni un ritmo impegnativo ma sostenibile per il resto della sessione, e chiudi con 5-10 minuti di corsa leggera.",desc_long:"Parti rilassato e mantieni un ritmo costante per tutta la sessione, senza cercare velocità — l'obiettivo è il tempo sulle gambe. Porta acqua se fa caldo o se superi i 10km.",desc_long_beginner:"La tua sessione più lunga della settimana, senza nessuna fretta. Cammina nei tratti che ti servono — finire conta più del ritmo.",desc_intervals_detail:"Fai {reps} ripetute di {meters}m forte (zona {zone}), con {rest} min di trotto di recupero tra ognuna. Aggiungi 10-15 min di trotto molto leggero prima e dopo, per riscaldarti e defaticare.",desc_zone_suffix:" Cerca di restare in zona {zone} durante il tratto principale.",
@@ -965,7 +986,7 @@ login_title:"Anmelden",login_lead:"Melde dich an oder erstelle dein Konto. Deine
 ob_security_q_label:"Sicherheitsfrage",security_q_fixed:"Wie hieß dein erstes Haustier?",
 ob_title:"Erzähl uns von dir",ob_lead:"Dein Coach nutzt das für einen ersten Plan und feilt ihn dann im Gespräch mit dir weiter aus.",ob_step2_title:"Deine körperlichen Daten",ob_step3_title:"Deine Erfahrung",ob_step4_title:"Deine Trainingstage",ob_step5_title:"Dein Ziel",ob_name_label:"Dein Name",ob_name_ph:"Wie heißt du?",ob_weight_label:"Gewicht (kg)",ob_height_label:"Größe (cm)",ob_birth_label:"Geburtsdatum",ob_runnertype_label:"Läufst du schon aktiv oder bist du neu dabei?",ob_runnertype_new:"Ich bin neu",ob_runnertype_active:"Ich laufe schon",ob_currentkm_label:"Wie viele km läufst du aktuell pro Woche?",ob_newrunner_note:"Perfekt — wir starten locker, damit sich dein Körper gut anpasst, und steigern langsam. Sag deinem Coach, in wie viel Zeit du dich vorbereiten möchtest, falls du ein Datum im Kopf hast.",ob_weeklykm_label:"Wie viele km bist du letzte Woche gelaufen?",ob_weeklykm_hint:"Bei 0 erstellen wir einen Plan für den Einstieg bei null.",ob_terrain_label:"Terrain, auf dem du am meisten läufst",ob_terrain_asfalto:"Straße",ob_terrain_trail:"Trail",ob_terrain_mixto:"Gemischt",ob_goal_label:"Woran willst du arbeiten?",ob_goal_start:"Von null mit dem Laufen anfangen",ob_goal_5k:"Für einen 5K trainieren",ob_goal_10k:"Für einen 10K trainieren",ob_goal_15k:"Für einen 15K trainieren",ob_goal_21k:"Für einen Halbmarathon trainieren",ob_goal_42k:"Für einen Marathon trainieren",ob_goal_ultra:"Über 42K / Ultra",ob_goal_lifestyle:"Gesundheit und Lifestyle, kein bestimmtes Rennen",ob_racedate_label:"Datum deines Rennens (optional)",ob_racedate_hint:"Falls vorhanden, plant dein Coach mit der Zeit, die dir wirklich bleibt.",date_placeholder:"Datum wählen",perfil_weeklykm_auto_note:"Die wöchentlichen Km werden vom Coach automatisch berechnet, basierend auf deinem Ziel und dem Renndatum.",perfil_goal_km_check_hint:"Da du dein Ziel geändert hast, sag uns, wie viel du aktuell läufst, damit wir den Plan von deiner echten Ausgangslage aus erstellen.",ob_hrmax_label:"Kennst du deine maximale Herzfrequenz?",ob_hrmax_yes:"Ja, ich kenne sie",ob_hrmax_no:"Ich kenne sie nicht",ob_hrmax_unknown_msg:"Ohne Test können wir sie nicht genau berechnen. Wir empfehlen einen Laktattest oder eine Leistungsdiagnostik mit einer Fachperson. In der Zwischenzeit nutzen wir eine Schätzung nach Alter.",ob_submit:"Meinen Plan erstellen",
 nav_home:"Start",nav_plan:"Plan",nav_run:"Laufen",nav_history:"Verlauf",nav_coach:"Coach",nav_profile:"Profil",
-home_hi:"Hallo,",home_next:"Deine nächste Einheit",home_week:"Diese Woche",home_km_done:"Gelaufen",home_km_planned:"Geplant",home_sessions:"Einheiten",home_logged:"Erfasst",home_coach_cta:"Mit deinem Coach sprechen →",home_load_title:"Trainingsbelastung",home_load_low:"Niedrig",home_load_optimal:"Optimal",home_load_caution:"Achtung",home_load_risk:"Risiko",home_load_hint_low:"Du bist deutlich weniger gelaufen als im letzten Durchschnitt. Passt schon, wenn das eine geplante Pause war.",home_load_hint_optimal:"Deine Belastung diese Woche passt zu deinem letzten Durchschnitt. Läuft gut.",home_load_hint_caution:"Du bist diese Woche deutlich mehr gelaufen als im Durchschnitt. Achte darauf, wie du dich fühlst.",home_load_hint_risk:"Du hast das Volumen im Vergleich zu den letzten Wochen zu schnell gesteigert. Überlege, etwas zurückzufahren, um Verletzungen zu vermeiden.",plan_taper_tag:"Tapering-Woche",plan_taper_note:"Wir haben das Volumen bewusst gesenkt: dein Rennen steht bevor, das ist der letzte Feinschliff.",sync_pending_title:"Du hast Änderungen auf deinem Handy gespeichert, die noch nicht hochgeladen wurden — sie synchronisieren sich automatisch, sobald du wieder online bist.",home_msg_new:"Du hast noch keinen Lauf erfasst — wann immer du bereit bist. Wie hast du letzte Nacht geschlafen?",home_msg_going:"Du machst das gut, weiter so. Wie fühlst du dich heute?",home_msg_pain:"Wenn heute etwas wehtut, sag es mir im Chat, bevor du weitermachst.",
+home_hi:"Hallo,",home_next:"Deine nächste Einheit",home_week:"Diese Woche",home_km_done:"Gelaufen",home_km_planned:"Geplant",home_sessions:"Einheiten",home_logged:"Erfasst",home_coach_cta:"Mit deinem Coach sprechen →",home_load_title:"Trainingsbelastung",home_load_low:"Niedrig",home_load_optimal:"Optimal",home_load_caution:"Achtung",home_load_risk:"Risiko",home_load_hint_low:"Du bist deutlich weniger gelaufen als im letzten Durchschnitt. Passt schon, wenn das eine geplante Pause war.",home_load_hint_optimal:"Deine Belastung diese Woche passt zu deinem letzten Durchschnitt. Läuft gut.",home_load_hint_caution:"Du bist diese Woche deutlich mehr gelaufen als im Durchschnitt. Achte darauf, wie du dich fühlst.",home_load_hint_risk:"Du hast das Volumen im Vergleich zu den letzten Wochen zu schnell gesteigert. Überlege, etwas zurückzufahren, um Verletzungen zu vermeiden.",plan_taper_tag:"Tapering-Woche",plan_taper_note:"Wir haben das Volumen bewusst gesenkt: dein Rennen steht bevor, das ist der letzte Feinschliff.",sync_pending_title:"Du hast Änderungen auf deinem Handy gespeichert, die noch nicht hochgeladen wurden — sie synchronisieren sich automatisch, sobald du wieder online bist.",offline_banner:"Keine Verbindung — wird auf deinem Handy gespeichert und synchronisiert sich automatisch, sobald du wieder online bist.",home_msg_new:"Du hast noch keinen Lauf erfasst — wann immer du bereit bist. Wie hast du letzte Nacht geschlafen?",home_msg_going:"Du machst das gut, weiter so. Wie fühlst du dich heute?",home_msg_pain:"Wenn heute etwas wehtut, sag es mir im Chat, bevor du weitermachst.",
 plan_title:"Deine Woche",plan_lead:"Tippe auf einen Tag für Details.",plan_adjust:"Coach um Anpassung bitten",
 type_rest:"Ruhetag",type_easy:"Lockerer Lauf",type_intervals:"Intervalle",type_tempo:"Tempolauf",type_long:"Langer Lauf",
 desc_rest:"Freier Tag. Optional 10-15 Min. Mobility.",desc_easy:"Angenehmes Tempo von Anfang bis Ende — du solltest dich in ganzen Sätzen unterhalten können, ohne außer Atem zu sein. Wenn Reden schwerfällt, bist du zu schnell: verlangsame.",desc_easy_beginner:"Lockeres Traben, bei Bedarf mit Gehpausen, ohne Eile. Es geht um Zeit in Bewegung, nicht um Geschwindigkeit.",desc_intervals:"Harte Intervalle mit lockerem Traben zwischen den Wiederholungen.",desc_tempo:"10 Minuten lockeres Traben zum Aufwärmen. Danach ein forderndes, aber tragbares Tempo für den Rest der Einheit halten, und mit 5-10 Minuten lockerem Traben abschließen.",desc_long:"Entspannt starten und ein gleichmäßiges Tempo die ganze Einheit über halten, ohne Geschwindigkeit zu suchen — es geht um Zeit auf den Beinen. Nimm Wasser mit, wenn es heiß ist oder über 10km geht.",desc_long_beginner:"Deine längste Einheit der Woche, ganz ohne Eile. Geh die Abschnitte, die du brauchst — ankommen zählt mehr als Tempo.",desc_intervals_detail:"Mach {reps} Wiederholungen von {meters}m hart (Zone {zone}), mit {rest} Min. lockerem Traben zur Erholung zwischen jeder. Füge 10-15 Min. sehr lockeres Traben davor und danach hinzu, zum Aufwärmen und Auslaufen.",desc_zone_suffix:" Versuch, während des Hauptteils in Zone {zone} zu bleiben.",
@@ -1223,6 +1244,17 @@ function flushPendingBackup(){
 if(typeof window !== 'undefined'){
   window.addEventListener('online', flushPendingBackup);
   setInterval(flushPendingBackup, 25000);
+}
+/* ---- offline banner ---- */
+function updateOfflineBanner(){
+  const el = document.getElementById('offline-banner');
+  if(!el) return;
+  el.classList.toggle('show', typeof navigator!=='undefined' && navigator.onLine===false);
+}
+if(typeof window !== 'undefined'){
+  window.addEventListener('online', updateOfflineBanner);
+  window.addEventListener('offline', updateOfflineBanner);
+  document.addEventListener('DOMContentLoaded', updateOfflineBanner);
 }
 async function loadUserAndEnter(user){
   currentUserId = user.id;
@@ -1757,7 +1789,7 @@ function checkWeekRollover(){
     state.weekNumber = (state.weekNumber||1) + diffWeeks;
     state.weekStart = currentMonday;
     state.plan = generatePlan(state.profile, state.weekNumber);
-    if(adjustNote) state.chat.push({role:'coach', text: adjustNote});
+    if(adjustNote) state.chat.push({role:'coach', text: adjustNote, ts:Date.now()});
     persist();
   }
 }
@@ -2120,14 +2152,18 @@ function renderPerfil(){
     }
     const threshold = s.terrain==='trail'?400:s.terrain==='mixto'?500:600;
     const pct = Math.min(100,(s.km/threshold)*100);
-    return `<div class="swipe-item">
-      <div class="swipe-action-delete" onclick="deleteShoe(${s.id})"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
-      <div class="shoe-item swipe-content"><div class="shoe-icon">${ICONS.shoe}</div><div class="shoe-info">
-        <div class="n">${s.name} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
-        <div class="muted mono" style="font-size:11.5px; margin-top:2px;">${s.km.toFixed(0)} / ${threshold} km</div>
-        <div class="wearbar ${pct>80?'warn':''}"><div style="width:${pct}%;"></div></div></div>
-        <button class="small-link" style="display:inline-flex;" onclick="startEditShoe(${s.id})"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.edit}</span></button>
-      </div></div>`;
+    return `<div class="shoe-row">
+      <div class="shoe-icon">${ICONS.shoe}</div>
+      <div class="swipe-item">
+        <div class="swipe-action-delete" onclick="deleteShoe(${s.id})"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
+        <div class="swipe-content"><div class="shoe-info">
+          <div class="n">${s.name} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
+          <div class="muted mono" style="font-size:11.5px; margin-top:2px;">${s.km.toFixed(0)} / ${threshold} km</div>
+          <div class="wearbar ${pct>80?'warn':''}"><div style="width:${pct}%;"></div></div></div>
+          <button class="small-link" style="display:inline-flex;" onclick="startEditShoe(${s.id})"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.edit}</span></button>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 
   const evBox = document.getElementById('event-box');
@@ -2192,14 +2228,18 @@ document.addEventListener('touchmove', e=>{
 }, {passive:true});
 document.addEventListener('touchend', ()=>{ pullActive = false; }, {passive:true});
 
-/* ---- swipe-to-delete (history list) ---- */
+/* ---- swipe-to-delete (history + shoes list) ---- */
 let swipeStartX = 0, swipeStartY = 0, swipeContentEl = null, swipeDragging = false, swipeBaseX = 0, swipeLastX = 0, swipeSuppressClick = false;
+let swipeRafPending = false;
 const SWIPE_REVEAL = 78;
+function swipeSetX(el, x){
+  el.style.transform = `translate3d(${Math.round(x)}px,0,0)`;
+}
 function swipeCloseAll(except){
   document.querySelectorAll('.swipe-content.swipe-open').forEach(el=>{
     if(el === except) return;
     el.classList.add('swipe-anim');
-    el.style.transform = 'translateX(0px)';
+    swipeSetX(el, 0);
     el.classList.remove('swipe-open');
   });
 }
@@ -2232,20 +2272,27 @@ document.addEventListener('touchmove', e=>{
   let x = swipeBaseX + dx;
   x = Math.max(-SWIPE_REVEAL - 12, Math.min(0, x));
   swipeLastX = x;
-  swipeContentEl.style.transform = `translateX(${x}px)`;
+  if(!swipeRafPending){
+    swipeRafPending = true;
+    requestAnimationFrame(()=>{
+      swipeRafPending = false;
+      if(swipeContentEl) swipeSetX(swipeContentEl, swipeLastX);
+    });
+  }
   e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchend', ()=>{
   if(!swipeContentEl){ return; }
   if(swipeDragging){
-    swipeContentEl.classList.add('swipe-anim');
+    const el = swipeContentEl;
+    el.classList.add('swipe-anim');
     if(swipeLastX < -SWIPE_REVEAL/2){
-      swipeContentEl.style.transform = `translateX(-${SWIPE_REVEAL}px)`;
-      swipeContentEl.classList.add('swipe-open');
+      swipeSetX(el, -SWIPE_REVEAL);
+      el.classList.add('swipe-open');
       haptic(10);
     } else {
-      swipeContentEl.style.transform = 'translateX(0px)';
-      swipeContentEl.classList.remove('swipe-open');
+      swipeSetX(el, 0);
+      el.classList.remove('swipe-open');
     }
     swipeSuppressClick = true;
     setTimeout(()=>{ swipeSuppressClick = false; }, 300);
@@ -2253,6 +2300,24 @@ document.addEventListener('touchend', ()=>{
   swipeContentEl = null;
   swipeDragging = false;
 }, {passive:true});
+
+/* ---- hide tab bar while the chat keyboard is open (avoids the squished bottom bar) ---- */
+(function(){
+  const chatInputEl = document.getElementById('chatInput');
+  const chatBarEl = document.getElementById('chatBar');
+  const tabbarEl = document.getElementById('tabbar');
+  if(!chatInputEl) return;
+  chatInputEl.addEventListener('focus', ()=>{
+    if(tabbarEl) tabbarEl.style.display = 'none';
+    if(chatBarEl) chatBarEl.classList.add('kb-open');
+    document.body.classList.add('chat-kb-open');
+  });
+  chatInputEl.addEventListener('blur', ()=>{
+    if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
+    if(chatBarEl) chatBarEl.classList.remove('kb-open');
+    document.body.classList.remove('chat-kb-open');
+  });
+})();
 async function doPullRefresh(){
   const indicator = document.getElementById('pull-refresh-indicator');
   if(indicator) indicator.style.display = 'flex';
@@ -2449,7 +2514,7 @@ async function submitRating(value){
   if(value === 'mal'){
     if(await showConfirm(t('rating_lower_intensity_confirm'))){
       lowerRemainingIntensity(-15);
-      state.chat.push({role:'coach', text: t('rating_lowered_msg')});
+      state.chat.push({role:'coach', text: t('rating_lowered_msg'), ts:Date.now()});
       await persist();
     }
   }
@@ -2815,11 +2880,32 @@ function changeRunShoe(runId, newShoeId){
 
 /* ================= COACH CHAT (con tool-use real para editar el plan) ================= */
 function seedCoachGreeting(){
-  state.chat = [{role:'coach', text: t('coach_greeting', {name:state.profile.name, km:state.profile.weeklyKm, goal:t('ob_goal_'+state.profile.goal)})}];
+  state.chat = [{role:'coach', text: t('coach_greeting', {name:state.profile.name, km:state.profile.weeklyKm, goal:t('ob_goal_'+state.profile.goal)}), ts:Date.now()}];
   renderChat();
 }
 function renderChat(){
-  document.getElementById('chatLog').innerHTML = state.chat.map(m=>`<div class="msg ${m.role}">${m.text}</div>`).join('');
+  const msgs = state.chat;
+  let html = '';
+  for(let i=0;i<msgs.length;i++){
+    const m = msgs[i];
+    const prev = msgs[i-1];
+    const next = msgs[i+1];
+    const GAP = 5*60000;
+    const sameAsPrev = !!(prev && prev.role===m.role && m.role!=='system' && m.ts && prev.ts && (m.ts-prev.ts) < GAP);
+    const sameAsNext = !!(next && next.role===m.role && m.role!=='system' && m.ts && next.ts && (next.ts-m.ts) < GAP);
+    let groupCls = '';
+    if(m.role!=='system'){
+      groupCls = sameAsPrev && sameAsNext ? 'mid' : sameAsPrev ? 'last' : sameAsNext ? 'first' : '';
+    }
+    html += `<div class="msg ${m.role} ${groupCls}">${m.text}</div>`;
+    if(m.role!=='system' && m.ts && !sameAsNext){
+      const d = new Date(m.ts);
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      html += `<div class="msg-time ${m.role==='user'?'right':'left'}">${hh}:${mm}</div>`;
+    }
+  }
+  document.getElementById('chatLog').innerHTML = html;
   scrollChatToBottom();
 }
 function scrollChatToBottom(){
@@ -2882,7 +2968,7 @@ function applyPlanChange(input){
   if(input.zona) d.zone = input.zona;
   if(input.terreno) d.terrain = input.terreno;
   renderPlan(); renderHome(); persist();
-  state.chat.push({role:'system', text:t('coach_plan_updated')+': '+t('day_'+d.day)});
+  state.chat.push({role:'system', text:t('coach_plan_updated')+': '+t('day_'+d.day), ts:Date.now()});
   return `OK, actualizado ${d.day}: ${d.type}, ${d.dist}km${d.zone?', zona '+d.zone:''}.`;
 }
 function applyVolumeAdjust(input){
@@ -2891,7 +2977,7 @@ function applyVolumeAdjust(input){
   const factor = 1 + (pct/100);
   state.plan.forEach(d=>{ if(d.dist>0){ d.dist = Math.max(1, Math.round(d.dist*factor)); d.custom = true; } });
   renderPlan(); renderHome(); persist();
-  state.chat.push({role:'system', text:t('coach_plan_updated')});
+  state.chat.push({role:'system', text:t('coach_plan_updated'), ts:Date.now()});
   return `OK, ajusté el volumen de esta semana ${pct>0?'+':''}${pct}%.`;
 }
 function applyProfileChange(input){
@@ -2908,14 +2994,14 @@ function applyProfileChange(input){
     state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
   }
   renderAll(); renderZones(); persist();
-  state.chat.push({role:'system', text:t('coach_plan_updated')});
+  state.chat.push({role:'system', text:t('coach_plan_updated'), ts:Date.now()});
   return `Perfil actualizado: ${changes.join(', ')}.`;
 }
 async function sendChat(){
   const input = document.getElementById('chatInput');
   const text = input.value.trim(); if(!text) return;
   input.value='';
-  state.chat.push({role:'user', text});
+  state.chat.push({role:'user', text, ts:Date.now()});
   renderChat();
   document.getElementById('chatLog').insertAdjacentHTML('beforeend', `<div class="msg coach typing" id="typing"><span></span><span></span><span></span></div>`);
   scrollChatToBottom();
@@ -2972,7 +3058,7 @@ Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, 
   }catch(e){ finalText = finalText || t('coach_connection_error'); }
 
   document.getElementById('typing')?.remove();
-  state.chat.push({role:'coach', text: finalText || '...'});
+  state.chat.push({role:'coach', text: finalText || '...', ts:Date.now()});
   renderChat();
   persist();
 }
