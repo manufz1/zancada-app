@@ -82,6 +82,7 @@ async function activityToRun(act, accessToken) {
     hrLog: act.average_heartrate ? [{ t: 0, bpm: Math.round(act.average_heartrate) }] : [],
     points: act.map ? decodePolyline(act.map.summary_polyline) : [],
     splits,
+    splitsV: 2,
     shoeId: null,
     source: 'strava'
   };
