@@ -58,12 +58,30 @@
     overflow-y:auto; display:none; padding:calc(28px + var(--safe-top)) 24px calc(28px + var(--safe-bottom));}
   .overlay h2{font-size:28px;}
   .overlay .lead{color:var(--mist); margin-top:6px; font-size:14px; line-height:1.5;}
+
+  .toast-wrap{position:fixed; left:0; right:0; bottom:calc(78px + var(--safe-bottom)); display:flex; justify-content:center; z-index:85; pointer-events:none; padding:0 24px;}
+  .toast{background:var(--asphalt-4); color:var(--chalk); padding:13px 18px; border-radius:999px; font-size:13.5px; font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; align-items:center; gap:8px; max-width:360px; text-align:center;
+    opacity:0; transform:translateY(10px) scale(.96); transition:opacity .22s ease, transform .22s ease; pointer-events:auto;}
+  .toast.show{opacity:1; transform:translateY(0) scale(1);}
+  .toast.error{background:#3a1f1c; color:#FF9A8D; border:1px solid rgba(255,107,93,.3);}
+  .toast.success{background:var(--hivis-dim); color:var(--hivis); border:1px solid rgba(214,255,63,.3);}
+
+  .confirm-backdrop{position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:24px;}
+  .confirm-backdrop.show{display:flex;}
+  .confirm-card{background:var(--asphalt-2); border-radius:var(--radius); padding:22px; max-width:320px; width:100%;
+    box-shadow:0 16px 48px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.05); animation:confirmPop .18s ease;}
+  .confirm-card p{margin:0 0 20px; font-size:14.5px; line-height:1.5; color:var(--chalk); font-weight:600;}
+  .confirm-actions{display:flex; gap:10px;}
+  .confirm-actions .btn{flex:1; width:auto;}
+  @keyframes confirmPop{from{opacity:0; transform:scale(.9) translateY(6px);} to{opacity:1; transform:scale(1) translateY(0);}}
   .field{margin-top:20px;}
   .field label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--mist);
     margin-bottom:8px; font-weight:600;}
   .field input[type=text],.field input[type=number],.field input[type=date],.field input[type=email],.field input[type=password],.field select{
     width:100%; max-width:100%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk);
-    padding:13px 15px; border-radius:var(--radius-sm); font-size:16px; outline:none; color-scheme:dark;}
+    padding:13px 15px; border-radius:var(--radius-sm); font-size:16px; outline:none; color-scheme:dark;
+    transition:border-color .15s ease, box-shadow .15s ease;}
   .field input[type=date]{padding-top:9px; padding-bottom:9px; padding-right:6px; height:48px; box-sizing:border-box; overflow:hidden; font-size:15px;}
   .date-box{width:100%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk);
     padding:13px 15px; border-radius:var(--radius-sm); font-size:16px; cursor:pointer;
@@ -76,7 +94,9 @@
   .cal-day.other-month{color:var(--mist-dim); opacity:.35; pointer-events:none;}
   .cal-day.today{border:1.5px solid var(--mist-dim);}
   .cal-day.selected{background:var(--hivis); color:var(--asphalt); font-weight:800;}
-  .field input:focus,.field select:focus{border-color:var(--hivis);}
+  .field input:focus,.field select:focus{border-color:var(--hivis); box-shadow:0 0 0 3px var(--hivis-dim);}
+  .date-box{transition:border-color .15s ease, box-shadow .15s ease;}
+  .date-box:focus-within,.date-box.focused{border-color:var(--hivis); box-shadow:0 0 0 3px var(--hivis-dim);}
   .choice-row{display:flex; gap:8px; flex-wrap:wrap;}
   .choice{flex:1; min-width:80px; text-align:center; padding:11px 6px; border-radius:var(--radius-sm);
     border:1.5px solid var(--asphalt-4); background:var(--asphalt-2); color:var(--mist);
@@ -155,6 +175,7 @@
   .stat-box .n{font-size:21px; font-weight:800;}
   .hist-card .stat-box .n{font-size:16px;}
   .hist-map{position:relative; isolation:isolate; height:108px; border-radius:var(--radius-sm); overflow:hidden; margin-bottom:10px; background:var(--asphalt-3);}
+  .hist-map:empty{background:linear-gradient(90deg, var(--asphalt-3) 25%, var(--asphalt-4) 37%, var(--asphalt-3) 63%); background-size:400% 100%; animation:skeletonShine 1.4s ease infinite;}
   .stat-box .l{font-size:10px; color:var(--mist); text-transform:uppercase; letter-spacing:.05em;}
   .week-bars{display:flex; align-items:flex-end; gap:6px; height:70px; margin-top:14px;}
   .week-bars .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
@@ -186,7 +207,8 @@
   #runActive,#runSummary{display:none;}
   .rec-dot{width:9px; height:9px; border-radius:50%; background:var(--danger); animation:blink 1.4s ease-in-out infinite; display:inline-block; margin-right:7px;}
   .timer-big{font-size:48px; text-align:center; margin:10px 0 14px;}
-  .map-wrap{position:relative; isolation:isolate; height:260px; border-radius:var(--radius); overflow:hidden; margin-bottom:14px; border:1px solid var(--asphalt-4);}
+  .map-wrap{position:relative; isolation:isolate; height:260px; border-radius:var(--radius); overflow:hidden; margin-bottom:14px; border:1px solid var(--asphalt-4);
+    background:linear-gradient(90deg, var(--asphalt-3) 25%, var(--asphalt-4) 37%, var(--asphalt-3) 63%); background-size:400% 100%; animation:skeletonShine 1.4s ease infinite;}
   #liveMap{height:100%; width:100%; background:var(--asphalt-3);}
   .map-wrap .leaflet-control-attribution{background:rgba(18,20,21,.75); color:var(--mist-dim); font-size:9px; padding:1px 5px;}
   .map-wrap .leaflet-control-attribution a{color:var(--mist);}
@@ -239,8 +261,25 @@
   .zone-row .zd{font-size:11px; color:var(--mist-dim); margin-top:2px;}
   .small-link{color:var(--mist); font-size:12.5px; text-decoration:underline; background:none; border:none; cursor:pointer; padding:0; transition:opacity .12s ease;}
   .small-link:active{opacity:.55;}
+  .week-nav{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;}
+  .week-nav-label{margin:0; text-align:center; color:var(--mist); font-size:13px; font-weight:700; flex:1; letter-spacing:.01em;}
+  .week-nav-btn{width:32px; height:32px; border-radius:50%; background:var(--asphalt-3); border:none; color:var(--chalk);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; padding:0;
+    transition:transform .12s ease, background .12s ease, opacity .15s ease;}
+  .week-nav-btn:active{transform:scale(.85); background:var(--asphalt-4);}
+  .week-nav-btn:disabled{opacity:.25; pointer-events:none;}
+  .plan-slide-left{animation:planSlideLeft .22s ease;}
+  .plan-slide-right{animation:planSlideRight .22s ease;}
+  @keyframes planSlideLeft{from{opacity:0; transform:translateX(14px);} to{opacity:1; transform:translateX(0);}}
+  @keyframes planSlideRight{from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:translateX(0);}}
   .icon-sq{display:inline-flex; flex-shrink:0;}
   .icon-sq svg{width:100%; height:100%; display:block;}
+  .spin-icon{animation:spinIcon .8s linear infinite;}
+  @keyframes spinIcon{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
+
+  .skeleton{background:linear-gradient(90deg, var(--asphalt-3) 25%, var(--asphalt-4) 37%, var(--asphalt-3) 63%);
+    background-size:400% 100%; animation:skeletonShine 1.4s ease infinite; border-radius:8px;}
+  @keyframes skeletonShine{0%{background-position:100% 50%;} 100%{background-position:0 50%;}}
   .add-row{display:flex; gap:8px; margin-top:12px;}
   .add-row input,.add-row select{flex:1; background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:11px; border-radius:var(--radius-sm); font-size:14px;}
 
@@ -398,7 +437,7 @@
     </div>
   </header>
   <div id="pull-refresh-indicator" style="display:none; align-items:center; justify-content:center; gap:8px; padding:8px; color:var(--hivis); font-size:12px; text-transform:uppercase; letter-spacing:.06em;">
-    <span class="rec-dot" style="background:var(--hivis); animation:blink .7s ease-in-out infinite;"></span><span data-i18n="pull_refreshing"></span>
+    <span class="icon-sq spin-icon" style="width:14px; height:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span><span data-i18n="pull_refreshing"></span>
   </div>
 
   <section class="view" id="view-inicio">
@@ -453,10 +492,10 @@
 
   <section class="view" id="view-plan">
     <h2 class="display" style="font-size:25px; margin-bottom:4px;" data-i18n="plan_title"></h2>
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-      <button class="small-link" id="plan-prev-btn" onclick="navigateWeek(-1)" style="font-size:20px; padding:4px 8px;">‹</button>
-      <p class="muted" id="plan-week-info" style="margin:0; text-align:center;"></p>
-      <button class="small-link" id="plan-next-btn" onclick="navigateWeek(1)" style="font-size:20px; padding:4px 8px;">›</button>
+    <div class="week-nav">
+      <button class="week-nav-btn" id="plan-prev-btn" onclick="navigateWeek(-1)" aria-label="Prev"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg></span></button>
+      <p class="week-nav-label" id="plan-week-info"></p>
+      <button class="week-nav-btn" id="plan-next-btn" onclick="navigateWeek(1)" aria-label="Next"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg></span></button>
     </div>
     <p class="muted" style="margin-bottom:14px;" data-i18n="plan_lead"></p>
     <p class="muted" id="plan-taper-note" style="display:none; color:var(--hivis); margin-bottom:14px;"></p>
@@ -776,7 +815,7 @@ zone_word:"Zona",
 run_title:"Correr",run_idle_desc:"GPS en vivo desde tu iPhone. Mantené la app abierta durante la carrera.",run_start:"EMPEZAR",run_start_hint:"toca para iniciar",run_recording:"Registrando",run_km:"Km",run_pace:"Ritmo /km",run_pace_word:"Ritmo",run_time:"Tiempo",run_hr:"FC (manual)",run_zone_current:"Zona actual",run_hr_title:"Registrar frecuencia cardíaca",run_hr_desc:"Sin reloj conectado todavía, cargala a mano.",run_hr_ph:"bpm",run_hr_btn:"Registrar",run_pause:"Pausar",run_resume:"Reanudar",run_finish:"Terminar",run_summary_title:"Carrera guardada",run_summary_shoe_q:"¿Con qué par corriste?",run_summary_done:"Listo",run_calories:"Kcal (est.)",geo_err_support:"Este navegador no soporta geolocalización.",geo_err_permission:"Activá el permiso de ubicación de Safari para registrar tu carrera.",no_shoes:"Sin zapatillas cargadas",
 hist_title:"Tu historial",hist_empty:"Todavía no registraste carreras.",hist_avg_hr:"FC prom.",hist_max_hr:"FC máxima",hist_elevation:"Desnivel",hist_cadence:"Cadencia",hist_back:"Volver",hist_shoe:"Zapatilla",hist_no_shoe:"sin registrar",hist_delete_run:"Eliminar entrenamiento",hist_info_title:"¿Falta tu última carrera?",hist_info_text:"Si corriste con el reloj y sincronizás con Strava, puede tardar hasta 15 minutos en aparecer acá — la buscamos solos cada tanto, sin que tengas que hacer nada. Un poquito de paciencia y va a estar. 🏃",hist_info_ok:"Entendido",hist_delete_confirm:"¿Eliminar esta carrera? No se puede deshacer.",hist_share:"Compartir",share_tagline:"Entrenado con Zancada",hist_splits_title:"Parciales",hist_splits_hint:"Ritmo por kilómetro · desnivel · FC promedio de ese tramo.",
 coach_title:"Tu coach",coach_connection_error:"No me pude conectar ahora mismo. Probá de nuevo en un momento.",coach_ph:"Escribile a tu coach…",coach_greeting:"Hola {name}, soy tu coach en Zancada. Armé un plan inicial pensando en tus {km}km semanales y tu objetivo de \"{goal}\". Contame cómo te sentís antes de cada sesión y lo vamos afinando juntos.",coach_plan_updated:"✏️ Tu coach actualizó el plan",rating_title:"¿Cómo te fue?",rating_bad:"Mal",rating_good:"Bien",rating_excellent:"Excelente",rating_lower_intensity_confirm:"¿Querés que baje un poco la intensidad de lo que queda de la semana?",rating_lowered_msg:"Bajé un poco el volumen de lo que queda de esta semana, para que puedas recuperarte mejor. ¡Cualquier cosa, avisame!",coach_week_adjusted_down:"Vi que la semana pasada te costó un poco (varias sesiones difíciles o salteadas), así que bajé levemente el volumen base para esta semana. Vamos con calma.",coach_week_adjusted_up:"¡Veniste haciendo todo excelente! Subí un poco el volumen base de esta semana para seguir progresando.",pull_refreshing:"Actualizando...",
-perfil_gear:"Tu equipo",perfil_shoe_ph:"Modelo (ej. Pegasus 41)",perfil_add_shoe:"Agregar zapatilla",perfil_event:"Tu próximo evento",perfil_ev_name_ph:"Nombre de la carrera",perfil_ev_save:"Guardar evento",perfil_event_days:"días",perfil_no_event:"Sin evento cargado todavía.",perfil_zones_title:"Tus zonas de frecuencia cardíaca",perfil_zones_estimated:"Estimadas según tu edad — hacete un test de lactato para afinarlas.",perfil_zones_tested:"Basadas en tu FC máxima cargada.",perfil_hrmax_update:"Actualizar",perfil_zones_manual_note:"Se calculan según tu edad (220 - edad). Podés ajustar cada zona a mano.",perfil_push_title:"Notificaciones",perfil_strava_connect:"Conectar con Strava",perfil_strava_connected:"Conectado",perfil_strava_disconnect:"Desconectar",push_enable:"Activar",push_disable:"Desactivar",push_enabled:"Activadas — te vamos a avisar de tu sesión del día.",push_disabled:"Desactivadas.",push_not_supported:"Tu navegador no soporta notificaciones push.",push_denied:"No diste permiso para las notificaciones.",push_error:"No se pudieron activar. Probá de nuevo.",perfil_connectivity:"Conectividad",perfil_connectivity_desc:"Conectá tu reloj a través de Strava — así sincronizamos tus carreras automáticamente, sin importar la marca.",perfil_native:"Nativo",perfil_remember_title:"Recordá que...",perfil_remember_1:"Tené tu reloj conectado a Strava.",perfil_remember_2:"Tené tus actividades configuradas como públicas, no privadas.",perfil_remember_3:"Permití los datos de salud, en Strava → Ajustes → Datos sobre salud → Datos relacionados con la salud → Permitir.",perfil_remember_4:"La sincronización automática puede tardar hasta 15 minutos.",perfil_remember_5:"Que la actividad quede clasificada como \u201cCarrera\u201d en Strava.",perfil_remember_6:"Si alguien borra una actividad desde Strava, hay que borrarla también desde la app a mano (no se sincroniza el borrado).",perfil_about:"Acerca de",perfil_credits:"Zancada — Creado por Manuel Fernandez y Valentin Agustini. Por y para runners.",perfil_data_note:"Tus datos se guardan asociados a tu email en este dispositivo.",perfil_logout:"Cerrar sesión",perfil_reset:"Borrar mis datos",perfil_lang:"Idioma",perfil_units:"Sistema de medida",perfil_units_metric:"Métrico (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
+perfil_gear:"Tu equipo",perfil_shoe_ph:"Modelo (ej. Pegasus 41)",perfil_add_shoe:"Agregar zapatilla",perfil_event:"Tu próximo evento",perfil_ev_name_ph:"Nombre de la carrera",perfil_ev_save:"Guardar evento",perfil_event_days:"días",perfil_no_event:"Sin evento cargado todavía.",perfil_no_shoes:"Todavía no agregaste zapatillas.",perfil_zones_title:"Tus zonas de frecuencia cardíaca",perfil_zones_estimated:"Estimadas según tu edad — hacete un test de lactato para afinarlas.",perfil_zones_tested:"Basadas en tu FC máxima cargada.",perfil_hrmax_update:"Actualizar",perfil_zones_manual_note:"Se calculan según tu edad (220 - edad). Podés ajustar cada zona a mano.",perfil_push_title:"Notificaciones",perfil_strava_connect:"Conectar con Strava",perfil_strava_connected:"Conectado",perfil_strava_disconnect:"Desconectar",push_enable:"Activar",push_disable:"Desactivar",push_enabled:"Activadas — te vamos a avisar de tu sesión del día.",push_disabled:"Desactivadas.",push_not_supported:"Tu navegador no soporta notificaciones push.",push_denied:"No diste permiso para las notificaciones.",push_error:"No se pudieron activar. Probá de nuevo.",perfil_connectivity:"Conectividad",perfil_connectivity_desc:"Conectá tu reloj a través de Strava — así sincronizamos tus carreras automáticamente, sin importar la marca.",perfil_native:"Nativo",perfil_remember_title:"Recordá que...",perfil_remember_1:"Tené tu reloj conectado a Strava.",perfil_remember_2:"Tené tus actividades configuradas como públicas, no privadas.",perfil_remember_3:"Permití los datos de salud, en Strava → Ajustes → Datos sobre salud → Datos relacionados con la salud → Permitir.",perfil_remember_4:"La sincronización automática puede tardar hasta 15 minutos.",perfil_remember_5:"Que la actividad quede clasificada como \u201cCarrera\u201d en Strava.",perfil_remember_6:"Si alguien borra una actividad desde Strava, hay que borrarla también desde la app a mano (no se sincroniza el borrado).",perfil_about:"Acerca de",perfil_credits:"Zancada — Creado por Manuel Fernandez y Valentin Agustini. Por y para runners.",perfil_data_note:"Tus datos se guardan asociados a tu email en este dispositivo.",perfil_logout:"Cerrar sesión",perfil_reset:"Borrar mis datos",perfil_lang:"Idioma",perfil_units:"Sistema de medida",perfil_units_metric:"Métrico (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
 ev_type_ruta:"Ruta",ev_type_trail:"Trail / montaña",ev_type_obstaculos:"Obstáculos",
 day_mon:"Lunes",day_tue:"Martes",day_wed:"Miércoles",day_thu:"Jueves",day_fri:"Viernes",day_sat:"Sábado",day_sun:"Domingo",
 zdesc_1:"Recuperación",zdesc_2:"Base aeróbica",zdesc_3:"Tempo",zdesc_4:"Umbral",zdesc_5:"Máximo",
@@ -785,7 +824,7 @@ plan_week_label:"Semana {n}",plan_cutback:"Semana de descarga",plan_mark_done:"�
 perfil_voice_label:"Avisos de voz durante la carrera",word_yes:"Sí",word_no:"No",
 voice_km:"Kilómetro {km}. Ritmo {pace} por kilómetro.",voice_zone_high:"Estás en zona {zone}. El objetivo de hoy es zona {target}. Bajá el ritmo.",voice_zone_low:"Estás en zona {zone}. El objetivo de hoy es zona {target}. Podés acelerar un poco.",
 backup_title:"Copia de seguridad",backup_desc:"Descargá tus datos o restaurá un backup anterior.",backup_export:"Exportar mis datos",backup_import:"Importar datos",import_error:"No se pudo leer ese archivo. Verificá que sea un backup de Zancada.",
-save_word:"Guardar",save_confirmed:"Guardado",cancel_word:"Cancelar",confirm_delete:"¿Borrar esto?",delete_event:"Borrar evento",plan_past_weeks:"Semanas anteriores",plan_preview:"Vista previa",plan_past:"Semana pasada",plan_no_data:"Todavía no hay datos para esta semana.",
+save_word:"Guardar",save_confirmed:"Guardado",cancel_word:"Cancelar",confirm_delete:"¿Borrar esto?",delete_word:"Eliminar",confirm_yes:"Sí",reset_confirm_text:"¿Borrar todos tus datos? Esta acción no se puede deshacer.",session_done_msg:"¡Sesión completada!",delete_event:"Borrar evento",plan_past_weeks:"Semanas anteriores",plan_preview:"Vista previa",plan_past:"Semana pasada",plan_no_data:"Todavía no hay datos para esta semana.",
 ob_days_label:"¿Qué días de la semana vas a entrenar?",perfil_personal_title:"Datos personales",perfil_weeklykm_label:"Km semanales base",perfil_goals_title:"Tus objetivos",perfil_goals_desc:"Contale al coach qué querés lograr, para que adapte sus consejos.",perfil_weekly_goal_label:"Meta semanal (km)",perfil_weekly_goal_ph:"Ej: 30",perfil_goal_note_label:"¿Qué querés lograr?",perfil_goal_note_ph:"Ej: bajar mi ritmo, correr sin dolor de rodilla, terminar mi primera maratón...",perfil_goal_progress_label:"Meta semanal",perfil_days_title:"Tus días de entreno",perfil_days_save:"Guardar días",perfil_days_empty_err:"Elegí al menos un día."},
 
 en:{app_tag:"Your coach, any terrain.",start:"Get started",
@@ -801,7 +840,7 @@ zone_word:"Zone",
 run_title:"Run",run_idle_desc:"Live GPS from your iPhone. Keep the app open during your run.",run_start:"START",run_start_hint:"tap to begin",run_recording:"Recording",run_km:"Km",run_pace:"Pace /km",run_pace_word:"Pace",run_time:"Time",run_hr:"HR (manual)",run_zone_current:"Current zone",run_hr_title:"Log heart rate",run_hr_desc:"No watch connected yet — log it by hand.",run_hr_ph:"bpm",run_hr_btn:"Log",run_pause:"Pause",run_resume:"Resume",run_finish:"Finish",run_summary_title:"Run saved",run_summary_shoe_q:"Which pair did you run in?",run_summary_done:"Done",run_calories:"Kcal (est.)",geo_err_support:"This browser doesn't support geolocation.",geo_err_permission:"Enable Safari's location permission to log your run.",no_shoes:"No shoes added yet",
 hist_title:"Your history",hist_empty:"You haven't logged any runs yet.",hist_avg_hr:"Avg HR",hist_max_hr:"Max HR",hist_elevation:"Elevation",hist_cadence:"Cadence",hist_back:"Back",hist_shoe:"Shoe",hist_no_shoe:"not logged",hist_delete_run:"Delete workout",hist_info_title:"Missing your latest run?",hist_info_text:"If you ran with your watch and sync to Strava, it can take up to 15 minutes to show up here — we check for it automatically, no need to do anything. Just give it a little time. 🏃",hist_info_ok:"Got it",hist_delete_confirm:"Delete this run? This can't be undone.",hist_share:"Share",share_tagline:"Trained with Zancada",hist_splits_title:"Splits",hist_splits_hint:"Pace per kilometer · elevation · average HR for that stretch.",
 coach_title:"Your coach",coach_connection_error:"I couldn't connect right now. Try again in a moment.",coach_ph:"Message your coach…",coach_greeting:"Hi {name}, I'm your coach in Zancada. I built a starting plan around your {km}km/week and your goal of \"{goal}\". Tell me how you feel before each session and we'll fine-tune it together.",coach_plan_updated:"✏️ Your coach updated the plan",rating_title:"How did it go?",rating_bad:"Bad",rating_good:"Good",rating_excellent:"Excellent",rating_lower_intensity_confirm:"Want me to lower the intensity for the rest of the week a bit?",rating_lowered_msg:"I lowered the volume a bit for the rest of this week, so you can recover better. Let me know if you need anything!",coach_week_adjusted_down:"I noticed last week was tough (several hard or skipped sessions), so I slightly lowered the base volume for this week. Let's take it easy.",coach_week_adjusted_up:"You've been crushing it! I bumped up the base volume a bit this week to keep progressing.",pull_refreshing:"Refreshing...",
-perfil_gear:"Your gear",perfil_shoe_ph:"Model (e.g. Pegasus 41)",perfil_add_shoe:"Add shoe",perfil_event:"Your next event",perfil_ev_name_ph:"Race name",perfil_ev_save:"Save event",perfil_event_days:"days",perfil_no_event:"No event set yet.",perfil_zones_title:"Your heart rate zones",perfil_zones_estimated:"Estimated from your age — get a lactate test to fine-tune them.",perfil_zones_tested:"Based on your saved max HR.",perfil_hrmax_update:"Update",perfil_zones_manual_note:"Calculated from your age (220 - age). You can adjust each zone by hand.",perfil_push_title:"Notifications",perfil_strava_connect:"Connect with Strava",perfil_strava_connected:"Connected",perfil_strava_disconnect:"Disconnect",push_enable:"Enable",push_disable:"Disable",push_enabled:"Enabled — we'll remind you about today's session.",push_disabled:"Disabled.",push_not_supported:"Your browser doesn't support push notifications.",push_denied:"You didn't grant notification permission.",push_error:"Couldn't enable them. Try again.",perfil_connectivity:"Connectivity",perfil_connectivity_desc:"Connect your watch through Strava — that syncs your runs automatically, no matter the brand.",perfil_native:"Native",perfil_remember_title:"Keep in mind...",perfil_remember_1:"Keep your watch connected to Strava.",perfil_remember_2:"Keep your activities set to public, not private.",perfil_remember_3:"Allow health data, in Strava → Settings → Health Data → Health-related Data → Allow.",perfil_remember_4:"Automatic sync can take up to 15 minutes.",perfil_remember_5:"The activity needs to be classified as \u201cRun\u201d in Strava.",perfil_remember_6:"If someone deletes an activity from Strava, it needs to be deleted from the app by hand too (deletions don't sync).",perfil_about:"About",perfil_credits:"Zancada — Created by Manuel Fernandez and Valentin Agustini. By runners, for runners.",perfil_data_note:"Your data is saved to your email on this device.",perfil_logout:"Log out",perfil_reset:"Delete my data",perfil_lang:"Language",perfil_units:"Unit system",perfil_units_metric:"Metric (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
+perfil_gear:"Your gear",perfil_shoe_ph:"Model (e.g. Pegasus 41)",perfil_add_shoe:"Add shoe",perfil_event:"Your next event",perfil_ev_name_ph:"Race name",perfil_ev_save:"Save event",perfil_event_days:"days",perfil_no_event:"No event set yet.",perfil_no_shoes:"You haven't added any shoes yet.",perfil_zones_title:"Your heart rate zones",perfil_zones_estimated:"Estimated from your age — get a lactate test to fine-tune them.",perfil_zones_tested:"Based on your saved max HR.",perfil_hrmax_update:"Update",perfil_zones_manual_note:"Calculated from your age (220 - age). You can adjust each zone by hand.",perfil_push_title:"Notifications",perfil_strava_connect:"Connect with Strava",perfil_strava_connected:"Connected",perfil_strava_disconnect:"Disconnect",push_enable:"Enable",push_disable:"Disable",push_enabled:"Enabled — we'll remind you about today's session.",push_disabled:"Disabled.",push_not_supported:"Your browser doesn't support push notifications.",push_denied:"You didn't grant notification permission.",push_error:"Couldn't enable them. Try again.",perfil_connectivity:"Connectivity",perfil_connectivity_desc:"Connect your watch through Strava — that syncs your runs automatically, no matter the brand.",perfil_native:"Native",perfil_remember_title:"Keep in mind...",perfil_remember_1:"Keep your watch connected to Strava.",perfil_remember_2:"Keep your activities set to public, not private.",perfil_remember_3:"Allow health data, in Strava → Settings → Health Data → Health-related Data → Allow.",perfil_remember_4:"Automatic sync can take up to 15 minutes.",perfil_remember_5:"The activity needs to be classified as \u201cRun\u201d in Strava.",perfil_remember_6:"If someone deletes an activity from Strava, it needs to be deleted from the app by hand too (deletions don't sync).",perfil_about:"About",perfil_credits:"Zancada — Created by Manuel Fernandez and Valentin Agustini. By runners, for runners.",perfil_data_note:"Your data is saved to your email on this device.",perfil_logout:"Log out",perfil_reset:"Delete my data",perfil_lang:"Language",perfil_units:"Unit system",perfil_units_metric:"Metric (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
 ev_type_ruta:"Road",ev_type_trail:"Trail / mountain",ev_type_obstaculos:"Obstacle race",
 day_mon:"Monday",day_tue:"Tuesday",day_wed:"Wednesday",day_thu:"Thursday",day_fri:"Friday",day_sat:"Saturday",day_sun:"Sunday",
 zdesc_1:"Recovery",zdesc_2:"Aerobic base",zdesc_3:"Tempo",zdesc_4:"Threshold",zdesc_5:"Max effort",
@@ -810,7 +849,7 @@ plan_week_label:"Week {n}",plan_cutback:"Recovery week",plan_mark_done:"✓ Done
 perfil_voice_label:"Voice cues during your run",word_yes:"Yes",word_no:"No",
 voice_km:"Kilometer {km}. Pace {pace} per kilometer.",voice_zone_high:"You're in zone {zone}. Today's target is zone {target}. Slow down a bit.",voice_zone_low:"You're in zone {zone}. Today's target is zone {target}. You can pick it up a bit.",
 backup_title:"Backup",backup_desc:"Download your data or restore a previous backup.",backup_export:"Export my data",backup_import:"Import data",import_error:"Couldn't read that file. Make sure it's a Zancada backup.",
-save_word:"Save",save_confirmed:"Saved",cancel_word:"Cancel",confirm_delete:"Delete this?",delete_event:"Delete event",plan_past_weeks:"Past weeks",plan_preview:"Preview",plan_past:"Past week",plan_no_data:"No data for this week yet.",
+save_word:"Save",save_confirmed:"Saved",cancel_word:"Cancel",confirm_delete:"Delete this?",delete_word:"Delete",confirm_yes:"Yes",reset_confirm_text:"Delete all your data? This can't be undone.",session_done_msg:"Session completed!",delete_event:"Delete event",plan_past_weeks:"Past weeks",plan_preview:"Preview",plan_past:"Past week",plan_no_data:"No data for this week yet.",
 ob_days_label:"Which days of the week will you train?",perfil_personal_title:"Personal data",perfil_weeklykm_label:"Base weekly km",perfil_goals_title:"Your goals",perfil_goals_desc:"Tell your coach what you want to achieve, so it can tailor its advice.",perfil_weekly_goal_label:"Weekly goal (km)",perfil_weekly_goal_ph:"E.g. 30",perfil_goal_note_label:"What do you want to achieve?",perfil_goal_note_ph:"E.g. lower my pace, run without knee pain, finish my first marathon...",perfil_goal_progress_label:"Weekly goal",perfil_days_title:"Your training days",perfil_days_save:"Save days",perfil_days_empty_err:"Pick at least one day."},
 
 pt:{app_tag:"Seu treinador, qualquer terreno.",start:"Começar",
@@ -826,7 +865,7 @@ zone_word:"Zona",
 run_title:"Correr",run_idle_desc:"GPS ao vivo do seu iPhone. Mantenha o app aberto durante a corrida.",run_start:"COMEÇAR",run_start_hint:"toque para iniciar",run_recording:"Gravando",run_km:"Km",run_pace:"Ritmo /km",run_pace_word:"Ritmo",run_time:"Tempo",run_hr:"FC (manual)",run_zone_current:"Zona atual",run_hr_title:"Registrar frequência cardíaca",run_hr_desc:"Sem relógio conectado ainda, registre manualmente.",run_hr_ph:"bpm",run_hr_btn:"Registrar",run_pause:"Pausar",run_resume:"Retomar",run_finish:"Finalizar",run_summary_title:"Corrida salva",run_summary_shoe_q:"Com qual tênis você correu?",run_summary_done:"Pronto",run_calories:"Kcal (est.)",geo_err_support:"Este navegador não suporta geolocalização.",geo_err_permission:"Ative a permissão de localização do Safari para registrar sua corrida.",no_shoes:"Nenhum tênis cadastrado",
 hist_title:"Seu histórico",hist_empty:"Você ainda não registrou corridas.",hist_avg_hr:"FC média",hist_max_hr:"FC máxima",hist_elevation:"Desnível",hist_cadence:"Cadência",hist_back:"Voltar",hist_shoe:"Tênis",hist_no_shoe:"não registrado",hist_delete_run:"Excluir treino",hist_info_title:"Falta sua última corrida?",hist_info_text:"Se você correu com o relógio e sincroniza com o Strava, pode levar até 15 minutos para aparecer aqui — nós buscamos sozinhos de tempos em tempos, sem você precisar fazer nada. Só um pouco de paciência. 🏃",hist_info_ok:"Entendi",hist_delete_confirm:"Excluir esta corrida? Não pode ser desfeito.",hist_share:"Compartilhar",share_tagline:"Treinado com Zancada",hist_splits_title:"Parciais",hist_splits_hint:"Ritmo por quilômetro · desnível · FC média daquele trecho.",
 coach_title:"Seu coach",coach_connection_error:"Não consegui me conectar agora. Tente de novo em instantes.",coach_ph:"Escreva para seu coach…",coach_greeting:"Olá {name}, sou seu coach no Zancada. Montei um plano inicial pensando nos seus {km}km semanais e no seu objetivo de \"{goal}\". Me conte como você se sente antes de cada sessão e vamos ajustando juntos.",coach_plan_updated:"✏️ Seu coach atualizou o plano",rating_title:"Como foi?",rating_bad:"Mal",rating_good:"Bem",rating_excellent:"Excelente",rating_lower_intensity_confirm:"Quer que eu baixe um pouco a intensidade do resto da semana?",rating_lowered_msg:"Baixei um pouco o volume do resto desta semana, para você se recuperar melhor. Qualquer coisa, me avisa!",coach_week_adjusted_down:"Vi que a semana passada foi difícil (várias sessões duras ou puladas), então baixei um pouco o volume base desta semana. Vamos com calma.",coach_week_adjusted_up:"Você está arrasando! Aumentei um pouco o volume base desta semana para continuar progredindo.",pull_refreshing:"Atualizando...",
-perfil_gear:"Seu equipamento",perfil_shoe_ph:"Modelo (ex. Pegasus 41)",perfil_add_shoe:"Adicionar tênis",perfil_event:"Seu próximo evento",perfil_ev_name_ph:"Nome da prova",perfil_ev_save:"Salvar evento",perfil_event_days:"dias",perfil_no_event:"Nenhum evento cadastrado ainda.",perfil_zones_title:"Suas zonas de frequência cardíaca",perfil_zones_estimated:"Estimadas pela sua idade — faça um teste de lactato para refiná-las.",perfil_zones_tested:"Baseadas na sua FC máxima cadastrada.",perfil_hrmax_update:"Atualizar",perfil_zones_manual_note:"Calculadas pela sua idade (220 - idade). Você pode ajustar cada zona manualmente.",perfil_push_title:"Notificações",perfil_strava_connect:"Conectar com Strava",perfil_strava_connected:"Conectado",perfil_strava_disconnect:"Desconectar",push_enable:"Ativar",push_disable:"Desativar",push_enabled:"Ativadas — vamos te avisar da sua sessão do dia.",push_disabled:"Desativadas.",push_not_supported:"Seu navegador não suporta notificações push.",push_denied:"Você não deu permissão para notificações.",push_error:"Não foi possível ativar. Tente de novo.",perfil_connectivity:"Conectividade",perfil_connectivity_desc:"Conecte seu relógio através do Strava — assim sincronizamos suas corridas automaticamente, seja qual for a marca.",perfil_native:"Nativo",perfil_remember_title:"Lembre-se de que...",perfil_remember_1:"Mantenha seu relógio conectado ao Strava.",perfil_remember_2:"Mantenha suas atividades como públicas, não privadas.",perfil_remember_3:"Permita os dados de saúde, em Strava → Ajustes → Dados de saúde → Dados relacionados à saúde → Permitir.",perfil_remember_4:"A sincronização automática pode levar até 15 minutos.",perfil_remember_5:"Que a atividade fique classificada como \u201cCorrida\u201d no Strava.",perfil_remember_6:"Se alguém apagar uma atividade no Strava, é preciso apagar também no app manualmente (a exclusão não sincroniza).",perfil_about:"Sobre",perfil_credits:"Zancada — Criado por Manuel Fernandez e Valentin Agustini. Por e para corredores.",perfil_data_note:"Seus dados ficam salvos associados ao seu email neste dispositivo.",perfil_logout:"Sair",perfil_reset:"Apagar meus dados",perfil_lang:"Idioma",perfil_units:"Sistema de medida",perfil_units_metric:"Métrico (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
+perfil_gear:"Seu equipamento",perfil_shoe_ph:"Modelo (ex. Pegasus 41)",perfil_add_shoe:"Adicionar tênis",perfil_event:"Seu próximo evento",perfil_ev_name_ph:"Nome da prova",perfil_ev_save:"Salvar evento",perfil_event_days:"dias",perfil_no_event:"Nenhum evento cadastrado ainda.",perfil_no_shoes:"Você ainda não adicionou tênis.",perfil_zones_title:"Suas zonas de frequência cardíaca",perfil_zones_estimated:"Estimadas pela sua idade — faça um teste de lactato para refiná-las.",perfil_zones_tested:"Baseadas na sua FC máxima cadastrada.",perfil_hrmax_update:"Atualizar",perfil_zones_manual_note:"Calculadas pela sua idade (220 - idade). Você pode ajustar cada zona manualmente.",perfil_push_title:"Notificações",perfil_strava_connect:"Conectar com Strava",perfil_strava_connected:"Conectado",perfil_strava_disconnect:"Desconectar",push_enable:"Ativar",push_disable:"Desativar",push_enabled:"Ativadas — vamos te avisar da sua sessão do dia.",push_disabled:"Desativadas.",push_not_supported:"Seu navegador não suporta notificações push.",push_denied:"Você não deu permissão para notificações.",push_error:"Não foi possível ativar. Tente de novo.",perfil_connectivity:"Conectividade",perfil_connectivity_desc:"Conecte seu relógio através do Strava — assim sincronizamos suas corridas automaticamente, seja qual for a marca.",perfil_native:"Nativo",perfil_remember_title:"Lembre-se de que...",perfil_remember_1:"Mantenha seu relógio conectado ao Strava.",perfil_remember_2:"Mantenha suas atividades como públicas, não privadas.",perfil_remember_3:"Permita os dados de saúde, em Strava → Ajustes → Dados de saúde → Dados relacionados à saúde → Permitir.",perfil_remember_4:"A sincronização automática pode levar até 15 minutos.",perfil_remember_5:"Que a atividade fique classificada como \u201cCorrida\u201d no Strava.",perfil_remember_6:"Se alguém apagar uma atividade no Strava, é preciso apagar também no app manualmente (a exclusão não sincroniza).",perfil_about:"Sobre",perfil_credits:"Zancada — Criado por Manuel Fernandez e Valentin Agustini. Por e para corredores.",perfil_data_note:"Seus dados ficam salvos associados ao seu email neste dispositivo.",perfil_logout:"Sair",perfil_reset:"Apagar meus dados",perfil_lang:"Idioma",perfil_units:"Sistema de medida",perfil_units_metric:"Métrico (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
 ev_type_ruta:"Asfalto",ev_type_trail:"Trilha / montanha",ev_type_obstaculos:"Obstáculos",
 day_mon:"Segunda",day_tue:"Terça",day_wed:"Quarta",day_thu:"Quinta",day_fri:"Sexta",day_sat:"Sábado",day_sun:"Domingo",
 zdesc_1:"Recuperação",zdesc_2:"Base aeróbica",zdesc_3:"Tempo",zdesc_4:"Limiar",zdesc_5:"Máximo",
@@ -835,7 +874,7 @@ plan_week_label:"Semana {n}",plan_cutback:"Semana de recuperação",plan_mark_do
 perfil_voice_label:"Avisos por voz durante a corrida",word_yes:"Sim",word_no:"Não",
 voice_km:"Quilômetro {km}. Ritmo de {pace} por quilômetro.",voice_zone_high:"Você está na zona {zone}. O objetivo de hoje é zona {target}. Diminua o ritmo.",voice_zone_low:"Você está na zona {zone}. O objetivo de hoje é zona {target}. Pode acelerar um pouco.",
 backup_title:"Cópia de segurança",backup_desc:"Baixe seus dados ou restaure um backup anterior.",backup_export:"Exportar meus dados",backup_import:"Importar dados",import_error:"Não foi possível ler esse arquivo. Verifique se é um backup do Zancada.",
-save_word:"Salvar",save_confirmed:"Salvo",cancel_word:"Cancelar",confirm_delete:"Excluir isto?",delete_event:"Excluir evento",plan_past_weeks:"Semanas anteriores",plan_preview:"Prévia",plan_past:"Semana passada",plan_no_data:"Ainda não há dados para esta semana.",
+save_word:"Salvar",save_confirmed:"Salvo",cancel_word:"Cancelar",confirm_delete:"Excluir isto?",delete_word:"Excluir",confirm_yes:"Sim",reset_confirm_text:"Excluir todos os seus dados? Isso não pode ser desfeito.",session_done_msg:"Sessão concluída!",delete_event:"Excluir evento",plan_past_weeks:"Semanas anteriores",plan_preview:"Prévia",plan_past:"Semana passada",plan_no_data:"Ainda não há dados para esta semana.",
 ob_days_label:"Em quais dias da semana você vai treinar?",perfil_personal_title:"Dados pessoais",perfil_weeklykm_label:"Km semanais base",perfil_goals_title:"Seus objetivos",perfil_goals_desc:"Conte ao coach o que você quer alcançar, para que ele adapte os conselhos.",perfil_weekly_goal_label:"Meta semanal (km)",perfil_weekly_goal_ph:"Ex: 30",perfil_goal_note_label:"O que você quer alcançar?",perfil_goal_note_ph:"Ex: baixar meu ritmo, correr sem dor no joelho, terminar minha primeira maratona...",perfil_goal_progress_label:"Meta semanal",perfil_days_title:"Seus dias de treino",perfil_days_save:"Salvar dias",perfil_days_empty_err:"Escolha pelo menos um dia."},
 
 fr:{app_tag:"Ton coach, tout terrain.",start:"Commencer",
@@ -851,7 +890,7 @@ zone_word:"Zone",
 run_title:"Courir",run_idle_desc:"GPS en direct depuis ton iPhone. Garde l'appli ouverte pendant la course.",run_start:"DÉMARRER",run_start_hint:"touche pour commencer",run_recording:"Enregistrement",run_km:"Km",run_pace:"Allure /km",run_pace_word:"Allure",run_time:"Temps",run_hr:"FC (manuelle)",run_zone_current:"Zone actuelle",run_hr_title:"Enregistrer la fréquence cardiaque",run_hr_desc:"Pas de montre connectée pour l'instant, saisis-la à la main.",run_hr_ph:"bpm",run_hr_btn:"Enregistrer",run_pause:"Pause",run_resume:"Reprendre",run_finish:"Terminer",run_summary_title:"Course enregistrée",run_summary_shoe_q:"Avec quelle paire as-tu couru ?",run_summary_done:"Terminé",run_calories:"Kcal (est.)",geo_err_support:"Ce navigateur ne supporte pas la géolocalisation.",geo_err_permission:"Active la permission de localisation de Safari pour enregistrer ta course.",no_shoes:"Aucune paire ajoutée",
 hist_title:"Ton historique",hist_empty:"Tu n'as encore enregistré aucune course.",hist_avg_hr:"FC moy.",hist_max_hr:"FC max",hist_elevation:"Dénivelé",hist_cadence:"Cadence",hist_back:"Retour",hist_shoe:"Chaussure",hist_no_shoe:"non renseignée",hist_delete_run:"Supprimer l'entraînement",hist_info_title:"Ta dernière course manque ?",hist_info_text:"Si tu as couru avec ta montre et que tu synchronises avec Strava, ça peut prendre jusqu'à 15 minutes pour apparaître ici — on vérifie tout seuls de temps en temps, sans rien à faire de ton côté. Juste un peu de patience. 🏃",hist_info_ok:"Compris",hist_delete_confirm:"Supprimer cette course ? Impossible à annuler.",hist_share:"Partager",share_tagline:"Entraîné avec Zancada",hist_splits_title:"Fractionnés",hist_splits_hint:"Allure par kilomètre · dénivelé · FC moyenne sur ce tronçon.",
 coach_title:"Ton coach",coach_connection_error:"Je n'ai pas pu me connecter là. Réessaie dans un instant.",coach_ph:"Écris à ton coach…",coach_greeting:"Salut {name}, je suis ton coach sur Zancada. J'ai créé un plan de départ selon tes {km}km par semaine et ton objectif \"{goal}\". Dis-moi comment tu te sens avant chaque séance, on l'ajustera ensemble.",coach_plan_updated:"✏️ Ton coach a mis à jour le plan",rating_title:"Comment ça s'est passé ?",rating_bad:"Mal",rating_good:"Bien",rating_excellent:"Excellent",rating_lower_intensity_confirm:"Tu veux que je baisse un peu l'intensité pour le reste de la semaine ?",rating_lowered_msg:"J'ai baissé un peu le volume pour le reste de la semaine, pour que tu puisses mieux récupérer. Dis-moi si besoin !",coach_week_adjusted_down:"J'ai vu que la semaine dernière était difficile (plusieurs séances dures ou sautées), donc j'ai un peu baissé le volume de base cette semaine. On y va doucement.",coach_week_adjusted_up:"Tu as tout déchiré ! J'ai un peu augmenté le volume de base cette semaine pour continuer à progresser.",pull_refreshing:"Actualisation...",
-perfil_gear:"Ton matériel",perfil_shoe_ph:"Modèle (ex. Pegasus 41)",perfil_add_shoe:"Ajouter une paire",perfil_event:"Ton prochain objectif",perfil_ev_name_ph:"Nom de la course",perfil_ev_save:"Enregistrer l'événement",perfil_event_days:"jours",perfil_no_event:"Aucun événement pour l'instant.",perfil_zones_title:"Tes zones de fréquence cardiaque",perfil_zones_estimated:"Estimées selon ton âge — fais un test lactate pour les affiner.",perfil_zones_tested:"Basées sur ta FC max enregistrée.",perfil_hrmax_update:"Mettre à jour",perfil_zones_manual_note:"Calculées selon ton âge (220 - âge). Tu peux ajuster chaque zone à la main.",perfil_push_title:"Notifications",perfil_strava_connect:"Se connecter à Strava",perfil_strava_connected:"Connecté",perfil_strava_disconnect:"Se déconnecter",push_enable:"Activer",push_disable:"Désactiver",push_enabled:"Activées — on va te rappeler ta séance du jour.",push_disabled:"Désactivées.",push_not_supported:"Ton navigateur ne supporte pas les notifications push.",push_denied:"Tu n'as pas autorisé les notifications.",push_error:"Impossible de les activer. Réessaie.",perfil_connectivity:"Connectivité",perfil_connectivity_desc:"Connecte ta montre via Strava — ça synchronise tes courses automatiquement, quelle que soit la marque.",perfil_native:"Natif",perfil_remember_title:"N'oublie pas que...",perfil_remember_1:"Garde ta montre connectée à Strava.",perfil_remember_2:"Garde tes activités en public, pas en privé.",perfil_remember_3:"Autorise les données de santé, dans Strava → Paramètres → Données de santé → Données liées à la santé → Autoriser.",perfil_remember_4:"La synchronisation automatique peut prendre jusqu'à 15 minutes.",perfil_remember_5:"Que l'activité soit bien classée comme \u00abCourse\u00bb dans Strava.",perfil_remember_6:"Si quelqu'un supprime une activité depuis Strava, il faut aussi la supprimer manuellement dans l'appli (la suppression ne se synchronise pas).",perfil_about:"À propos",perfil_credits:"Zancada — Créé par Manuel Fernandez et Valentin Agustini. Par des coureurs, pour des coureurs.",perfil_data_note:"Tes données sont sauvegardées avec ton email sur cet appareil.",perfil_logout:"Se déconnecter",perfil_reset:"Supprimer mes données",perfil_lang:"Langue",perfil_units:"Système de mesure",perfil_units_metric:"Métrique (km, kg)",perfil_units_imperial:"Impérial (mi, lb)",
+perfil_gear:"Ton matériel",perfil_shoe_ph:"Modèle (ex. Pegasus 41)",perfil_add_shoe:"Ajouter une paire",perfil_event:"Ton prochain objectif",perfil_ev_name_ph:"Nom de la course",perfil_ev_save:"Enregistrer l'événement",perfil_event_days:"jours",perfil_no_event:"Aucun événement pour l'instant.",perfil_no_shoes:"Tu n'as pas encore ajouté de paire.",perfil_zones_title:"Tes zones de fréquence cardiaque",perfil_zones_estimated:"Estimées selon ton âge — fais un test lactate pour les affiner.",perfil_zones_tested:"Basées sur ta FC max enregistrée.",perfil_hrmax_update:"Mettre à jour",perfil_zones_manual_note:"Calculées selon ton âge (220 - âge). Tu peux ajuster chaque zone à la main.",perfil_push_title:"Notifications",perfil_strava_connect:"Se connecter à Strava",perfil_strava_connected:"Connecté",perfil_strava_disconnect:"Se déconnecter",push_enable:"Activer",push_disable:"Désactiver",push_enabled:"Activées — on va te rappeler ta séance du jour.",push_disabled:"Désactivées.",push_not_supported:"Ton navigateur ne supporte pas les notifications push.",push_denied:"Tu n'as pas autorisé les notifications.",push_error:"Impossible de les activer. Réessaie.",perfil_connectivity:"Connectivité",perfil_connectivity_desc:"Connecte ta montre via Strava — ça synchronise tes courses automatiquement, quelle que soit la marque.",perfil_native:"Natif",perfil_remember_title:"N'oublie pas que...",perfil_remember_1:"Garde ta montre connectée à Strava.",perfil_remember_2:"Garde tes activités en public, pas en privé.",perfil_remember_3:"Autorise les données de santé, dans Strava → Paramètres → Données de santé → Données liées à la santé → Autoriser.",perfil_remember_4:"La synchronisation automatique peut prendre jusqu'à 15 minutes.",perfil_remember_5:"Que l'activité soit bien classée comme \u00abCourse\u00bb dans Strava.",perfil_remember_6:"Si quelqu'un supprime une activité depuis Strava, il faut aussi la supprimer manuellement dans l'appli (la suppression ne se synchronise pas).",perfil_about:"À propos",perfil_credits:"Zancada — Créé par Manuel Fernandez et Valentin Agustini. Par des coureurs, pour des coureurs.",perfil_data_note:"Tes données sont sauvegardées avec ton email sur cet appareil.",perfil_logout:"Se déconnecter",perfil_reset:"Supprimer mes données",perfil_lang:"Langue",perfil_units:"Système de mesure",perfil_units_metric:"Métrique (km, kg)",perfil_units_imperial:"Impérial (mi, lb)",
 ev_type_ruta:"Route",ev_type_trail:"Trail / montagne",ev_type_obstaculos:"Course d'obstacles",
 day_mon:"Lundi",day_tue:"Mardi",day_wed:"Mercredi",day_thu:"Jeudi",day_fri:"Vendredi",day_sat:"Samedi",day_sun:"Dimanche",
 zdesc_1:"Récupération",zdesc_2:"Base aérobie",zdesc_3:"Tempo",zdesc_4:"Seuil",zdesc_5:"Maximal",
@@ -860,7 +899,7 @@ plan_week_label:"Semaine {n}",plan_cutback:"Semaine de récup",plan_mark_done:"�
 perfil_voice_label:"Annonces vocales pendant la course",word_yes:"Oui",word_no:"Non",
 voice_km:"Kilomètre {km}. Allure {pace} au kilomètre.",voice_zone_high:"Tu es en zone {zone}. L'objectif du jour est la zone {target}. Ralentis un peu.",voice_zone_low:"Tu es en zone {zone}. L'objectif du jour est la zone {target}. Tu peux accélérer un peu.",
 backup_title:"Sauvegarde",backup_desc:"Télécharge tes données ou restaure une sauvegarde précédente.",backup_export:"Exporter mes données",backup_import:"Importer des données",import_error:"Impossible de lire ce fichier. Vérifie que c'est bien une sauvegarde Zancada.",
-save_word:"Enregistrer",save_confirmed:"Enregistré",cancel_word:"Annuler",confirm_delete:"Supprimer ceci ?",delete_event:"Supprimer l'événement",plan_past_weeks:"Semaines précédentes",plan_preview:"Aperçu",plan_past:"Semaine passée",plan_no_data:"Pas encore de données pour cette semaine.",
+save_word:"Enregistrer",save_confirmed:"Enregistré",cancel_word:"Annuler",confirm_delete:"Supprimer ceci ?",delete_word:"Supprimer",confirm_yes:"Oui",reset_confirm_text:"Supprimer toutes tes données ? Impossible à annuler.",session_done_msg:"Séance terminée !",delete_event:"Supprimer l'événement",plan_past_weeks:"Semaines précédentes",plan_preview:"Aperçu",plan_past:"Semaine passée",plan_no_data:"Pas encore de données pour cette semaine.",
 ob_days_label:"Quels jours de la semaine vas-tu t'entraîner ?",perfil_personal_title:"Données personnelles",perfil_weeklykm_label:"Km hebdo de base",perfil_goals_title:"Tes objectifs",perfil_goals_desc:"Dis à ton coach ce que tu veux accomplir, pour qu'il adapte ses conseils.",perfil_weekly_goal_label:"Objectif hebdo (km)",perfil_weekly_goal_ph:"Ex : 30",perfil_goal_note_label:"Qu'est-ce que tu veux accomplir ?",perfil_goal_note_ph:"Ex : baisser mon allure, courir sans douleur au genou, terminer mon premier marathon...",perfil_goal_progress_label:"Objectif hebdo",perfil_days_title:"Tes jours d'entraînement",perfil_days_save:"Enregistrer les jours",perfil_days_empty_err:"Choisis au moins un jour."},
 
 it:{app_tag:"Il tuo coach, ogni terreno.",start:"Inizia",
@@ -876,7 +915,7 @@ zone_word:"Zona",
 run_title:"Corri",run_idle_desc:"GPS in tempo reale dal tuo iPhone. Tieni l'app aperta durante la corsa.",run_start:"INIZIA",run_start_hint:"tocca per iniziare",run_recording:"Registrazione",run_km:"Km",run_pace:"Ritmo /km",run_pace_word:"Ritmo",run_time:"Tempo",run_hr:"FC (manuale)",run_zone_current:"Zona attuale",run_hr_title:"Registra frequenza cardiaca",run_hr_desc:"Nessun orologio collegato ancora, inseriscila a mano.",run_hr_ph:"bpm",run_hr_btn:"Registra",run_pause:"Pausa",run_resume:"Riprendi",run_finish:"Termina",run_summary_title:"Corsa salvata",run_summary_shoe_q:"Con quali scarpe hai corso?",run_summary_done:"Fatto",run_calories:"Kcal (stim.)",geo_err_support:"Questo browser non supporta la geolocalizzazione.",geo_err_permission:"Attiva il permesso di localizzazione di Safari per registrare la corsa.",no_shoes:"Nessuna scarpa aggiunta",
 hist_title:"Il tuo storico",hist_empty:"Non hai ancora registrato corse.",hist_avg_hr:"FC media",hist_max_hr:"FC massima",hist_elevation:"Dislivello",hist_cadence:"Cadenza",hist_back:"Indietro",hist_shoe:"Scarpa",hist_no_shoe:"non registrata",hist_delete_run:"Elimina allenamento",hist_info_title:"Manca la tua ultima corsa?",hist_info_text:"Se hai corso con l'orologio e sincronizzi con Strava, può metterci fino a 15 minuti per apparire qui — controlliamo da soli ogni tanto, senza che tu debba fare nulla. Basta un po' di pazienza. 🏃",hist_info_ok:"Capito",hist_delete_confirm:"Eliminare questa corsa? Non si può annullare.",hist_share:"Condividi",share_tagline:"Allenato con Zancada",hist_splits_title:"Parziali",hist_splits_hint:"Ritmo per chilometro · dislivello · FC media di quel tratto.",
 coach_title:"Il tuo coach",coach_connection_error:"Non sono riuscito a connettermi ora. Riprova tra un momento.",coach_ph:"Scrivi al tuo coach…",coach_greeting:"Ciao {name}, sono il tuo coach su Zancada. Ho creato un piano iniziale in base ai tuoi {km}km settimanali e al tuo obiettivo \"{goal}\". Dimmi come ti senti prima di ogni sessione e lo affiniamo insieme.",coach_plan_updated:"✏️ Il coach ha aggiornato il piano",rating_title:"Com'è andata?",rating_bad:"Male",rating_good:"Bene",rating_excellent:"Eccellente",rating_lower_intensity_confirm:"Vuoi che abbassi un po' l'intensità per il resto della settimana?",rating_lowered_msg:"Ho abbassato un po' il volume per il resto di questa settimana, per farti recuperare meglio. Fammi sapere se serve altro!",coach_week_adjusted_down:"Ho visto che la settimana scorsa è stata dura (diverse sessioni difficili o saltate), quindi ho abbassato leggermente il volume base di questa settimana. Andiamo con calma.",coach_week_adjusted_up:"Sei stato fantastico! Ho aumentato un po' il volume base di questa settimana per continuare a migliorare.",pull_refreshing:"Aggiornamento...",
-perfil_gear:"La tua attrezzatura",perfil_shoe_ph:"Modello (es. Pegasus 41)",perfil_add_shoe:"Aggiungi scarpa",perfil_event:"Il tuo prossimo evento",perfil_ev_name_ph:"Nome della gara",perfil_ev_save:"Salva evento",perfil_event_days:"giorni",perfil_no_event:"Nessun evento impostato ancora.",perfil_zones_title:"Le tue zone di frequenza cardiaca",perfil_zones_estimated:"Stimate in base all'età — fai un test del lattato per affinarle.",perfil_zones_tested:"Basate sulla tua FC massima salvata.",perfil_hrmax_update:"Aggiorna",perfil_zones_manual_note:"Calcolate in base alla tua età (220 - età). Puoi modificare ogni zona manualmente.",perfil_push_title:"Notifiche",perfil_strava_connect:"Connetti con Strava",perfil_strava_connected:"Connesso",perfil_strava_disconnect:"Disconnetti",push_enable:"Attiva",push_disable:"Disattiva",push_enabled:"Attivate — ti ricorderemo la sessione di oggi.",push_disabled:"Disattivate.",push_not_supported:"Il tuo browser non supporta le notifiche push.",push_denied:"Non hai concesso il permesso per le notifiche.",push_error:"Impossibile attivarle. Riprova.",perfil_connectivity:"Connettività",perfil_connectivity_desc:"Collega il tuo orologio tramite Strava — così sincronizziamo le tue corse automaticamente, qualsiasi sia la marca.",perfil_native:"Nativo",perfil_remember_title:"Ricorda che...",perfil_remember_1:"Tieni il tuo orologio collegato a Strava.",perfil_remember_2:"Tieni le tue attività pubbliche, non private.",perfil_remember_3:"Consenti i dati sulla salute, in Strava → Impostazioni → Dati sulla salute → Dati relativi alla salute → Consenti.",perfil_remember_4:"La sincronizzazione automatica può richiedere fino a 15 minuti.",perfil_remember_5:"Che l'attività sia classificata come \u201cCorsa\u201d su Strava.",perfil_remember_6:"Se qualcuno elimina un'attività da Strava, va eliminata anche dall'app manualmente (l'eliminazione non si sincronizza).",perfil_about:"Info",perfil_credits:"Zancada — Creato da Manuel Fernandez e Valentin Agustini. Da runner, per runner.",perfil_data_note:"I tuoi dati sono salvati associati alla tua email su questo dispositivo.",perfil_logout:"Esci",perfil_reset:"Elimina i miei dati",perfil_lang:"Lingua",perfil_units:"Sistema di misura",perfil_units_metric:"Metrico (km, kg)",perfil_units_imperial:"Imperiale (mi, lb)",
+perfil_gear:"La tua attrezzatura",perfil_shoe_ph:"Modello (es. Pegasus 41)",perfil_add_shoe:"Aggiungi scarpa",perfil_event:"Il tuo prossimo evento",perfil_ev_name_ph:"Nome della gara",perfil_ev_save:"Salva evento",perfil_event_days:"giorni",perfil_no_event:"Nessun evento impostato ancora.",perfil_no_shoes:"Non hai ancora aggiunto scarpe.",perfil_zones_title:"Le tue zone di frequenza cardiaca",perfil_zones_estimated:"Stimate in base all'età — fai un test del lattato per affinarle.",perfil_zones_tested:"Basate sulla tua FC massima salvata.",perfil_hrmax_update:"Aggiorna",perfil_zones_manual_note:"Calcolate in base alla tua età (220 - età). Puoi modificare ogni zona manualmente.",perfil_push_title:"Notifiche",perfil_strava_connect:"Connetti con Strava",perfil_strava_connected:"Connesso",perfil_strava_disconnect:"Disconnetti",push_enable:"Attiva",push_disable:"Disattiva",push_enabled:"Attivate — ti ricorderemo la sessione di oggi.",push_disabled:"Disattivate.",push_not_supported:"Il tuo browser non supporta le notifiche push.",push_denied:"Non hai concesso il permesso per le notifiche.",push_error:"Impossibile attivarle. Riprova.",perfil_connectivity:"Connettività",perfil_connectivity_desc:"Collega il tuo orologio tramite Strava — così sincronizziamo le tue corse automaticamente, qualsiasi sia la marca.",perfil_native:"Nativo",perfil_remember_title:"Ricorda che...",perfil_remember_1:"Tieni il tuo orologio collegato a Strava.",perfil_remember_2:"Tieni le tue attività pubbliche, non private.",perfil_remember_3:"Consenti i dati sulla salute, in Strava → Impostazioni → Dati sulla salute → Dati relativi alla salute → Consenti.",perfil_remember_4:"La sincronizzazione automatica può richiedere fino a 15 minuti.",perfil_remember_5:"Che l'attività sia classificata come \u201cCorsa\u201d su Strava.",perfil_remember_6:"Se qualcuno elimina un'attività da Strava, va eliminata anche dall'app manualmente (l'eliminazione non si sincronizza).",perfil_about:"Info",perfil_credits:"Zancada — Creato da Manuel Fernandez e Valentin Agustini. Da runner, per runner.",perfil_data_note:"I tuoi dati sono salvati associati alla tua email su questo dispositivo.",perfil_logout:"Esci",perfil_reset:"Elimina i miei dati",perfil_lang:"Lingua",perfil_units:"Sistema di misura",perfil_units_metric:"Metrico (km, kg)",perfil_units_imperial:"Imperiale (mi, lb)",
 ev_type_ruta:"Asfalto",ev_type_trail:"Trail / montagna",ev_type_obstaculos:"Ostacoli",
 day_mon:"Lunedì",day_tue:"Martedì",day_wed:"Mercoledì",day_thu:"Giovedì",day_fri:"Venerdì",day_sat:"Sabato",day_sun:"Domenica",
 zdesc_1:"Recupero",zdesc_2:"Base aerobica",zdesc_3:"Tempo",zdesc_4:"Soglia",zdesc_5:"Massimo",
@@ -885,7 +924,7 @@ plan_week_label:"Settimana {n}",plan_cutback:"Settimana di scarico",plan_mark_do
 perfil_voice_label:"Avvisi vocali durante la corsa",word_yes:"Sì",word_no:"No",
 voice_km:"Chilometro {km}. Ritmo {pace} al chilometro.",voice_zone_high:"Sei in zona {zone}. L'obiettivo di oggi è zona {target}. Rallenta un po'.",voice_zone_low:"Sei in zona {zone}. L'obiettivo di oggi è zona {target}. Puoi accelerare un po'.",
 backup_title:"Backup",backup_desc:"Scarica i tuoi dati o ripristina un backup precedente.",backup_export:"Esporta i miei dati",backup_import:"Importa dati",import_error:"Impossibile leggere il file. Verifica che sia un backup di Zancada.",
-save_word:"Salva",save_confirmed:"Salvato",cancel_word:"Annulla",confirm_delete:"Eliminare questo?",delete_event:"Elimina evento",plan_past_weeks:"Settimane precedenti",plan_preview:"Anteprima",plan_past:"Settimana passata",plan_no_data:"Ancora nessun dato per questa settimana.",
+save_word:"Salva",save_confirmed:"Salvato",cancel_word:"Annulla",confirm_delete:"Eliminare questo?",delete_word:"Elimina",confirm_yes:"Sì",reset_confirm_text:"Eliminare tutti i tuoi dati? Non si può annullare.",session_done_msg:"Sessione completata!",delete_event:"Elimina evento",plan_past_weeks:"Settimane precedenti",plan_preview:"Anteprima",plan_past:"Settimana passata",plan_no_data:"Ancora nessun dato per questa settimana.",
 ob_days_label:"In quali giorni della settimana ti allenerai?",perfil_personal_title:"Dati personali",perfil_weeklykm_label:"Km settimanali base",perfil_goals_title:"I tuoi obiettivi",perfil_goals_desc:"Racconta al coach cosa vuoi ottenere, così adatta i suoi consigli.",perfil_weekly_goal_label:"Obiettivo settimanale (km)",perfil_weekly_goal_ph:"Es: 30",perfil_goal_note_label:"Cosa vuoi ottenere?",perfil_goal_note_ph:"Es: abbassare il mio ritmo, correre senza dolore al ginocchio, finire la mia prima maratona...",perfil_goal_progress_label:"Obiettivo settimanale",perfil_days_title:"I tuoi giorni di allenamento",perfil_days_save:"Salva giorni",perfil_days_empty_err:"Scegli almeno un giorno."},
 
 de:{app_tag:"Dein Coach, jedes Terrain.",start:"Loslegen",
@@ -901,7 +940,7 @@ zone_word:"Zone",
 run_title:"Laufen",run_idle_desc:"Live-GPS von deinem iPhone. Halte die App während des Laufs geöffnet.",run_start:"START",run_start_hint:"zum Starten tippen",run_recording:"Aufzeichnung läuft",run_km:"Km",run_pace:"Pace /km",run_pace_word:"Pace",run_time:"Zeit",run_hr:"HF (manuell)",run_zone_current:"Aktuelle Zone",run_hr_title:"Herzfrequenz erfassen",run_hr_desc:"Noch keine Uhr verbunden — trag sie manuell ein.",run_hr_ph:"bpm",run_hr_btn:"Erfassen",run_pause:"Pause",run_resume:"Fortsetzen",run_finish:"Beenden",run_summary_title:"Lauf gespeichert",run_summary_shoe_q:"Mit welchen Schuhen bist du gelaufen?",run_summary_done:"Fertig",run_calories:"Kcal (gesch.)",geo_err_support:"Dieser Browser unterstützt keine Standortermittlung.",geo_err_permission:"Aktiviere die Safari-Standortfreigabe, um deinen Lauf zu erfassen.",no_shoes:"Noch keine Schuhe angelegt",
 hist_title:"Dein Verlauf",hist_empty:"Du hast noch keine Läufe erfasst.",hist_avg_hr:"Ø HF",hist_max_hr:"Max HF",hist_elevation:"Höhenmeter",hist_cadence:"Kadenz",hist_back:"Zurück",hist_shoe:"Schuh",hist_no_shoe:"nicht erfasst",hist_delete_run:"Training löschen",hist_info_title:"Fehlt dein letzter Lauf?",hist_info_text:"Wenn du mit der Uhr gelaufen bist und mit Strava synchronisierst, kann es bis zu 15 Minuten dauern, bis er hier auftaucht — wir prüfen das automatisch, du musst nichts tun. Nur ein bisschen Geduld. 🏃",hist_info_ok:"Verstanden",hist_delete_confirm:"Diesen Lauf löschen? Das kann nicht rückgängig gemacht werden.",hist_share:"Teilen",share_tagline:"Trainiert mit Zancada",hist_splits_title:"Teilstrecken",hist_splits_hint:"Tempo pro Kilometer · Höhenmeter · durchschnittliche HF dieses Abschnitts.",
 coach_title:"Dein Coach",coach_connection_error:"Ich konnte mich gerade nicht verbinden. Versuch es gleich noch mal.",coach_ph:"Schreib deinem Coach…",coach_greeting:"Hallo {name}, ich bin dein Coach bei Zancada. Ich habe einen Startplan basierend auf deinen {km}km/Woche und deinem Ziel \"{goal}\" erstellt. Sag mir vor jeder Einheit, wie du dich fühlst, dann feilen wir gemeinsam daran.",coach_plan_updated:"✏️ Dein Coach hat den Plan aktualisiert",rating_title:"Wie ist es gelaufen?",rating_bad:"Schlecht",rating_good:"Gut",rating_excellent:"Ausgezeichnet",rating_lower_intensity_confirm:"Soll ich die Intensität für den Rest der Woche etwas senken?",rating_lowered_msg:"Ich habe das Volumen für den Rest dieser Woche etwas gesenkt, damit du dich besser erholen kannst. Sag Bescheid, falls du etwas brauchst!",coach_week_adjusted_down:"Ich habe gesehen, dass letzte Woche schwierig war (mehrere harte oder ausgelassene Einheiten), also habe ich das Basisvolumen dieser Woche leicht gesenkt. Lass es ruhig angehen.",coach_week_adjusted_up:"Du hast das großartig gemacht! Ich habe das Basisvolumen dieser Woche etwas erhöht, damit du weiter Fortschritte machst.",pull_refreshing:"Aktualisieren...",
-perfil_gear:"Deine Ausrüstung",perfil_shoe_ph:"Modell (z. B. Pegasus 41)",perfil_add_shoe:"Schuh hinzufügen",perfil_event:"Dein nächstes Ziel",perfil_ev_name_ph:"Name des Rennens",perfil_ev_save:"Event speichern",perfil_event_days:"Tage",perfil_no_event:"Noch kein Event hinterlegt.",perfil_zones_title:"Deine Herzfrequenzzonen",perfil_zones_estimated:"Nach Alter geschätzt — mach einen Laktattest, um sie zu verfeinern.",perfil_zones_tested:"Basierend auf deiner gespeicherten HFmax.",perfil_hrmax_update:"Aktualisieren",perfil_zones_manual_note:"Berechnet nach deinem Alter (220 - Alter). Du kannst jede Zone manuell anpassen.",perfil_push_title:"Benachrichtigungen",perfil_strava_connect:"Mit Strava verbinden",perfil_strava_connected:"Verbunden",perfil_strava_disconnect:"Trennen",push_enable:"Aktivieren",push_disable:"Deaktivieren",push_enabled:"Aktiviert — wir erinnern dich an deine heutige Einheit.",push_disabled:"Deaktiviert.",push_not_supported:"Dein Browser unterstützt keine Push-Benachrichtigungen.",push_denied:"Du hast die Benachrichtigungserlaubnis nicht erteilt.",push_error:"Konnte nicht aktiviert werden. Versuch es nochmal.",perfil_connectivity:"Konnektivität",perfil_connectivity_desc:"Verbinde deine Uhr über Strava — so synchronisieren wir deine Läufe automatisch, egal welche Marke.",perfil_native:"Nativ",perfil_remember_title:"Denk daran...",perfil_remember_1:"Halte deine Uhr mit Strava verbunden.",perfil_remember_2:"Stelle deine Aktivitäten auf öffentlich, nicht privat.",perfil_remember_3:"Erlaube Gesundheitsdaten, unter Strava → Einstellungen → Gesundheitsdaten → Gesundheitsbezogene Daten → Erlauben.",perfil_remember_4:"Die automatische Synchronisierung kann bis zu 15 Minuten dauern.",perfil_remember_5:"Dass die Aktivität in Strava als \u201eLauf\u201c eingestuft ist.",perfil_remember_6:"Wenn jemand eine Aktivität in Strava löscht, muss sie auch in der App manuell gelöscht werden (das Löschen wird nicht synchronisiert).",perfil_about:"Über",perfil_credits:"Zancada — Erstellt von Manuel Fernandez und Valentin Agustini. Von Läufern für Läufer.",perfil_data_note:"Deine Daten werden mit deiner E-Mail auf diesem Gerät gespeichert.",perfil_logout:"Abmelden",perfil_reset:"Meine Daten löschen",perfil_lang:"Sprache",perfil_units:"Maßsystem",perfil_units_metric:"Metrisch (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
+perfil_gear:"Deine Ausrüstung",perfil_shoe_ph:"Modell (z. B. Pegasus 41)",perfil_add_shoe:"Schuh hinzufügen",perfil_event:"Dein nächstes Ziel",perfil_ev_name_ph:"Name des Rennens",perfil_ev_save:"Event speichern",perfil_event_days:"Tage",perfil_no_event:"Noch kein Event hinterlegt.",perfil_no_shoes:"Du hast noch keine Schuhe hinzugefügt.",perfil_zones_title:"Deine Herzfrequenzzonen",perfil_zones_estimated:"Nach Alter geschätzt — mach einen Laktattest, um sie zu verfeinern.",perfil_zones_tested:"Basierend auf deiner gespeicherten HFmax.",perfil_hrmax_update:"Aktualisieren",perfil_zones_manual_note:"Berechnet nach deinem Alter (220 - Alter). Du kannst jede Zone manuell anpassen.",perfil_push_title:"Benachrichtigungen",perfil_strava_connect:"Mit Strava verbinden",perfil_strava_connected:"Verbunden",perfil_strava_disconnect:"Trennen",push_enable:"Aktivieren",push_disable:"Deaktivieren",push_enabled:"Aktiviert — wir erinnern dich an deine heutige Einheit.",push_disabled:"Deaktiviert.",push_not_supported:"Dein Browser unterstützt keine Push-Benachrichtigungen.",push_denied:"Du hast die Benachrichtigungserlaubnis nicht erteilt.",push_error:"Konnte nicht aktiviert werden. Versuch es nochmal.",perfil_connectivity:"Konnektivität",perfil_connectivity_desc:"Verbinde deine Uhr über Strava — so synchronisieren wir deine Läufe automatisch, egal welche Marke.",perfil_native:"Nativ",perfil_remember_title:"Denk daran...",perfil_remember_1:"Halte deine Uhr mit Strava verbunden.",perfil_remember_2:"Stelle deine Aktivitäten auf öffentlich, nicht privat.",perfil_remember_3:"Erlaube Gesundheitsdaten, unter Strava → Einstellungen → Gesundheitsdaten → Gesundheitsbezogene Daten → Erlauben.",perfil_remember_4:"Die automatische Synchronisierung kann bis zu 15 Minuten dauern.",perfil_remember_5:"Dass die Aktivität in Strava als \u201eLauf\u201c eingestuft ist.",perfil_remember_6:"Wenn jemand eine Aktivität in Strava löscht, muss sie auch in der App manuell gelöscht werden (das Löschen wird nicht synchronisiert).",perfil_about:"Über",perfil_credits:"Zancada — Erstellt von Manuel Fernandez und Valentin Agustini. Von Läufern für Läufer.",perfil_data_note:"Deine Daten werden mit deiner E-Mail auf diesem Gerät gespeichert.",perfil_logout:"Abmelden",perfil_reset:"Meine Daten löschen",perfil_lang:"Sprache",perfil_units:"Maßsystem",perfil_units_metric:"Metrisch (km, kg)",perfil_units_imperial:"Imperial (mi, lb)",
 ev_type_ruta:"Straße",ev_type_trail:"Trail / Berg",ev_type_obstaculos:"Hindernislauf",
 day_mon:"Montag",day_tue:"Dienstag",day_wed:"Mittwoch",day_thu:"Donnerstag",day_fri:"Freitag",day_sat:"Samstag",day_sun:"Sonntag",
 zdesc_1:"Erholung",zdesc_2:"Aerobe Basis",zdesc_3:"Tempo",zdesc_4:"Schwelle",zdesc_5:"Maximal",
@@ -910,7 +949,7 @@ plan_week_label:"Woche {n}",plan_cutback:"Erholungswoche",plan_mark_done:"✓ Er
 perfil_voice_label:"Sprachansagen während des Laufs",word_yes:"Ja",word_no:"Nein",
 voice_km:"Kilometer {km}. Pace {pace} pro Kilometer.",voice_zone_high:"Du bist in Zone {zone}. Das heutige Ziel ist Zone {target}. Lauf etwas langsamer.",voice_zone_low:"Du bist in Zone {zone}. Das heutige Ziel ist Zone {target}. Du kannst etwas schneller laufen.",
 backup_title:"Sicherung",backup_desc:"Lade deine Daten herunter oder stelle ein früheres Backup wieder her.",backup_export:"Meine Daten exportieren",backup_import:"Daten importieren",import_error:"Diese Datei konnte nicht gelesen werden. Stelle sicher, dass es sich um ein Zancada-Backup handelt.",
-save_word:"Speichern",save_confirmed:"Gespeichert",cancel_word:"Abbrechen",confirm_delete:"Das löschen?",delete_event:"Event löschen",plan_past_weeks:"Vergangene Wochen",plan_preview:"Vorschau",plan_past:"Vergangene Woche",plan_no_data:"Für diese Woche gibt es noch keine Daten.",
+save_word:"Speichern",save_confirmed:"Gespeichert",cancel_word:"Abbrechen",confirm_delete:"Das löschen?",delete_word:"Löschen",confirm_yes:"Ja",reset_confirm_text:"Alle deine Daten löschen? Das kann nicht rückgängig gemacht werden.",session_done_msg:"Einheit abgeschlossen!",delete_event:"Event löschen",plan_past_weeks:"Vergangene Wochen",plan_preview:"Vorschau",plan_past:"Vergangene Woche",plan_no_data:"Für diese Woche gibt es noch keine Daten.",
 ob_days_label:"An welchen Wochentagen wirst du trainieren?",perfil_personal_title:"Persönliche Daten",perfil_weeklykm_label:"Wöchentliche Basis-Km",perfil_goals_title:"Deine Ziele",perfil_goals_desc:"Erzähl deinem Coach, was du erreichen willst, damit er seine Ratschläge anpasst.",perfil_weekly_goal_label:"Wochenziel (km)",perfil_weekly_goal_ph:"Z. B. 30",perfil_goal_note_label:"Was möchtest du erreichen?",perfil_goal_note_ph:"Z. B. mein Tempo senken, ohne Knieschmerzen laufen, meinen ersten Marathon beenden...",perfil_goal_progress_label:"Wochenziel",perfil_days_title:"Deine Trainingstage",perfil_days_save:"Tage speichern",perfil_days_empty_err:"Wähle mindestens einen Tag."}
 };
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
@@ -956,8 +995,67 @@ const ICONS = {
   shoe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 17c0-1.2.7-2.3 1.8-2.8l5-2.3c.6-.3 1.3-.3 1.9 0l2.6 1.3c1.6.8 3.4 1.2 5.2 1.2h1.5v3.6H2.5V17z"/><path d="M9.3 11.9l.9-3.4M4.3 14.2c1.3.5 2.7.8 4.1.8"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-  empty: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12a8 8 0 1 0 3-6.3"/><path d="M4 5v4h4"/><path d="M12 8v4l3 2"/></svg>'
+  empty: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12a8 8 0 1 0 3-6.3"/><path d="M4 5v4h4"/><path d="M12 8v4l3 2"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6.5 9 17.5l-5-5"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5 2 20.5h20L12 3.5z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
+  chevronLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>',
+  chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5 4.5 6.3V11c0 5 3.2 8.6 7.5 10.2 4.3-1.6 7.5-5.2 7.5-10.2V6.3L12 3.5z"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg>'
 };
+
+/* ================= FEEDBACK: toast / confirm / haptics ================= */
+function haptic(pattern){
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+let toastHideTimer = null;
+function showToast(message, type){
+  type = type || 'info';
+  let wrap = document.getElementById('toast-wrap');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap'; wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const icon = type==='error' ? ICONS.warn : type==='success' ? ICONS.check : '';
+  wrap.innerHTML = `<div class="toast ${type}" id="toast-el">${icon?`<span class="icon-sq" style="width:16px; height:16px; flex-shrink:0;">${icon}</span>`:''}<span>${message}</span></div>`;
+  const el = document.getElementById('toast-el');
+  requestAnimationFrame(()=>el.classList.add('show'));
+  if(type==='error') haptic(35);
+  clearTimeout(toastHideTimer);
+  toastHideTimer = setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=>{ if(wrap) wrap.innerHTML = ''; }, 250);
+  }, 3200);
+}
+function showConfirm(message, opts){
+  opts = opts || {};
+  return new Promise(resolve=>{
+    let backdrop = document.getElementById('confirm-backdrop');
+    if(!backdrop){
+      backdrop = document.createElement('div');
+      backdrop.id = 'confirm-backdrop'; backdrop.className = 'confirm-backdrop';
+      document.body.appendChild(backdrop);
+    }
+    const confirmText = opts.confirmText || t('confirm_yes');
+    const cancelText = opts.cancelText || t('cancel_word');
+    const danger = !!opts.danger;
+    backdrop.innerHTML = `<div class="confirm-card"><p>${message}</p><div class="confirm-actions">
+      <button class="btn btn-outline" id="confirm-cancel-btn">${cancelText}</button>
+      <button class="btn ${danger?'btn-danger':'btn-primary'}" id="confirm-ok-btn">${confirmText}</button>
+    </div></div>`;
+    backdrop.classList.add('show');
+    haptic(15);
+    const cleanup = (result)=>{
+      backdrop.classList.remove('show');
+      setTimeout(()=>{ if(backdrop) backdrop.innerHTML = ''; }, 180);
+      resolve(result);
+    };
+    document.getElementById('confirm-cancel-btn').onclick = ()=>cleanup(false);
+    document.getElementById('confirm-ok-btn').onclick = ()=>{ haptic(20); cleanup(true); };
+    backdrop.onclick = (e)=>{ if(e.target===backdrop) cleanup(false); };
+  });
+}
 
 /* ================= STATE ================= */
 let state = {onboarded:false, profile:{}, plan:[], runs:[], shoes:[], event:null, chat:[], lang:'es'};
@@ -1014,14 +1112,14 @@ async function handlePushToggle(checked){
 }
 async function enablePushNotifications(){
   try{
-    if(!('serviceWorker' in navigator) || !('PushManager' in window)){ alert(t('push_not_supported')); await updatePushStatusDisplay(); return; }
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){ showToast(t('push_not_supported'),'error'); await updatePushStatusDisplay(); return; }
     const reg = await navigator.serviceWorker.ready;
     const permission = await Notification.requestPermission();
-    if(permission !== 'granted'){ alert(t('push_denied')); await updatePushStatusDisplay(); return; }
+    if(permission !== 'granted'){ showToast(t('push_denied'),'error'); await updatePushStatusDisplay(); return; }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
     await supabaseClient.from('push_subscriptions').upsert({ user_id: currentUserId, subscription: sub.toJSON() });
     await updatePushStatusDisplay();
-  }catch(e){ console.error(e); alert(t('push_error')); await updatePushStatusDisplay(); }
+  }catch(e){ console.error(e); showToast(t('push_error'),'error'); await updatePushStatusDisplay(); }
 }
 async function disablePushNotifications(){
   try{
@@ -1112,7 +1210,7 @@ function goSignup(){ document.getElementById('login').style.display='none'; docu
 function goBackToLogin(){ document.getElementById('signup').style.display='none'; document.getElementById('login').style.display='block'; }
 async function handleGoogleSignIn(){
   const { error } = await supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.origin } });
-  if(error){ console.error(error); alert(t('login_err')); }
+  if(error){ console.error(error); showToast(t('login_err'),'error'); }
 }
 
 /* ---- Strava ---- */
@@ -1259,7 +1357,7 @@ function relinkTodayRun(){
 }
 function saveTrainingDays(){
   const selected = [...document.querySelectorAll('#perfil-days .day-pill.active')].map(el=>el.dataset.v);
-  if(selected.length===0){ alert(t('perfil_days_empty_err')); return; }
+  if(selected.length===0){ showToast(t('perfil_days_empty_err'),'error'); return; }
   state.profile.trainingDays = DAY_KEYS.filter(d=>selected.includes(d));
   state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
   renderAll(); renderZones(); persist();
@@ -1456,7 +1554,7 @@ function enterApp(){
 }
 async function logout(){ await supabaseClient.auth.signOut(); location.reload(); }
 async function resetApp(){
-  if(!confirm('¿Borrar todos tus datos? / Delete all your data?')) return;
+  if(!(await showConfirm(t('reset_confirm_text'), {danger:true, confirmText:t('delete_word')}))) return;
   if(currentUserId){
     try{ await supabaseClient.from('app_state').delete().eq('user_id', currentUserId); }catch(e){}
   }
@@ -1534,7 +1632,7 @@ function repairCorruptedCustomDays(){
 }
 async function syncTodayNow(){
   const btn = document.getElementById('sync-today-btn');
-  if(btn){ btn.disabled = true; btn.innerHTML = `<span class="icon-sq" style="width:14px; height:14px;">${ICONS.refresh}</span> ${t('plan_syncing')}`; }
+  if(btn){ btn.disabled = true; btn.innerHTML = `<span class="icon-sq spin-icon" style="width:14px; height:14px;">${ICONS.refresh}</span> ${t('plan_syncing')}`; }
   let syncResult = null;
   try{
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1555,7 +1653,7 @@ async function syncTodayNow(){
   renderPlan(); renderHome(); renderHistory();
   if(syncResult && !syncResult.synced){
     const reasonMsg = syncResult.error ? `Error: ${syncResult.error}` : syncResult.reason==='not_connected' ? 'Tu cuenta no está conectada a Strava.' : syncResult.reason==='no_new_activity' ? 'No encontramos actividades nuevas en las últimas 24 horas en tu Strava.' : 'No se encontró nada nuevo.';
-    alert(reasonMsg);
+    showToast(reasonMsg,'error');
   }
   if(btn){ btn.disabled = false; btn.innerHTML = `<span class="icon-sq" style="width:14px; height:14px;">${ICONS.refresh}</span> ${t('plan_sync_button')}`; }
   setTimeout(checkPendingRating, 300);
@@ -1759,7 +1857,12 @@ function calcTrainingLoad(){
 let viewingWeekOffset = 0;
 function navigateWeek(delta){
   viewingWeekOffset += delta;
+  haptic(10);
   renderPlan();
+  const list = document.getElementById('plan-list');
+  list.classList.remove('plan-slide-left','plan-slide-right');
+  void list.offsetWidth;
+  list.classList.add(delta > 0 ? 'plan-slide-left' : 'plan-slide-right');
 }
 function getWeekData(offset){
   const wn = (state.weekNumber||1) + offset;
@@ -1780,8 +1883,8 @@ function renderPlan(){
   const wd = getWeekData(viewingWeekOffset);
   const wn = wd.weekNumber;
 
-  document.getElementById('plan-prev-btn').style.visibility = getWeekData(viewingWeekOffset-1).exists ? 'visible' : 'hidden';
-  document.getElementById('plan-next-btn').style.visibility = viewingWeekOffset < 12 ? 'visible' : 'hidden';
+  document.getElementById('plan-prev-btn').disabled = !getWeekData(viewingWeekOffset-1).exists;
+  document.getElementById('plan-next-btn').disabled = !(viewingWeekOffset < 12);
 
   let label = t('plan_week_label',{n:wn});
   if(wd.exists && isCutbackWeek(wn) && wd.mode!=='future') label += ` · <span class="tag tag-mixto">${t('plan_cutback')}</span>`;
@@ -1862,6 +1965,10 @@ function markSession(i, status){
   state.plan[i].status = status;
   if(!status) state.plan[i].linkedRunId = null;
   renderPlan(); renderHome(); persist();
+  if(status === 'done'){
+    haptic([15,40,15]);
+    showToast(t('session_done_msg'), 'success');
+  }
 }
 
 function renderZones(){
@@ -1911,7 +2018,7 @@ function renderPerfil(){
   }
 
   const list = document.getElementById('shoe-list');
-  list.innerHTML = state.shoes.length===0 ? '' : state.shoes.map(s=>{
+  list.innerHTML = state.shoes.length===0 ? `<div style="text-align:center; padding:18px 0;"><div class="icon-sq" style="width:26px; height:26px; margin:0 auto 8px; color:var(--mist-dim);">${ICONS.shoe}</div><p class="muted" style="margin:0; font-size:13px;">${t('perfil_no_shoes')}</p></div>` : state.shoes.map(s=>{
     if(s.id === editingShoeId){
       return `<div class="shoe-item">
         <div class="shoe-icon">${ICONS.shoe}</div>
@@ -1951,7 +2058,7 @@ function renderPerfil(){
     document.getElementById('ev-date').value = state.event.date;
     dateBoxUpdaters['ev-date'] && dateBoxUpdaters['ev-date']();
     document.getElementById('ev-type').value = state.event.type;
-  } else { evBox.innerHTML = `<p class="muted">${t('perfil_no_event')}</p>`; }
+  } else { evBox.innerHTML = `<div style="text-align:center; padding:10px 0;"><div class="icon-sq" style="width:24px; height:24px; margin:0 auto 8px; color:var(--mist-dim);">${ICONS.flag}</div><p class="muted" style="margin:0; font-size:13px;">${t('perfil_no_event')}</p></div>`; }
 
   updateCredits();
 }
@@ -2046,8 +2153,8 @@ function saveEditShoe(id){
   editingShoeId = null;
   renderPerfil(); persist();
 }
-function deleteShoe(id){
-  if(!confirm(t('confirm_delete'))) return;
+async function deleteShoe(id){
+  if(!(await showConfirm(t('confirm_delete'), {danger:true, confirmText:t('delete_word')}))) return;
   state.shoes = state.shoes.filter(s=>s.id!==id);
   renderPerfil(); persist();
 }
@@ -2057,8 +2164,8 @@ function setEvent(){
   state.event = {name, date, type:document.getElementById('ev-type').value};
   renderPerfil(); persist();
 }
-function deleteEvent(){
-  if(!confirm(t('confirm_delete'))) return;
+async function deleteEvent(){
+  if(!(await showConfirm(t('confirm_delete'), {danger:true, confirmText:t('delete_word')}))) return;
   state.event = null;
   document.getElementById('ev-name').value=''; document.getElementById('ev-date').value='';
   dateBoxUpdaters['ev-date'] && dateBoxUpdaters['ev-date']();
@@ -2196,7 +2303,7 @@ async function submitRating(value){
   ratingTargetIdx = null;
   await persist();
   if(value === 'mal'){
-    if(confirm(t('rating_lower_intensity_confirm'))){
+    if(await showConfirm(t('rating_lower_intensity_confirm'))){
       lowerRemainingIntensity(-15);
       state.chat.push({role:'coach', text: t('rating_lowered_msg')});
       await persist();
@@ -2422,8 +2529,8 @@ function toggleSplitsPanel(){
   const panel = document.getElementById('splits-panel');
   if(panel) panel.style.display = panel.style.display==='none' ? 'block' : 'none';
 }
-function deleteRun(runId){
-  if(!confirm(t('hist_delete_confirm'))) return;
+async function deleteRun(runId){
+  if(!(await showConfirm(t('hist_delete_confirm'), {danger:true, confirmText:t('delete_word')}))) return;
   const idx = state.runs.findIndex(r => String(r.id) === String(runId));
   if(idx<0) return;
   const run = state.runs[idx];
