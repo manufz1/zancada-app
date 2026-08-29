@@ -1694,22 +1694,30 @@ function renderHome(){
   }
   updateSyncBadge();
 }
+function getPlanStartDate(){
+  // la fecha más vieja de weekStart que tengamos registrada (historial de semanas + la semana actual)
+  // marca desde cuándo existe ESTE plan, sin importar si hay carreras de Strava de antes importadas.
+  const starts = (state.planHistory||[]).map(w=>w.weekStart).filter(Boolean);
+  if(state.weekStart) starts.push(state.weekStart);
+  if(!starts.length) return null;
+  return starts.reduce((min,s)=> (s < min ? s : min), starts[0]);
+}
 function calcTrainingLoad(){
   const runs = state.runs || [];
   if(!runs.length) return null;
+  const planStart = getPlanStartDate();
+  if(!planStart) return null;
   const now = Date.now();
-  const earliestRunTime = Math.min(...runs.map(r=>new Date(r.date).getTime()));
-  const daysOfHistory = (now - earliestRunTime) / 86400000;
-  if(daysOfHistory < 14) return null; // menos de 2 semanas de carreras reales: todavía no hay con qué comparar de forma confiable
+  const daysSincePlan = (now - new Date(planStart).getTime()) / 86400000;
+  if(daysSincePlan < 14) return null; // hace menos de 2 semanas que existe este plan: todavía no hay con qué comparar de forma confiable
   const kmWithin = days => runs.reduce((a,r)=>{
     const diff = now - new Date(r.date).getTime();
     return (diff >= 0 && diff <= days*86400000) ? a + r.distanceKm : a;
   }, 0);
   const acuteKm = kmWithin(7);
-  // el promedio "crónico" se divide por las semanas de historial real que hay (hasta 4), no siempre por 4:
-  // si el usuario recién empieza o hubo una semana sin datos, dividir por 4 fijo infla el promedio para abajo
-  // y hace parecer "riesgo" cualquier semana normal de entrenamiento.
-  const chronicWindowDays = Math.min(28, daysOfHistory);
+  // el promedio "crónico" se divide por las semanas que lleva este plan (hasta 4), no siempre por 4, y la ventana
+  // nunca mira más atrás de cuándo arrancó el plan -> las carreras de Strava importadas de antes no lo distorsionan.
+  const chronicWindowDays = Math.min(28, daysSincePlan);
   const chronicWeeks = chronicWindowDays / 7;
   const chronicWeeklyAvg = kmWithin(chronicWindowDays) / chronicWeeks;
   if(chronicWeeklyAvg < 1) return null; // todavía no hay suficiente volumen para comparar
@@ -2292,7 +2300,7 @@ function renderHistory(){
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
         <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? shoe.name : t('hist_no_shoe')}</p>
-        <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">📤 ${t('hist_share')}</button>
+        <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
       </div>
     </div>`;
   }).join('');
@@ -2408,8 +2416,7 @@ async function shareRunImage(runId){
   const r = state.runs.find(x => String(x.id) === String(runId));
   if(!r) return;
 
-  let blob = await buildShareImageBlob(r, true);
-  if(!blob) blob = await buildShareImageBlob(r, false); // si el mapa real no se pudo exportar, reintentar solo con la silueta
+  const blob = await buildShareImageBlob(r);
   if(!blob) return;
 
   const file = new File([blob], 'zancada.png', {type:'image/png'});
@@ -2423,164 +2430,60 @@ async function shareRunImage(runId){
     setTimeout(()=>URL.revokeObjectURL(url), 5000);
   }
 }
-function buildShareImageBlob(r, useRealMap){
+function buildShareImageBlob(r){
   return new Promise(async (resolve)=>{
     try{
+      // aseguramos que las tipografías de la app (JetBrains Mono, Bebas Neue) ya estén cargadas
+      // antes de dibujar; si no, el canvas dibuja con una fuente de reemplazo de menor calidad.
+      try{
+        await Promise.all([
+          document.fonts.load('400 64px "Bebas Neue"'),
+          document.fonts.load('700 92px "JetBrains Mono"'),
+          document.fonts.load('700 28px "Inter"'),
+        ]);
+        await document.fonts.ready;
+      }catch(e){}
+
       const W = 1080, H = 1920;
       const canvas = document.createElement('canvas');
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext('2d');
+      // el canvas queda transparente a propósito, sin ningún fondo ni caja detrás del texto:
+      // es un sticker para subir sobre una foto propia en Instagram.
 
-      ctx.fillStyle = '#121415';
-      ctx.fillRect(0,0,W,H);
-      ctx.fillStyle = '#D6FF3F';
-      ctx.fillRect(0,0,W,14);
-
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#D6FF3F';
-      ctx.font = '900 58px Arial, sans-serif';
-      ctx.fillText('ZANCADA', 70, 140);
-
-      const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'long', day:'numeric', month:'long'});
-      ctx.fillStyle = '#8B9296';
-      ctx.font = '400 32px Arial, sans-serif';
-      ctx.fillText(dateStr.charAt(0).toUpperCase()+dateStr.slice(1), 70, 195);
-
-      if(r.name){
-        ctx.fillStyle = '#EDEFEF';
-        ctx.font = '700 40px Arial, sans-serif';
-        wrapCanvasText(ctx, r.name, 70, 260, W-140, 48);
-      }
-
-      if(r.points && r.points.length>1){
-        if(useRealMap){
-          try{ await drawRealMapRoute(ctx, r.points, 90, 360, W-180, 640); }
-          catch(e){ drawRouteSilhouette(ctx, r.points, 90, 360, W-180, 640); }
-        } else {
-          drawRouteSilhouette(ctx, r.points, 90, 360, W-180, 640);
-        }
-      }
-
-      const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
-      const mainStats = [
-        [fmtDist(r.distanceKm), distUnit().toUpperCase()],
-        [fmtTime(r.durationSec), t('run_time').toUpperCase()],
-        [`${fmtPace(paceMin)}/${distUnit()}`, t('run_pace_word').toUpperCase()],
-      ];
-      const statY = 1230;
-      const colW = W/3;
-      mainStats.forEach((s,i)=>{
-        const cx = colW*i + colW/2;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#EDEFEF';
-        ctx.font = '900 78px Arial, sans-serif';
-        ctx.fillText(s[0], cx, statY);
-        ctx.fillStyle = '#8B9296';
-        ctx.font = '700 26px Arial, sans-serif';
-        ctx.fillText(s[1], cx, statY+48);
-      });
-
-      const secondaries = [];
-      const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
-      if(avgHr) secondaries.push([avgHr+' bpm', t('hist_avg_hr').toUpperCase()]);
-      if(r.elevationGain) secondaries.push([(isImperial()?Math.round(r.elevationGain*3.28084)+' ft':Math.round(r.elevationGain)+' m'), t('hist_elevation').toUpperCase()]);
-      if(secondaries.length){
-        const secY = 1380;
-        const secColW = W/secondaries.length;
-        secondaries.forEach((s,i)=>{
-          const cx = secColW*i + secColW/2;
-          ctx.textAlign = 'center';
-          ctx.fillStyle = '#EDEFEF';
-          ctx.font = '700 44px Arial, sans-serif';
-          ctx.fillText(s[0], cx, secY);
-          ctx.fillStyle = '#5C6366';
-          ctx.font = '600 22px Arial, sans-serif';
-          ctx.fillText(s[1], cx, secY+34);
-        });
-      }
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 3;
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#D6FF3F';
-      ctx.font = '800 42px Arial, sans-serif';
-      ctx.fillText('🏃 ' + t('share_tagline'), W/2, H-100);
+      ctx.font = '400 80px "Bebas Neue", Arial, sans-serif';
+      ctx.fillText('ZANCADA', W/2, 500);
 
-      canvas.toBlob((blob)=>resolve(blob||null), 'image/png', 0.95);
+      const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
+      const stats = [
+        [fmtDist(r.distanceKm), distUnit().toUpperCase()],
+        [`${fmtPace(paceMin)}/${distUnit()}`, t('run_pace_word').toUpperCase()],
+        [fmtTime(r.durationSec), t('run_time').toUpperCase()],
+      ];
+      const rowTop = 610, rowHeight = 240; // apilados uno abajo del otro, con espacio entre cada uno
+      stats.forEach((s,i)=>{
+        const top = rowTop + i*rowHeight;
+        ctx.fillStyle = '#EDEFEF';
+        ctx.font = '700 92px "JetBrains Mono", monospace';
+        ctx.fillText(s[0], W/2, top + 95);
+        ctx.fillStyle = '#EDEFEF';
+        ctx.font = '700 28px "Inter", Arial, sans-serif';
+        ctx.fillText(s[1], W/2, top + 148);
+      });
+
+      if(r.points && r.points.length>1){
+        drawRouteSilhouette(ctx, r.points, 140, 1360, W-280, 420);
+      }
+
+      canvas.toBlob((blob)=>resolve(blob||null), 'image/png');
     }catch(e){ resolve(null); }
   });
-}
-function lon2px(lon, z){ return (lon+180)/360 * Math.pow(2,z) * 256; }
-function lat2px(lat, z){
-  const rad = lat*Math.PI/180;
-  return (1 - Math.log(Math.tan(rad)+1/Math.cos(rad))/Math.PI)/2 * Math.pow(2,z) * 256;
-}
-function loadTileImg(url){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = ()=>resolve(img);
-    img.onerror = ()=>reject(new Error('tile load failed'));
-    img.src = url;
-  });
-}
-async function drawRealMapRoute(ctx, points, x, y, w, h){
-  const lats = points.map(p=>p.lat), lons = points.map(p=>p.lon);
-  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLon=Math.min(...lons), maxLon=Math.max(...lons);
-
-  let zoom = 17;
-  for(; zoom>=3; zoom--){
-    const spanX = lon2px(maxLon,zoom) - lon2px(minLon,zoom);
-    const spanY = lat2px(minLat,zoom) - lat2px(maxLat,zoom);
-    if(spanX <= w*0.8 && spanY <= h*0.8) break;
-  }
-
-  const centerPx = (lon2px(minLon,zoom)+lon2px(maxLon,zoom))/2;
-  const centerPy = (lat2px(minLat,zoom)+lat2px(maxLat,zoom))/2;
-  const originPx = centerPx - w/2, originPy = centerPy - h/2;
-
-  const tileSize = 256, subs = ['a','b','c','d'];
-  const firstTx = Math.floor(originPx/tileSize), firstTy = Math.floor(originPy/tileSize);
-  const lastTx = Math.floor((originPx+w)/tileSize), lastTy = Math.floor((originPy+h)/tileSize);
-
-  const jobs = [];
-  for(let tx=firstTx; tx<=lastTx; tx++){
-    for(let ty=firstTy; ty<=lastTy; ty++){
-      const sub = subs[Math.abs(tx+ty)%subs.length];
-      const url = `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tx}/${ty}.png?key=cb1_2i8k_1_882919874396f1a734cae151`;
-      const px = x + (tx*tileSize - originPx);
-      const py = y + (ty*tileSize - originPy);
-      jobs.push(loadTileImg(url).then(img=>({img,px,py})));
-    }
-  }
-  const tiles = await Promise.all(jobs); // si alguna baldosa falla, se rechaza toda la promesa y se activa el respaldo
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x,y,w,h);
-  ctx.clip();
-  tiles.forEach(({img,px,py})=>ctx.drawImage(img, px, py, tileSize, tileSize));
-  ctx.restore();
-
-  ctx.beginPath();
-  points.forEach((p,i)=>{
-    const px = x + (lon2px(p.lon,zoom) - originPx);
-    const py = y + (lat2px(p.lat,zoom) - originPy);
-    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
-  });
-  ctx.strokeStyle = '#0B5D2E';
-  ctx.lineWidth = 8;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.stroke();
-
-  const startPx = x + (lon2px(points[0].lon,zoom)-originPx);
-  const startPy = y + (lat2px(points[0].lat,zoom)-originPy);
-  ctx.beginPath();
-  ctx.arc(startPx,startPy,11,0,Math.PI*2);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#0B5D2E';
-  ctx.stroke();
 }
 function drawRouteSilhouette(ctx, points, x, y, w, h){
   const lats = points.map(p=>p.lat), lons = points.map(p=>p.lon);
@@ -2611,21 +2514,6 @@ function drawRouteSilhouette(ctx, points, x, y, w, h){
   ctx.arc(startPx, startPy, 13, 0, Math.PI*2);
   ctx.fillStyle = '#EDEFEF';
   ctx.fill();
-}
-function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight){
-  const words = text.split(' ');
-  let line = '', lineY = y;
-  words.forEach(word=>{
-    const testLine = line + word + ' ';
-    if(ctx.measureText(testLine).width > maxWidth && line){
-      ctx.fillText(line, x, lineY);
-      line = word + ' ';
-      lineY += lineHeight;
-    } else {
-      line = testLine;
-    }
-  });
-  ctx.fillText(line, x, lineY);
 }
 function closeRunDetail(){
   document.getElementById('run-detail-modal').style.display='none';
