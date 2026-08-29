@@ -162,7 +162,7 @@ module.exports = async (req, res) => {
     for (const act of runs) {
       const idx = data.runs.findIndex(r => r.stravaId === act.id);
       if (idx >= 0) continue;
-      const newRun = await activityToRun(act, conn.access_token);
+      const newRun = await activityToRun(act, null); // sin parciales acá, para que sea rápido; se completan solos con la sincronización periódica
       data.runs.push(newRun);
       addedAny = true;
 
