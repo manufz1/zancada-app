@@ -256,13 +256,15 @@
   .msg-time.right{justify-content:flex-end; padding-right:14px;}
   .typing span{display:inline-block; width:6px; height:6px; background:var(--mist); border-radius:50%; margin-right:3px; animation:blink 1s infinite;}
   .typing span:nth-child(2){animation-delay:.15s;} .typing span:nth-child(3){animation-delay:.3s;}
-  .chat-input-bar{position:fixed; bottom:calc(56px + var(--safe-bottom)); left:0; right:0; max-width:480px; margin:0 auto; background:var(--asphalt);
-    padding:10px 16px calc(14px + var(--safe-bottom)); display:none; gap:8px; border-top:1px solid var(--asphalt-3); z-index:25; transition:bottom .15s ease;}
+  .chat-input-bar{position:fixed; bottom:calc(var(--tabbar-h, 70px) + 10px); left:0; right:0; max-width:480px; margin:0 auto; background:var(--asphalt);
+    padding:10px 16px; display:none; align-items:center; gap:8px; border-top:1px solid var(--asphalt-3); z-index:25; transition:bottom .15s ease;}
   .chat-input-bar.active{display:flex;}
   .chat-input-bar.kb-open{bottom:var(--safe-bottom);}
   .chat-input-bar input{flex:1; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:13px 16px; border-radius:999px; font-size:15px; outline:none;}
   .chat-input-bar input:focus{border-color:var(--hivis);}
-  .chat-send{background:var(--hivis); color:var(--asphalt); border:none; width:44px; height:44px; border-radius:50%; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .chat-send{background:var(--hivis); color:var(--asphalt); border:none; width:44px; height:44px; border-radius:50%; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .12s ease, background .15s ease;}
+  .chat-send:active{transform:scale(.92);}
+  .chat-send[data-busy="1"]{background:var(--asphalt-4); color:var(--chalk);}
 
   .day-picker{display:flex; flex-wrap:wrap; gap:8px;}
   .day-pill{width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -746,13 +748,13 @@
     <button class="btn btn-outline" style="width:100%; margin-top:24px;" onclick="closeCalendar()" data-i18n="cancel_word"></button>
   </div>
 
-  <section class="view" id="view-coach" style="padding-bottom:calc(210px + var(--safe-bottom));">
+  <section class="view" id="view-coach" style="padding-bottom:calc(var(--tabbar-h, 70px) + 90px + var(--safe-bottom));">
     <h2 class="display" style="font-size:25px; margin-bottom:12px;" data-i18n="coach_title"></h2>
     <div id="chatLog"></div>
   </section>
   <div class="chat-input-bar" id="chatBar">
-    <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') sendChat();">
-    <button class="chat-send" id="chat-send-btn" onclick="sendChat()" data-i18n-aria="aria_send"><span class="icon-sq" style="width:18px; height:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span></button>
+    <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') handleChatSendClick();">
+    <button class="chat-send" id="chat-send-btn" onclick="handleChatSendClick()" data-i18n-aria="aria_send"><span class="icon-sq" style="width:18px; height:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span></button>
   </div>
 
   <section class="view" id="view-perfil">
@@ -954,7 +956,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-30T16:41:13Z';
+const APP_VERSION = '2026-08-30T16:55:52Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
@@ -1160,7 +1162,8 @@ const ICONS = {
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5 4.5 6.3V11c0 5 3.2 8.6 7.5 10.2 4.3-1.6 7.5-5.2 7.5-10.2V6.3L12 3.5z"/></svg>',
   flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg>',
   cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
@@ -1180,6 +1183,12 @@ function escapeHtml(str){
 }
 function sysMsgWithIcon(icon, text){
   return `<span class="icon-sq" style="width:12px; height:12px; vertical-align:-1px; margin-right:4px;">${icon}</span>${text}`;
+}
+// El coach a veces usa **negrita** al estilo markdown para resaltar algo. Escapamos
+// el texto primero (por seguridad) y recién ahí convertimos los ** en <strong>,
+// para no abrir la puerta a que un ** manipulado inyecte HTML.
+function formatCoachText(text){
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 const countUpTimers = new WeakMap();
 function animateCountUp(el, target, decimals, duration){
@@ -1847,12 +1856,20 @@ async function finishOnboard(){
   await persist();
   enterApp();
 }
+function syncTabbarHeight(){
+  const bar = document.getElementById('tabbar');
+  if(!bar) return;
+  const h = bar.offsetHeight;
+  if(h>0) document.documentElement.style.setProperty('--tabbar-h', h+'px');
+}
+window.addEventListener('resize', syncTabbarHeight);
 function enterApp(){
   document.getElementById('splash').style.display='none';
   document.getElementById('login').style.display='none';
   document.getElementById('onboard').style.display='none';
   document.getElementById('mainHeader').style.display='flex';
   document.getElementById('tabbar').style.display='flex';
+  syncTabbarHeight();
   applyStaticTranslations();
   document.getElementById('perfil-name').value = state.profile.name;
   checkWeekRollover();
@@ -3477,7 +3494,7 @@ function renderChat(){
     if(m.role!=='system'){
       groupCls = sameAsPrev && sameAsNext ? 'mid' : sameAsPrev ? 'last' : sameAsNext ? 'first' : '';
     }
-    const safeText = m.role==='system' ? m.text : escapeHtml(m.text);
+    const safeText = m.role==='system' ? m.text : m.role==='coach' ? formatCoachText(m.text) : escapeHtml(m.text);
     html += `<div class="msg ${m.role} ${groupCls}">${safeText}</div>`;
     if(m.role!=='system' && m.ts && !sameAsNext){
       const d = new Date(m.ts);
@@ -3610,15 +3627,24 @@ function applyProfileChange(input){
   state.chat.push({role:'system', text:sysMsgWithIcon(ICONS.edit, t('coach_plan_updated')), ts:Date.now()});
   return `Perfil actualizado: ${changes.join(', ')}.`;
 }
+let chatAbortController = null;
+function handleChatSendClick(){
+  const sendBtn = document.getElementById('chat-send-btn');
+  if(sendBtn && sendBtn.dataset.busy==='1'){ cancelChatRequest(); }
+  else { sendChat(); }
+}
+function cancelChatRequest(){
+  if(chatAbortController){ chatAbortController.abort(); }
+}
 async function sendChat(){
   const input = document.getElementById('chatInput');
   const text = input.value.trim(); if(!text) return;
   const sendBtn = document.getElementById('chat-send-btn');
-  if(sendBtn?.disabled) return; // ya hay un mensaje en camino
+  if(sendBtn?.dataset.busy==='1') return; // ya hay un mensaje en camino
   if(sendBtn){
     sendBtn.dataset.originalHtml = sendBtn.innerHTML;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = `<span class="icon-sq spin-icon" style="width:18px; height:18px;">${ICONS.refresh}</span>`;
+    sendBtn.dataset.busy = '1';
+    sendBtn.innerHTML = `<span class="icon-sq" style="width:16px; height:16px;">${ICONS.stop}</span>`;
   }
   input.value='';
   state.chat.push({role:'user', text, ts:Date.now()});
@@ -3651,10 +3677,14 @@ Tenés tres herramientas para aplicar cambios reales en la app. Cuando el corred
 - modificar_perfil: para cambios permanentes de datos personales que afectan los PRÓXIMOS planes (km semanales base, objetivo, terreno, FC máxima).
 Si el pedido es ambiguo entre "esta semana" y "de ahora en adelante", aplicá el cambio a esta semana con ajustar_volumen_semana para que se note ya, y preguntá si también querés que sea la nueva base con modificar_perfil.
 
+Formato del texto: el chat solo interpreta **negrita** (usala con moderación, para resaltar un dato clave) y guiones "- " al inicio de línea para listas cortas. No uses encabezados (#), links, tablas ni bloques de código: no se muestran bien en el chat.
+
 Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, que empeora al correr, o que persiste más de unos días, recomendá frenar y consultar a un profesional de la salud antes de seguir entrenando — no intentes diagnosticar vos la causa.`;
 
   let finalText = '';
   let networkFailed = false;
+  let cancelled = false;
+  chatAbortController = new AbortController();
   try{
     // Mandamos el token de sesión igual que en los demás endpoints, para que
     // /api/chat solo le responda a usuarios logueados de verdad y no a
@@ -3663,7 +3693,8 @@ Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, 
     for(let loop=0; loop<4; loop++){
       const res = await fetch('/api/chat', {
         method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token || ''}`},
-        body: JSON.stringify({system, tools:TOOLS, messages, lang})
+        body: JSON.stringify({system, tools:TOOLS, messages, lang}),
+        signal: chatAbortController.signal
       });
       const data = await res.json();
       if(data.error){ finalText = data.error.message || t('coach_connection_error'); break; }
@@ -3683,9 +3714,18 @@ Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, 
       messages.push({role:'assistant', content: blocks});
       messages.push({role:'user', content: toolResults});
     }
-  }catch(e){ networkFailed = true; }
+  }catch(e){ if(e.name==='AbortError') cancelled = true; else networkFailed = true; }
+  chatAbortController = null;
 
   document.getElementById('typing')?.remove();
+  if(cancelled){
+    // El corredor apretó "pausar": no mostramos error ni reintentamos, simplemente
+    // dejamos el mensaje ya enviado en el historial y volvemos a dejar todo listo
+    // para el próximo mensaje, igual que hace Gemini al cancelar una respuesta.
+    persist();
+    restoreSendBtn();
+    return;
+  }
   if(networkFailed){
     /* No pudimos ni conectarnos — no ensuciamos el historial del chat con un mensaje
        falso del coach. Avisamos con un toast y devolvemos el texto para poder reintentar. */
@@ -3707,7 +3747,7 @@ function restoreSendBtn(){
     sendBtn.innerHTML = sendBtn.dataset.originalHtml;
     delete sendBtn.dataset.originalHtml;
   }
-  if(sendBtn) sendBtn.disabled = false;
+  if(sendBtn) sendBtn.dataset.busy = '0';
 }
 
 /* Traducir todo lo estático apenas carga la página, sin esperar a que el usuario toque un idioma */
