@@ -1,66 +1,76 @@
 // api/delete-account.js
 //
-// Endpoint que borra por completo la cuenta de un usuario: sus filas en las
-// tablas de la app y, al final, su usuario de autenticación en Supabase.
-// Requiere la Service Role Key de Supabase (nunca la expongas en el frontend).
+// Borra la cuenta de un usuario por completo: sus datos en la base y, al
+// final, su usuario de autenticación en Supabase. Sigue el mismo estilo que
+// tus otros endpoints (fetch directo a la REST API de Supabase, sin
+// librerías extra como @supabase/supabase-js).
 //
-// Variables de entorno necesarias en Vercel (Project Settings → Environment Variables):
-//   SUPABASE_URL              (la misma que ya usás en el resto del backend)
-//   SUPABASE_SERVICE_ROLE_KEY (Project Settings → API → service_role, en el dashboard de Supabase)
-//
-// Nota: si tus otros archivos dentro de /api usan "module.exports = ..." en vez
-// de "export default", cambiá la última línea de este archivo para que coincida
-// con ese mismo estilo (para que Vercel lo reconozca igual que a los demás).
+// Usa las mismas variables de entorno que ya tenés configuradas para
+// strava-auth.js:
+//   SUPABASE_URL
+//   SUPABASE_SERVICE_KEY
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) {
-    return res.status(401).json({ error: 'Missing token' });
-  }
+  if (!token) { res.status(401).json({ error: 'Missing token' }); return; }
 
-  // Verificamos el token contra Supabase Auth para saber con certeza qué
-  // usuario está pidiendo el borrado (nunca confiamos en un user_id que
-  // venga del cliente).
-  const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
-  if (userErr || !userData?.user) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-  const userId = userData.user.id;
+  const base = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
 
-  // Borramos los datos de la app asociados al usuario. Cada tabla se borra
-  // por separado y de forma tolerante a errores: si una tabla no existe o ya
-  // no tiene filas, seguimos igual con las demás en vez de frenar todo el
-  // proceso a mitad de camino.
-  const tables = ['app_state', 'push_subscriptions', 'strava_connections'];
-  for (const table of tables) {
+  try {
+    // Verificamos el token contra Supabase Auth para saber con certeza qué
+    // usuario está pidiendo el borrado (nunca confiamos en un user_id que
+    // venga del cliente).
+    const userRes = await fetch(`${base}/auth/v1/user`, {
+      headers: { apikey: key, Authorization: `Bearer ${token}` }
+    });
+    const user = await userRes.json();
+    if (!userRes.ok || !user || !user.id) { res.status(401).json({ error: 'Invalid session' }); return; }
+    const userId = user.id;
+
+    const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+
+    // Antes de borrar la conexión con Strava, le avisamos a Strava que
+    // revoque el permiso — si no, la autorización queda activa de su lado
+    // aunque acá ya no quede rastro de ella.
     try {
-      await supabaseAdmin.from(table).delete().eq('user_id', userId);
-    } catch (e) {
-      console.error(`delete-account: failed to clear ${table}`, e);
+      const connRes = await fetch(`${base}/rest/v1/strava_connections?user_id=eq.${userId}&select=access_token`, { headers });
+      const connRows = await connRes.json();
+      const accessToken = connRows && connRows[0] && connRows[0].access_token;
+      if (accessToken) {
+        await fetch(`https://www.strava.com/oauth/deauthorize?access_token=${encodeURIComponent(accessToken)}`, { method: 'POST' });
+      }
+    } catch (e) { console.error('delete-account: strava revoke failed', e); }
+
+    // Borramos los datos de la app asociados al usuario, tabla por tabla.
+    // Cada una se borra de forma tolerante a errores: si una falla, seguimos
+    // igual con las demás en vez de frenar todo el proceso a mitad de camino.
+    const tables = ['app_state', 'push_subscriptions', 'strava_connections'];
+    for (const table of tables) {
+      try {
+        await fetch(`${base}/rest/v1/${table}?user_id=eq.${userId}`, { method: 'DELETE', headers });
+      } catch (e) { console.error(`delete-account: failed to clear ${table}`, e); }
     }
-  }
 
-  // Por último, borramos el usuario de autenticación. Esto es lo que hace
-  // que ya no pueda volver a iniciar sesión con ese email.
-  const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
-  if (deleteErr) {
-    console.error('delete-account: failed to delete auth user', deleteErr);
-    return res.status(500).json({ error: 'Could not delete account' });
-  }
+    // Por último, borramos el usuario de autenticación. Esto es lo que hace
+    // que ya no pueda volver a iniciar sesión con ese email.
+    const deleteRes = await fetch(`${base}/auth/v1/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { apikey: key, Authorization: `Bearer ${key}` }
+    });
+    if (!deleteRes.ok) {
+      const errBody = await deleteRes.text();
+      console.error('delete-account: failed to delete auth user', errBody);
+      res.status(500).json({ error: 'Could not delete account' });
+      return;
+    }
 
-  return res.status(200).json({ ok: true });
-}
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('delete-account error', err);
+    res.status(500).json({ error: 'Error: ' + err.message });
+  }
+};
