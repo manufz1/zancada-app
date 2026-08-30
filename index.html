@@ -932,7 +932,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-30T02:32:03Z';
+const APP_VERSION = '2026-08-30T02:44:05Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
@@ -1147,6 +1147,14 @@ const ICONS = {
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
 function haptic(pattern){
   try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+// Escapa texto libre (nombres, mensajes de chat, etc.) antes de insertarlo
+// en el HTML. Sin esto, alguien podía poner algo como <img onerror=...> como
+// nombre de perfil, de evento, o incluso como nombre de una actividad de
+// Strava, y ese código se ejecutaba cada vez que se mostraba en la app.
+function escapeHtml(str){
+  if(str===null || str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function sysMsgWithIcon(icon, text){
   return `<span class="icon-sq" style="width:12px; height:12px; vertical-align:-1px; margin-right:4px;">${icon}</span>${text}`;
@@ -2338,7 +2346,7 @@ function renderPerfil(){
       return `<div class="shoe-item">
         <div class="shoe-icon">${ICONS.shoe}</div>
         <div class="shoe-info" style="display:flex; flex-direction:column; gap:6px;">
-          <input type="text" id="edit-shoe-name-${s.id}" value="${s.name}" style="background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:9px; border-radius:8px; font-size:13.5px;">
+          <input type="text" id="edit-shoe-name-${s.id}" value="${escapeHtml(s.name)}" style="background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:9px; border-radius:8px; font-size:13.5px;">
           <select id="edit-shoe-terrain-${s.id}" style="background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:9px; border-radius:8px; font-size:13.5px;">
             <option value="asfalto" ${s.terrain==='asfalto'?'selected':''}>${t('ob_terrain_asfalto')}</option>
             <option value="trail" ${s.terrain==='trail'?'selected':''}>${t('ob_terrain_trail')}</option>
@@ -2358,7 +2366,7 @@ function renderPerfil(){
       <div class="swipe-item">
         <div class="swipe-action-delete" role="button" tabindex="0" aria-label="${t('aria_delete')}" onclick="deleteShoe(${s.id})"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
         <div class="swipe-content"><div class="shoe-info">
-          <div class="n">${s.name} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
+          <div class="n">${escapeHtml(s.name)} <span class="tag tag-${s.terrain}" style="margin-left:4px;">${t('ob_terrain_'+s.terrain)}</span></div>
           <div class="muted mono" style="font-size:11.5px; margin-top:2px;">${s.km.toFixed(0)} / ${threshold} km</div>
           <div class="wearbar ${pct>80?'warn':''}"><div style="width:${pct}%;"></div></div></div>
           <button class="small-link" style="display:inline-flex;" aria-label="${t('aria_edit')}" onclick="startEditShoe(${s.id})"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.edit}</span></button>
@@ -2370,7 +2378,7 @@ function renderPerfil(){
   const evBox = document.getElementById('event-box');
   if(state.event){
     const days = Math.ceil((new Date(state.event.date)-new Date())/86400000);
-    evBox.innerHTML = `<p style="font-size:14.5px; font-weight:700;">${state.event.name} <span class="tag tag-${state.event.type==='ruta'?'asfalto':state.event.type==='trail'?'trail':'mixto'}">${t('ev_type_'+state.event.type)}</span></p>
+    evBox.innerHTML = `<p style="font-size:14.5px; font-weight:700;">${escapeHtml(state.event.name)} <span class="tag tag-${state.event.type==='ruta'?'asfalto':state.event.type==='trail'?'trail':'mixto'}">${t('ev_type_'+state.event.type)}</span></p>
       <p class="display" style="font-size:34px; color:var(--hivis); margin-top:4px;">${Math.max(0,days)} <span style="font-size:13px; font-family:Inter; color:var(--mist);">${t('perfil_event_days')}</span></p>
       <button class="small-link" style="color:var(--danger); margin-top:6px;" onclick="deleteEvent()">${t('delete_event')}</button>`;
     document.getElementById('ev-name').value = state.event.name;
@@ -2732,7 +2740,7 @@ function stopRun(){
   document.getElementById('sum-cal').textContent = Math.round((state.profile.weight||70)*tracker.distanceKm*1.036);
   updateRunUnitLabels();
   const sel = document.getElementById('sum-shoe');
-  sel.innerHTML = state.shoes.length ? state.shoes.map(s=>`<option value="${s.id}">${s.name}</option>`).join('') : `<option value="">${t('no_shoes')}</option>`;
+  sel.innerHTML = state.shoes.length ? state.shoes.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('') : `<option value="">${t('no_shoes')}</option>`;
 }
 let ratingTargetIdx = null;
 function findUnratedDoneDay(){
@@ -2799,7 +2807,7 @@ function toggleManualForm(){
     document.getElementById('man-date').value = new Date().toISOString().slice(0,10);
     dateBoxUpdaters['man-date'] && dateBoxUpdaters['man-date']();
     const sel = document.getElementById('man-shoe');
-    sel.innerHTML = state.shoes.length ? state.shoes.map(s=>`<option value="${s.id}">${s.name}</option>`).join('') : `<option value="">${t('no_shoes')}</option>`;
+    sel.innerHTML = state.shoes.length ? state.shoes.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('') : `<option value="">${t('no_shoes')}</option>`;
   }
 }
 function saveManualRun(){
@@ -2966,11 +2974,11 @@ function openRunDetail(runId){
 
   const shoeSelect = `<select onchange="changeRunShoe('${r.id}', this.value)" style="background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:6px 8px; border-radius:6px; font-family:inherit; font-size:13px; max-width:60%;">
     <option value="">${t('hist_no_shoe')}</option>
-    ${state.shoes.map(s=>`<option value="${s.id}" ${String(s.id)===String(r.shoeId)?'selected':''}>${s.name}</option>`).join('')}
+    ${state.shoes.map(s=>`<option value="${s.id}" ${String(s.id)===String(r.shoeId)?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
   </select>`;
 
   document.getElementById('run-detail-content').innerHTML = `
-    <h2 class="display" style="font-size:22px; margin-bottom:2px;">${r.name || dateStr}</h2>
+    <h2 class="display" style="font-size:22px; margin-bottom:2px;">${escapeHtml(r.name) || dateStr}</h2>
     ${r.name ? `<p class="muted" style="margin-bottom:12px;">${dateStr}</p>` : ''}
     ${r.points && r.points.length>1 ? `<div class="map-wrap" style="height:220px;"><div id="run-detail-map" style="height:100%; width:100%;"></div></div>` : ''}
     <div class="card">
@@ -3217,7 +3225,8 @@ function renderChat(){
     if(m.role!=='system'){
       groupCls = sameAsPrev && sameAsNext ? 'mid' : sameAsPrev ? 'last' : sameAsNext ? 'first' : '';
     }
-    html += `<div class="msg ${m.role} ${groupCls}">${m.text}</div>`;
+    const safeText = m.role==='system' ? m.text : escapeHtml(m.text);
+    html += `<div class="msg ${m.role} ${groupCls}">${safeText}</div>`;
     if(m.role!=='system' && m.ts && !sameAsNext){
       const d = new Date(m.ts);
       const hh = String(d.getHours()).padStart(2,'0');
@@ -3360,9 +3369,13 @@ Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, 
   let finalText = '';
   let networkFailed = false;
   try{
+    // Mandamos el token de sesión igual que en los demás endpoints, para que
+    // /api/chat solo le responda a usuarios logueados de verdad y no a
+    // cualquiera que le pegue directo a la URL.
+    const { data: { session } } = await supabaseClient.auth.getSession();
     for(let loop=0; loop<4; loop++){
       const res = await fetch('/api/chat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token || ''}`},
         body: JSON.stringify({system, tools:TOOLS, messages, lang})
       });
       const data = await res.json();
