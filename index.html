@@ -280,6 +280,12 @@
   .day-pill.active{border-color:var(--hivis); color:var(--hivis); background:var(--hivis-dim);}
 
   .hist-card{margin-bottom:12px;}
+  .type-breakdown-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .type-breakdown-row:last-child{margin-bottom:0;}
+  .type-breakdown-label{width:92px; flex-shrink:0; font-size:12.5px; color:var(--mist); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .type-breakdown-bar-wrap{flex:1; height:8px; background:var(--asphalt-3); border-radius:99px; overflow:hidden;}
+  .type-breakdown-bar{height:100%; background:var(--hivis); border-radius:99px;}
+  .type-breakdown-count{width:18px; text-align:right; font-size:12.5px; font-weight:700; color:var(--chalk); flex-shrink:0;}
   .swipe-item{position:relative; overflow:hidden;}
   #history-list .swipe-item{border-radius:var(--radius); margin-bottom:12px;}
   #history-list .swipe-item .hist-card{margin-bottom:0;}
@@ -349,6 +355,8 @@
   nav.tabbar{position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto; background:rgba(27,30,32,.92);
     backdrop-filter:blur(14px); display:flex; padding:9px 3px calc(9px + var(--safe-bottom)); border-top:1px solid var(--asphalt-3); z-index:20;}
   nav.tabbar button{flex:1; background:none; border:none; color:var(--mist-dim); display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; font-weight:600; cursor:pointer; padding:4px; transition:transform .12s ease, color .12s ease;}
+  .nav-icon-wrap{position:relative; display:inline-flex;}
+  .nav-badge-dot{position:absolute; top:-2px; right:-4px; width:8px; height:8px; border-radius:50%; background:var(--hivis); border:1.5px solid var(--asphalt); display:none;}
   nav.tabbar button svg{width:23px; height:23px;}
   nav.tabbar button.active{color:var(--hivis);}
   nav.tabbar button:active{transform:scale(.9);}
@@ -957,7 +965,7 @@
     <button class="nav-btn" data-view="plan" onclick="showView('plan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg><span data-i18n="nav_plan"></span></button>
     <button class="nav-btn" data-view="correr" onclick="showView('correr')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.5l3 2"/></svg><span data-i18n="nav_run"></span></button>
     <button class="nav-btn" data-view="history" onclick="showView('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 3-6.3"/><path d="M4 5v4h4"/><path d="M12 8v4l3 2"/></svg><span data-i18n="nav_history"></span></button>
-    <button class="nav-btn" data-view="coach" onclick="showView('coach')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5h16v11H8l-4 4v-4H4z"/></svg><span data-i18n="nav_coach"></span></button>
+    <button class="nav-btn" data-view="coach" onclick="showView('coach')"><span class="nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5h16v11H8l-4 4v-4H4z"/></svg><span class="nav-badge-dot" id="chat-tab-badge"></span></span><span data-i18n="nav_coach"></span></button>
     <button class="nav-btn" data-view="perfil" onclick="showView('perfil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 5-5.5 7.5-5.5s6 1.5 7.5 5.5"/></svg><span data-i18n="nav_profile"></span></button>
   </nav>
 </div>
@@ -967,7 +975,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-30T17:21:18Z';
+const APP_VERSION = '2026-08-30T17:50:13Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
@@ -987,7 +995,7 @@ perfil_gear:"Tu equipo",perfil_shoe_ph:"Modelo (ej. Pegasus 41)",perfil_add_shoe
 ev_type_ruta:"Ruta",ev_type_trail:"Trail / montaña",ev_type_obstaculos:"Obstáculos",
 day_mon:"Lunes",day_tue:"Martes",day_wed:"Miércoles",day_thu:"Jueves",day_fri:"Viernes",day_sat:"Sábado",day_sun:"Domingo",
 zdesc_1:"Recuperación",zdesc_2:"Base aeróbica",zdesc_3:"Tempo",zdesc_4:"Umbral",zdesc_5:"Máximo",zone_info_title_1:"Muy suave / Recuperación",zone_info_desc_1:"Ritmo muy cómodo. Sirve para entrar en calor, enfriar el cuerpo o recuperarte de la fatiga.",zone_info_title_2:"Suave / Base aeróbica",zone_info_desc_2:"Intensidad baja a moderada. Podés hablar sin problema. Ayuda a mejorar la resistencia y quemar grasa.",zone_info_title_3:"Moderada / Tempo",zone_info_desc_3:"El esfuerzo se siente intermedio. Cuesta un poco más mantener una conversación. Mejora la eficiencia cardiovascular.",zone_info_title_4:"Alta / Umbral",zone_info_desc_4:"Ritmo duro y sostenido. Ya no podés hablar con facilidad. Entrena al cuerpo para soportar la fatiga a alta velocidad.",zone_info_title_5:"Máxima / Anaeróbica",zone_info_desc_5:"Esfuerzo extremo y explosivo. Se sostiene solo por poco tiempo. Sirve para ganar velocidad máxima.",
-hist_trends:"Tendencias",hist_total_km:"Km totales",hist_total_runs:"Carreras",hist_manual_add:"+ Agregar carrera manual",hist_manual_title:"Cargar carrera",hist_manual_date:"Fecha",hist_manual_dist:"Distancia (km)",hist_manual_dur:"Duración (min)",hist_manual_hr:"FC promedio (opcional)",hist_manual_save:"Guardar carrera",hist_manual_tag:"Manual",
+hist_trends:"Tendencias",hist_total_km:"Km totales",hist_total_runs:"Carreras",hist_quality_mix_title:"Mezcla de entrenamientos fuertes",hist_quality_mix_subtitle:"Últimos 30 días",hist_manual_add:"+ Agregar carrera manual",hist_manual_title:"Cargar carrera",hist_manual_date:"Fecha",hist_manual_dist:"Distancia (km)",hist_manual_dur:"Duración (min)",hist_manual_hr:"FC promedio (opcional)",hist_manual_save:"Guardar carrera",hist_manual_tag:"Manual",
 plan_week_label:"Semana {n}",plan_cutback:"Semana de descarga",plan_mark_done:"Hecha",plan_mark_skipped:"Salteada",plan_status_done:"Hecha",plan_status_skipped:"Salteada",plan_undo:"quitar marca",plan_locked:"día cerrado",plan_sync_button:"Sincronizar",plan_syncing:"Buscando...",
 perfil_voice_label:"Avisos de voz durante la carrera",word_yes:"Sí",word_no:"No",
 voice_km:"Kilómetro {km}. Ritmo {pace} por kilómetro.",voice_zone_high:"Estás en zona {zone}. El objetivo de hoy es zona {target}. Bajá el ritmo.",voice_zone_low:"Estás en zona {zone}. El objetivo de hoy es zona {target}. Podés acelerar un poco.",
@@ -1012,7 +1020,7 @@ perfil_gear:"Your gear",perfil_shoe_ph:"Model (e.g. Pegasus 41)",perfil_add_shoe
 ev_type_ruta:"Road",ev_type_trail:"Trail / mountain",ev_type_obstaculos:"Obstacle race",
 day_mon:"Monday",day_tue:"Tuesday",day_wed:"Wednesday",day_thu:"Thursday",day_fri:"Friday",day_sat:"Saturday",day_sun:"Sunday",
 zdesc_1:"Recovery",zdesc_2:"Aerobic base",zdesc_3:"Tempo",zdesc_4:"Threshold",zdesc_5:"Max effort",zone_info_title_1:"Very easy / Recovery",zone_info_desc_1:"Very comfortable pace. Good for warming up, cooling down, or recovering from fatigue.",zone_info_title_2:"Easy / Aerobic base",zone_info_desc_2:"Low to moderate intensity. You can talk without trouble. Builds endurance and burns fat.",zone_info_title_3:"Moderate / Tempo",zone_info_desc_3:"Effort feels in-between. Talking gets a bit harder. Improves cardiovascular efficiency.",zone_info_title_4:"Hard / Threshold",zone_info_desc_4:"Hard, sustained pace. You can no longer talk easily. Trains your body to handle fatigue at high speed.",zone_info_title_5:"Maximum / Anaerobic",zone_info_desc_5:"Extreme, explosive effort. Only sustainable for a short time. Builds top-end speed.",
-hist_trends:"Trends",hist_total_km:"Total km",hist_total_runs:"Runs",hist_manual_add:"+ Add a manual run",hist_manual_title:"Log a run",hist_manual_date:"Date",hist_manual_dist:"Distance (km)",hist_manual_dur:"Duration (min)",hist_manual_hr:"Avg HR (optional)",hist_manual_save:"Save run",hist_manual_tag:"Manual",
+hist_trends:"Trends",hist_total_km:"Total km",hist_total_runs:"Runs",hist_quality_mix_title:"Hard session mix",hist_quality_mix_subtitle:"Last 30 days",hist_manual_add:"+ Add a manual run",hist_manual_title:"Log a run",hist_manual_date:"Date",hist_manual_dist:"Distance (km)",hist_manual_dur:"Duration (min)",hist_manual_hr:"Avg HR (optional)",hist_manual_save:"Save run",hist_manual_tag:"Manual",
 plan_week_label:"Week {n}",plan_cutback:"Recovery week",plan_mark_done:"Done",plan_mark_skipped:"Skipped",plan_status_done:"Done",plan_status_skipped:"Skipped",plan_undo:"undo",plan_locked:"day closed",plan_sync_button:"Sync",plan_syncing:"Checking...",
 perfil_voice_label:"Voice cues during your run",word_yes:"Yes",word_no:"No",
 voice_km:"Kilometer {km}. Pace {pace} per kilometer.",voice_zone_high:"You're in zone {zone}. Today's target is zone {target}. Slow down a bit.",voice_zone_low:"You're in zone {zone}. Today's target is zone {target}. You can pick it up a bit.",
@@ -1037,7 +1045,7 @@ perfil_gear:"Seu equipamento",perfil_shoe_ph:"Modelo (ex. Pegasus 41)",perfil_ad
 ev_type_ruta:"Asfalto",ev_type_trail:"Trilha / montanha",ev_type_obstaculos:"Obstáculos",
 day_mon:"Segunda",day_tue:"Terça",day_wed:"Quarta",day_thu:"Quinta",day_fri:"Sexta",day_sat:"Sábado",day_sun:"Domingo",
 zdesc_1:"Recuperação",zdesc_2:"Base aeróbica",zdesc_3:"Tempo",zdesc_4:"Limiar",zdesc_5:"Máximo",zone_info_title_1:"Muito leve / Recuperação",zone_info_desc_1:"Ritmo bem confortável. Serve para aquecer, esfriar o corpo ou recuperar da fadiga.",zone_info_title_2:"Leve / Base aeróbica",zone_info_desc_2:"Intensidade baixa a moderada. Você consegue falar sem problemas. Ajuda a melhorar a resistência e queimar gordura.",zone_info_title_3:"Moderada / Tempo",zone_info_desc_3:"O esforço fica intermediário. Fica um pouco mais difícil manter uma conversa. Melhora a eficiência cardiovascular.",zone_info_title_4:"Alta / Limiar",zone_info_desc_4:"Ritmo forte e sustentado. Você já não consegue falar com facilidade. Treina o corpo para suportar a fadiga em alta velocidade.",zone_info_title_5:"Máxima / Anaeróbica",zone_info_desc_5:"Esforço extremo e explosivo. Só se sustenta por pouco tempo. Serve para ganhar velocidade máxima.",
-hist_trends:"Tendências",hist_total_km:"Km totais",hist_total_runs:"Corridas",hist_manual_add:"+ Adicionar corrida manual",hist_manual_title:"Registrar corrida",hist_manual_date:"Data",hist_manual_dist:"Distância (km)",hist_manual_dur:"Duração (min)",hist_manual_hr:"FC média (opcional)",hist_manual_save:"Salvar corrida",hist_manual_tag:"Manual",
+hist_trends:"Tendências",hist_total_km:"Km totais",hist_total_runs:"Corridas",hist_quality_mix_title:"Mistura de treinos fortes",hist_quality_mix_subtitle:"Últimos 30 dias",hist_manual_add:"+ Adicionar corrida manual",hist_manual_title:"Registrar corrida",hist_manual_date:"Data",hist_manual_dist:"Distância (km)",hist_manual_dur:"Duração (min)",hist_manual_hr:"FC média (opcional)",hist_manual_save:"Salvar corrida",hist_manual_tag:"Manual",
 plan_week_label:"Semana {n}",plan_cutback:"Semana de recuperação",plan_mark_done:"Feita",plan_mark_skipped:"Pulada",plan_status_done:"Feita",plan_status_skipped:"Pulada",plan_undo:"remover marca",plan_locked:"dia fechado",plan_sync_button:"Sincronizar",plan_syncing:"Buscando...",
 perfil_voice_label:"Avisos por voz durante a corrida",word_yes:"Sim",word_no:"Não",
 voice_km:"Quilômetro {km}. Ritmo de {pace} por quilômetro.",voice_zone_high:"Você está na zona {zone}. O objetivo de hoje é zona {target}. Diminua o ritmo.",voice_zone_low:"Você está na zona {zone}. O objetivo de hoje é zona {target}. Pode acelerar um pouco.",
@@ -1062,7 +1070,7 @@ perfil_gear:"Ton matériel",perfil_shoe_ph:"Modèle (ex. Pegasus 41)",perfil_add
 ev_type_ruta:"Route",ev_type_trail:"Trail / montagne",ev_type_obstaculos:"Course d'obstacles",
 day_mon:"Lundi",day_tue:"Mardi",day_wed:"Mercredi",day_thu:"Jeudi",day_fri:"Vendredi",day_sat:"Samedi",day_sun:"Dimanche",
 zdesc_1:"Récupération",zdesc_2:"Base aérobie",zdesc_3:"Tempo",zdesc_4:"Seuil",zdesc_5:"Maximal",zone_info_title_1:"Très facile / Récupération",zone_info_desc_1:"Allure très confortable. Utile pour s'échauffer, récupérer ou terminer en douceur.",zone_info_title_2:"Facile / Base aérobie",zone_info_desc_2:"Intensité faible à modérée. Tu peux parler sans problème. Améliore l'endurance et brûle des graisses.",zone_info_title_3:"Modérée / Tempo",zone_info_desc_3:"L'effort est intermédiaire. C'est un peu plus dur de tenir une conversation. Améliore l'efficacité cardiovasculaire.",zone_info_title_4:"Élevée / Seuil",zone_info_desc_4:"Allure dure et soutenue. Tu ne peux plus parler facilement. Entraîne le corps à supporter la fatigue à haute vitesse.",zone_info_title_5:"Maximale / Anaérobie",zone_info_desc_5:"Effort extrême et explosif. Tenable seulement peu de temps. Sert à gagner en vitesse maximale.",
-hist_trends:"Tendances",hist_total_km:"Km totaux",hist_total_runs:"Courses",hist_manual_add:"+ Ajouter une course manuelle",hist_manual_title:"Enregistrer une course",hist_manual_date:"Date",hist_manual_dist:"Distance (km)",hist_manual_dur:"Durée (min)",hist_manual_hr:"FC moyenne (optionnel)",hist_manual_save:"Enregistrer",hist_manual_tag:"Manuel",
+hist_trends:"Tendances",hist_total_km:"Km totaux",hist_total_runs:"Courses",hist_quality_mix_title:"Répartition des séances intenses",hist_quality_mix_subtitle:"30 derniers jours",hist_manual_add:"+ Ajouter une course manuelle",hist_manual_title:"Enregistrer une course",hist_manual_date:"Date",hist_manual_dist:"Distance (km)",hist_manual_dur:"Durée (min)",hist_manual_hr:"FC moyenne (optionnel)",hist_manual_save:"Enregistrer",hist_manual_tag:"Manuel",
 plan_week_label:"Semaine {n}",plan_cutback:"Semaine de récup",plan_mark_done:"Faite",plan_mark_skipped:"Sautée",plan_status_done:"Faite",plan_status_skipped:"Sautée",plan_undo:"annuler",plan_locked:"jour clos",plan_sync_button:"Synchroniser",plan_syncing:"Recherche...",
 perfil_voice_label:"Annonces vocales pendant la course",word_yes:"Oui",word_no:"Non",
 voice_km:"Kilomètre {km}. Allure {pace} au kilomètre.",voice_zone_high:"Tu es en zone {zone}. L'objectif du jour est la zone {target}. Ralentis un peu.",voice_zone_low:"Tu es en zone {zone}. L'objectif du jour est la zone {target}. Tu peux accélérer un peu.",
@@ -1087,7 +1095,7 @@ perfil_gear:"La tua attrezzatura",perfil_shoe_ph:"Modello (es. Pegasus 41)",perf
 ev_type_ruta:"Asfalto",ev_type_trail:"Trail / montagna",ev_type_obstaculos:"Ostacoli",
 day_mon:"Lunedì",day_tue:"Martedì",day_wed:"Mercoledì",day_thu:"Giovedì",day_fri:"Venerdì",day_sat:"Sabato",day_sun:"Domenica",
 zdesc_1:"Recupero",zdesc_2:"Base aerobica",zdesc_3:"Tempo",zdesc_4:"Soglia",zdesc_5:"Massimo",zone_info_title_1:"Molto leggera / Recupero",zone_info_desc_1:"Ritmo molto comodo. Utile per riscaldarsi, defaticare o recuperare dalla fatica.",zone_info_title_2:"Leggera / Base aerobica",zone_info_desc_2:"Intensità bassa-moderata. Puoi parlare senza problemi. Aiuta a migliorare la resistenza e bruciare grassi.",zone_info_title_3:"Moderata / Tempo",zone_info_desc_3:"Lo sforzo si sente intermedio. Diventa un po' più difficile parlare. Migliora l'efficienza cardiovascolare.",zone_info_title_4:"Alta / Soglia",zone_info_desc_4:"Ritmo duro e sostenuto. Non riesci più a parlare con facilità. Allena il corpo a sopportare la fatica ad alta velocità.",zone_info_title_5:"Massima / Anaerobica",zone_info_desc_5:"Sforzo estremo ed esplosivo. Si mantiene solo per poco tempo. Serve per guadagnare velocità massima.",
-hist_trends:"Tendenze",hist_total_km:"Km totali",hist_total_runs:"Corse",hist_manual_add:"+ Aggiungi corsa manuale",hist_manual_title:"Registra corsa",hist_manual_date:"Data",hist_manual_dist:"Distanza (km)",hist_manual_dur:"Durata (min)",hist_manual_hr:"FC media (opzionale)",hist_manual_save:"Salva corsa",hist_manual_tag:"Manuale",
+hist_trends:"Tendenze",hist_total_km:"Km totali",hist_total_runs:"Corse",hist_quality_mix_title:"Mix di allenamenti intensi",hist_quality_mix_subtitle:"Ultimi 30 giorni",hist_manual_add:"+ Aggiungi corsa manuale",hist_manual_title:"Registra corsa",hist_manual_date:"Data",hist_manual_dist:"Distanza (km)",hist_manual_dur:"Durata (min)",hist_manual_hr:"FC media (opzionale)",hist_manual_save:"Salva corsa",hist_manual_tag:"Manuale",
 plan_week_label:"Settimana {n}",plan_cutback:"Settimana di scarico",plan_mark_done:"Fatta",plan_mark_skipped:"Saltata",plan_status_done:"Fatta",plan_status_skipped:"Saltata",plan_undo:"rimuovi",plan_locked:"giorno chiuso",plan_sync_button:"Sincronizza",plan_syncing:"Ricerca...",
 perfil_voice_label:"Avvisi vocali durante la corsa",word_yes:"Sì",word_no:"No",
 voice_km:"Chilometro {km}. Ritmo {pace} al chilometro.",voice_zone_high:"Sei in zona {zone}. L'obiettivo di oggi è zona {target}. Rallenta un po'.",voice_zone_low:"Sei in zona {zone}. L'obiettivo di oggi è zona {target}. Puoi accelerare un po'.",
@@ -1112,7 +1120,7 @@ perfil_gear:"Deine Ausrüstung",perfil_shoe_ph:"Modell (z. B. Pegasus 41)",perfi
 ev_type_ruta:"Straße",ev_type_trail:"Trail / Berg",ev_type_obstaculos:"Hindernislauf",
 day_mon:"Montag",day_tue:"Dienstag",day_wed:"Mittwoch",day_thu:"Donnerstag",day_fri:"Freitag",day_sat:"Samstag",day_sun:"Sonntag",
 zdesc_1:"Erholung",zdesc_2:"Aerobe Basis",zdesc_3:"Tempo",zdesc_4:"Schwelle",zdesc_5:"Maximal",zone_info_title_1:"Sehr locker / Erholung",zone_info_desc_1:"Sehr bequemes Tempo. Gut zum Aufwärmen, Auslaufen oder Erholen von Ermüdung.",zone_info_title_2:"Locker / Aerobe Basis",zone_info_desc_2:"Niedrige bis moderate Intensität. Du kannst problemlos sprechen. Verbessert die Ausdauer und verbrennt Fett.",zone_info_title_3:"Moderat / Tempo",zone_info_desc_3:"Die Anstrengung fühlt sich mittel an. Sprechen fällt etwas schwerer. Verbessert die kardiovaskuläre Effizienz.",zone_info_title_4:"Hoch / Schwelle",zone_info_desc_4:"Hartes, konstantes Tempo. Du kannst nicht mehr leicht sprechen. Trainiert den Körper, Ermüdung bei hoher Geschwindigkeit zu tolerieren.",zone_info_title_5:"Maximal / Anaerob",zone_info_desc_5:"Extreme, explosive Anstrengung. Nur kurz durchzuhalten. Dient dem Aufbau der Höchstgeschwindigkeit.",
-hist_trends:"Trends",hist_total_km:"Gesamt-Km",hist_total_runs:"Läufe",hist_manual_add:"+ Manuellen Lauf hinzufügen",hist_manual_title:"Lauf erfassen",hist_manual_date:"Datum",hist_manual_dist:"Distanz (km)",hist_manual_dur:"Dauer (Min)",hist_manual_hr:"Ø HF (optional)",hist_manual_save:"Lauf speichern",hist_manual_tag:"Manuell",
+hist_trends:"Trends",hist_total_km:"Gesamt-Km",hist_total_runs:"Läufe",hist_quality_mix_title:"Mix intensiver Einheiten",hist_quality_mix_subtitle:"Letzte 30 Tage",hist_manual_add:"+ Manuellen Lauf hinzufügen",hist_manual_title:"Lauf erfassen",hist_manual_date:"Datum",hist_manual_dist:"Distanz (km)",hist_manual_dur:"Dauer (Min)",hist_manual_hr:"Ø HF (optional)",hist_manual_save:"Lauf speichern",hist_manual_tag:"Manuell",
 plan_week_label:"Woche {n}",plan_cutback:"Erholungswoche",plan_mark_done:"Erledigt",plan_mark_skipped:"Ausgelassen",plan_status_done:"Erledigt",plan_status_skipped:"Ausgelassen",plan_undo:"zurücksetzen",plan_locked:"Tag abgeschlossen",plan_sync_button:"Synchronisieren",plan_syncing:"Suche...",
 perfil_voice_label:"Sprachansagen während des Laufs",word_yes:"Ja",word_no:"Nein",
 voice_km:"Kilometer {km}. Pace {pace} pro Kilometer.",voice_zone_high:"Du bist in Zone {zone}. Das heutige Ziel ist Zone {target}. Lauf etwas langsamer.",voice_zone_low:"Du bist in Zone {zone}. Das heutige Ziel ist Zone {target}. Du kannst etwas schneller laufen.",
@@ -1900,6 +1908,7 @@ function enterApp(){
   autoClearPastEvent();
   repairCorruptedCustomDays();
   checkProactiveCoachNudge();
+  updateChatBadge(); // por si algún mensaje del coach se agregó recién arriba (ajuste automático, aviso proactivo) sin pasar por renderChat
   if(relinkTodayRun()) persist();
   [...document.getElementById('voice-toggle').children].forEach(c=>c.classList.toggle('active', c.dataset.v === (state.voiceEnabled===false?'off':'on')));
   [...document.getElementById('units-toggle').children].forEach(c=>c.classList.toggle('active', c.dataset.v === (state.profile.units==='imperial'?'imperial':'metric')));
@@ -2175,6 +2184,28 @@ function checkProactiveCoachNudge(){
   renderChat();
   persist();
 }
+function pickSpacedDays(days, count){
+  // Elige `count` días del array (ya en orden cronológico lunes->domingo) tratando
+  // de separarlos lo más posible entre sí -- antes se tomaban siempre los primeros
+  // `count` días de la lista, así que en un plan de 4 días las dos sesiones fuertes
+  // podían caer en días seguidos (ej. series martes + tempo miércoles), sin un día
+  // de por medio para absorber la carga.
+  if(count>=days.length) return days.slice();
+  if(count<=1) return days.slice(0,1);
+  const idx = d => DAY_KEYS.indexOf(d);
+  let best = null, bestScore = -1;
+  const combo = (start, chosen) => {
+    if(chosen.length===count){
+      let minGap = Infinity;
+      for(let i=1;i<chosen.length;i++) minGap = Math.min(minGap, idx(chosen[i])-idx(chosen[i-1]));
+      if(minGap>bestScore){ bestScore = minGap; best = chosen.slice(); }
+      return;
+    }
+    for(let i=start;i<days.length;i++){ chosen.push(days[i]); combo(i+1, chosen); chosen.pop(); }
+  };
+  combo(0, []);
+  return best;
+}
 function distributeSessionTypes(trainingDays, beginner, weekNumber, caution, isCutback, goal){
   if(!trainingDays.length) return {};
   const pref = ['sun','sat','fri','thu','wed','tue','mon'];
@@ -2228,7 +2259,8 @@ function distributeSessionTypes(trainingDays, beginner, weekNumber, caution, isC
   const first = rotation[(hardOccurrence-1) % rotation.length];
   let second = rotation[hardOccurrence % rotation.length];
   if(second === first) second = 'tempo';
-  remaining.forEach((d,i)=>{ sessions[d] = i===0 ? first : i===1 ? second : 'easy'; });
+  const [dayA, dayB] = pickSpacedDays(remaining, 2);
+  remaining.forEach(d=>{ sessions[d] = d===dayA ? first : d===dayB ? second : 'easy'; });
   return sessions;
 }
 function buildIntervalStructure(qualityKm, caution, weekNumber){
@@ -2886,7 +2918,7 @@ async function showView(v){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   document.getElementById('chatBar').classList.toggle('active', v==='coach');
   (document.scrollingElement || document.documentElement).scrollTop = 0;
-  if(v==='coach'){ scrollChatToBottom(); } else { updateChatScrollBtn(); }
+  if(v==='coach'){ scrollChatToBottom(); state.lastSeenChatTs = Date.now(); persist(); updateChatBadge(); } else { updateChatScrollBtn(); }
   if(v==='inicio'){ await refreshStateFromServer(); renderHome(); renderPlan(); }
   if(v==='history'){ await refreshStateFromServer(); renderHistory(); }
   if(v==='plan'){ await refreshStateFromServer(); viewingWeekOffset = 0; renderPlan(); }
@@ -3216,6 +3248,31 @@ function computeTrends(){
   const totalKm = state.runs.reduce((a,r)=>a+r.distanceKm,0);
   return {totalKm, totalRuns: state.runs.length};
 }
+function getQualitySessionBreakdown(daysBack){
+  // Cuenta las sesiones fuertes COMPLETADAS (series, tempo, fartlek, cuestas,
+  // progresivo) de los últimos `daysBack` días, mirando tanto el plan actual como
+  // el historial de semanas ya cerradas (planHistory). Sirve para que el corredor
+  // vea si el coach le está dando variedad real o siempre lo mismo.
+  daysBack = daysBack || 30;
+  const cutoff = Date.now() - daysBack*86400000;
+  const qualityTypes = ['intervals','tempo','fartlek','hills','progression'];
+  const counts = {};
+  const consider = (weekStart, plan) => {
+    if(!weekStart || !plan || !plan.length) return;
+    const start = new Date(weekStart+'T00:00:00');
+    if(isNaN(start.getTime())) return;
+    plan.forEach((d,i)=>{
+      if(d.status!=='done') return;
+      const dt = new Date(start); dt.setDate(dt.getDate()+i);
+      if(dt.getTime() < cutoff) return;
+      if(!qualityTypes.includes(d.typeKey)) return;
+      counts[d.typeKey] = (counts[d.typeKey]||0) + 1;
+    });
+  };
+  (state.planHistory||[]).forEach(h => consider(h.weekStart, h.plan));
+  consider(state.weekStart, state.plan);
+  return counts;
+}
 function renderHistory(){
   const el = document.getElementById('history-list');
   const weekRuns = (state.runs||[]).filter(r => getMondayISO(new Date(r.date)) === state.weekStart);
@@ -3235,8 +3292,21 @@ function renderHistory(){
       return `<div class="bar-col"><div class="bar ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*30}ms;"></div><div class="lbl">${x.day}</div></div>`;
     }).join('')}</div>
   </div>`;
-  if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
-  el.innerHTML = trendsCard + state.runs.slice().reverse().map(r=>{
+  const qualityCounts = getQualitySessionBreakdown(30);
+  const qualityEntries = Object.entries(qualityCounts).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]);
+  const maxQualityCount = qualityEntries.length ? qualityEntries[0][1] : 0;
+  const mixCard = qualityEntries.length ? `<div class="card">
+    <h3>${t('hist_quality_mix_title')}</h3>
+    <p class="muted" style="margin:0 0 12px; font-size:12px;">${t('hist_quality_mix_subtitle')}</p>
+    <div class="type-breakdown-list">${qualityEntries.map(([key,count])=>`
+      <div class="type-breakdown-row">
+        <span class="type-breakdown-label">${t('type_'+key)}</span>
+        <div class="type-breakdown-bar-wrap"><div class="type-breakdown-bar" style="width:${Math.round((count/maxQualityCount)*100)}%"></div></div>
+        <span class="type-breakdown-count">${count}</span>
+      </div>`).join('')}</div>
+  </div>` : '';
+  if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + mixCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
+  el.innerHTML = trendsCard + mixCard + state.runs.slice().reverse().map(r=>{
     const shoe = state.shoes.find(s=>String(s.id)===String(r.shoeId));
     const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
@@ -3601,6 +3671,16 @@ function renderChat(){
   document.getElementById('chatLog').innerHTML = html;
   renderChatChips();
   scrollChatToBottom();
+  updateChatBadge();
+}
+// Puntito en la pestaña del coach cuando hay un mensaje suyo (proactivo o de ajuste
+// automático) que todavía no viste, para no depender de entrar "porque sí" a mirar.
+function updateChatBadge(){
+  const badge = document.getElementById('chat-tab-badge');
+  if(!badge) return;
+  const lastSeen = state.lastSeenChatTs || 0;
+  const hasUnread = (state.chat||[]).some(m => m.role==='coach' && m.ts && m.ts > lastSeen);
+  badge.style.display = hasUnread ? 'block' : 'none';
 }
 // Chips de respuesta rápida con las preguntas más típicas, para no tener que escribir
 // todo siempre (sobre todo recién terminada una corrida). Se muestran una sola vez,
