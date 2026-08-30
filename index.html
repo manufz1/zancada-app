@@ -932,7 +932,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-30T02:15:05Z';
+const APP_VERSION = '2026-08-30T02:21:46Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
@@ -1451,11 +1451,27 @@ async function updateStravaStatusDisplay(){
 async function disconnectStrava(){
   if(!currentUserId) return;
   try{
-    await supabaseClient.from('strava_connections').delete().eq('user_id', currentUserId);
-    await updateStravaStatusDisplay();
-  }catch(e){ console.error(e); }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(session){
+      // le pedimos al backend que revoque el permiso del lado de Strava, no solo
+      // que borre la conexión de nuestra base (si esto falla, borramos igual la
+      // fila local desde acá para no dejar al usuario con el botón trabado).
+      const res = await fetch('/api/strava-disconnect', {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`}
+      });
+      if(!res.ok) throw new Error('strava-disconnect failed');
+    } else {
+      await supabaseClient.from('strava_connections').delete().eq('user_id', currentUserId);
+    }
+  }catch(e){
+    console.error(e);
+    try{ await supabaseClient.from('strava_connections').delete().eq('user_id', currentUserId); }catch(e2){}
+  }
+  await updateStravaStatusDisplay();
 }
 async function handleSignIn(){
+  if(document.getElementById('login-submit-btn')?.disabled) return;
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const err = document.getElementById('login-err');
@@ -1470,6 +1486,7 @@ async function handleSignIn(){
   }finally{ setBtnBusy('login-submit-btn', false); }
 }
 async function handleSignUp(){
+  if(document.getElementById('signup-submit-btn')?.disabled) return;
   const email = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
   const err = document.getElementById('signup-err');
@@ -1489,6 +1506,7 @@ async function handleSignUp(){
   }finally{ setBtnBusy('signup-submit-btn', false); }
 }
 async function handleForgotPassword(){
+  if(document.getElementById('login-forgot-btn')?.disabled) return;
   const email = document.getElementById('login-email').value.trim();
   const err = document.getElementById('login-err');
   err.style.display='none';
@@ -1510,6 +1528,7 @@ supabaseClient.auth.onAuthStateChange((event, session)=>{
   }
 });
 async function submitNewPassword(){
+  if(document.getElementById('recovery-submit-btn')?.disabled) return;
   const newPw = document.getElementById('recovery-new-pw').value;
   const err = document.getElementById('recovery-new-pw-err');
   err.style.display='none';
