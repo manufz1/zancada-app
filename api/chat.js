@@ -5,6 +5,31 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Verificamos que quien llama esté realmente logueado en la app, antes de
+  // gastar la cuota de Gemini en el pedido. Sin esto, cualquiera en internet
+  // podía pegarle directo a esta URL (sin pasar por la app ni tener cuenta)
+  // con su propio "system" y "messages", y la respuesta la pagábamos
+  // nosotros — un uso gratis e ilimitado de la API a costa nuestra.
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    res.status(401).json({ error: { message: 'Missing token' } });
+    return;
+  }
+  try {
+    const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${token}` }
+    });
+    if (!userRes.ok) {
+      res.status(401).json({ error: { message: 'Invalid session' } });
+      return;
+    }
+  } catch (e) {
+    console.error('chat: token verification failed', e);
+    res.status(401).json({ error: { message: 'Invalid session' } });
+    return;
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(500).json({ error: { message: 'Falta configurar GEMINI_API_KEY en las variables de entorno de Vercel.' } });
