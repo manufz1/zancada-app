@@ -32,7 +32,6 @@
     --danger:#FF6B5D; --danger-dim:rgba(255,107,93,.15);
     --radius:20px; --radius-sm:13px;
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
-    --kb-inset:0px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--asphalt); height:100%;}
@@ -165,6 +164,12 @@
   .view{display:none; padding:4px 20px 112px;}
   .view.active{display:block; animation:viewFadeIn .22s ease;}
   @keyframes viewFadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  /* #view-coach usa una animación sin transform (solo opacity): un transform en este
+     elemento crearía un "containing block" nuevo para su hijo #coachChatWrap
+     (position:fixed), y durante los .22s de la animación el chat quedaría mal
+     posicionado (relativo a esta sección en vez de a la pantalla). */
+  #view-coach.active{animation:viewFadeInOpacity .22s ease;}
+  @keyframes viewFadeInOpacity{from{opacity:0;} to{opacity:1;}}
 
   .card{background:var(--asphalt-2); border-radius:var(--radius); padding:18px; margin-bottom:14px; border:1px solid rgba(255,255,255,.03); box-shadow:0 4px 14px rgba(0,0,0,.22);}
   .card[onclick]{cursor:pointer; transition:transform .12s ease;}
@@ -242,7 +247,17 @@
   .map-recenter-btn{position:absolute; bottom:12px; right:12px; z-index:10; width:40px; height:40px; border-radius:50%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .run-controls{display:flex; gap:10px; margin-top:16px;}
 
-  #chatLog{display:flex; flex-direction:column; padding-bottom:10px;}
+  /* ---- Contenedor del chat: alto real medido por JS (syncCoachChatLayout), no CSS
+     adivinado -- ver ese comentario largo junto a la función en el <script> para el
+     porqué. #coachChatWrap ocupa desde abajo del header hasta arriba de la tabbar
+     (o hasta el borde del teclado cuando está abierto), y adentro es un flex column:
+     título -> #chatLog (el único que scrollea, flex:1) -> barra de escribir (último
+     hijo, en flujo normal -- ya no "position:fixed" independiente, así que nunca
+     puede quedar mal calculada ni moverse sola al hacer scroll del chat). */
+  #coachChatWrap{position:fixed; left:0; right:0; max-width:480px; margin:0 auto; top:64px; bottom:78px;
+    display:flex; flex-direction:column; z-index:15; background:var(--asphalt);}
+  #coachChatTitle{font-size:25px; margin:0; padding:14px 20px 10px; flex-shrink:0;}
+  #chatLog{display:flex; flex-direction:column; flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px 10px; overscroll-behavior:contain;}
   .msg{max-width:82%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.5; margin-bottom:10px;}
   .msg.first,.msg.mid{margin-bottom:2px;}
   .msg.coach{background:var(--asphalt-2); align-self:flex-start; border-bottom-left-radius:4px; white-space:pre-wrap;}
@@ -257,21 +272,9 @@
   .msg-time.right{justify-content:flex-end; padding-right:14px;}
   .typing span{display:inline-block; width:6px; height:6px; background:var(--mist); border-radius:50%; margin-right:3px; animation:blink 1s infinite;}
   .typing span:nth-child(2){animation-delay:.15s;} .typing span:nth-child(3){animation-delay:.3s;}
-  .chat-input-bar{position:fixed; bottom:calc(var(--tabbar-h, 70px) + 10px); left:0; right:0; max-width:480px; margin:0 auto; background:var(--asphalt);
-    padding:10px 16px; display:none; align-items:center; gap:8px; border-top:1px solid var(--asphalt-3); z-index:25; transition:bottom .15s ease;}
+  .chat-input-bar{flex-shrink:0; background:var(--asphalt);
+    padding:10px 16px; display:none; align-items:center; gap:8px; border-top:1px solid var(--asphalt-3);}
   .chat-input-bar.active{display:flex;}
-  /* --kb-inset es el alto real del teclado (medido con visualViewport, no con window.innerHeight
-     -- en iOS Safari/PWA standalone el layout viewport NO se achica cuando aparece el teclado,
-     así que "bottom:0" queda tapado por el teclado; el visualViewport sí refleja el área
-     realmente visible). Ver applyKeyboardInset(). */
-  .chat-input-bar.kb-open{bottom:var(--kb-inset, 0px);}
-  /* padding-bottom del chat: valores de respaldo por si el cálculo en JS (syncChatBottomSpacing,
-     que mide la posición real de la barra en pantalla y ajusta esto con precisión) todavía no
-     corrió. Antes sumaba --safe-bottom de nuevo acá, pero la tabbar ya lo incluye en su propia
-     altura (--tabbar-h se mide con getBoundingClientRect) -> quedaba duplicado y sobraba espacio. */
-  #view-coach{padding-bottom:calc(var(--tabbar-h, 70px) + 90px);}
-  body.chat-kb-open #view-coach{padding-bottom:calc(90px + var(--kb-inset, 0px));}
-  body.chat-kb-open .chat-scroll-btn-wrap{bottom:calc(var(--kb-inset, 0px) + 76px);}
   .chat-input-bar input{flex:1; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:13px 16px; border-radius:999px; font-size:15px; outline:none;}
   .chat-input-bar input:focus{border-color:var(--hivis);}
   .chat-send{background:var(--hivis); color:var(--asphalt); border:none; width:44px; height:44px; border-radius:50%; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .12s ease, background .15s ease;}
@@ -282,7 +285,9 @@
   .chat-chip:active{transform:scale(.95); border-color:var(--hivis); color:var(--hivis);}
   .msg .msg-list{margin:6px 0; padding-left:18px;}
   .msg .msg-list li{margin-bottom:3px;}
-  .chat-scroll-btn-wrap{position:fixed; left:0; right:0; max-width:480px; margin:0 auto; bottom:calc(var(--tabbar-h, 70px) + 86px); pointer-events:none; z-index:24;}
+  /* position:absolute relativo a #coachChatWrap (que es el positioning context) --
+     JS ajusta "bottom" según el alto real de la barra de escribir. */
+  .chat-scroll-btn-wrap{position:absolute; left:0; right:0; bottom:86px; pointer-events:none; z-index:2;}
   .chat-scroll-btn{position:absolute; right:16px; bottom:0; width:38px; height:38px; border-radius:50%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--hivis); display:flex; align-items:center; justify-content:center; cursor:pointer; pointer-events:auto; box-shadow:0 3px 12px rgba(0,0,0,.35); transition:transform .12s ease;}
   .chat-scroll-btn:active{transform:scale(.9);}
 
@@ -777,16 +782,24 @@
   </div>
 
   <section class="view" id="view-coach">
-    <h2 class="display" style="font-size:25px; margin-bottom:12px;" data-i18n="coach_title"></h2>
-    <div id="chatLog"></div>
+    <!-- El chat vive en un contenedor propio con posición y alto fijados por JS
+         (syncCoachChatLayout, más abajo), en vez de depender del scroll de toda la
+         página + una barra "position:fixed" independiente -- ese modelo anterior
+         se rompía en iOS (el teclado no achica el viewport de layout ahí, así que
+         "bottom:0" quedaba tapado por el teclado). Acá el contenedor mide el área
+         realmente visible (visualViewport) y el chat interno se scrollea solo. -->
+    <div id="coachChatWrap">
+      <h2 class="display" id="coachChatTitle" data-i18n="coach_title"></h2>
+      <div id="chatLog"></div>
+      <div class="chat-scroll-btn-wrap" id="chatScrollBtnWrap">
+        <button class="chat-scroll-btn" id="chat-scroll-bottom-btn" style="display:none;" onclick="scrollChatToBottom()" data-i18n-aria="aria_scroll_bottom"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>
+      </div>
+      <div class="chat-input-bar" id="chatBar">
+        <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') handleChatSendClick();">
+        <button class="chat-send" id="chat-send-btn" onclick="handleChatSendClick()" data-i18n-aria="aria_send"><span class="icon-sq" style="width:18px; height:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span></button>
+      </div>
+    </div>
   </section>
-  <div class="chat-scroll-btn-wrap" id="chatScrollBtnWrap">
-    <button class="chat-scroll-btn" id="chat-scroll-bottom-btn" style="display:none;" onclick="scrollChatToBottom()" data-i18n-aria="aria_scroll_bottom"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>
-  </div>
-  <div class="chat-input-bar" id="chatBar">
-    <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') handleChatSendClick();">
-    <button class="chat-send" id="chat-send-btn" onclick="handleChatSendClick()" data-i18n-aria="aria_send"><span class="icon-sq" style="width:18px; height:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span></button>
-  </div>
 
   <section class="view" id="view-perfil">
     <div class="profile-head">
@@ -988,7 +1001,7 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T02:37:19Z';
+const APP_VERSION = '2026-08-31T02:56:39Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
@@ -2851,6 +2864,10 @@ async function refreshStateFromServer(){
 }
 let pullStartY = 0, pullTriggered = false, pullActive = false;
 document.addEventListener('touchstart', e=>{
+  // El chat tiene su propio scroll interno (#chatLog) y la página en sí no se mueve
+  // mientras esa vista está activa -- sin este chequeo, cualquier arrastre hacia
+  // abajo dentro del chat se interpretaba como "pull to refresh" de toda la app.
+  if(e.target.closest && e.target.closest('#coachChatWrap')){ pullActive = false; return; }
   const scroller = document.scrollingElement || document.documentElement;
   if(scroller.scrollTop <= 0 && document.getElementById('tabbar').style.display!=='none'){
     pullStartY = e.touches[0].clientY;
@@ -2989,76 +3006,84 @@ document.addEventListener('touchend', e=>{
   planSwipeDragging = false;
 }, {passive:true});
 
-/* ---- separación exacta entre el chat y la barra fija de abajo ---- */
-// En vez de adivinar en CSS cuánto mide la barra (altura de fuente, tamaño de banda
-// segura, etc. varían según el dispositivo), medimos la posición REAL de la barra en
-// pantalla y ajustamos el padding del chat para que quede pegado justo arriba de ella,
-// con un margen chico y fijo -- así nunca sobra espacio de más, ni queda tan justo que
-// se llegue a ver texto del chat asomando detrás de la barra o de la tabbar.
-function syncChatBottomSpacing(){
-  const viewCoach = document.getElementById('view-coach');
+/* ---- alto y posición real de #coachChatWrap (fix para iOS Safari / PWA standalone) ----
+   Intentos anteriores dejaban la barra de escribir con "position:fixed" independiente
+   y le calculaban un "bottom" a mano (con CSS, o midiendo con getBoundingClientRect).
+   Los dos fallaban en el iPhone real por el mismo motivo de fondo: en iOS, cuando
+   aparece el teclado, el "layout viewport" (window.innerHeight, y todo lo que dependa
+   de él) NO se achica -- sobre todo en modo standalone/agregado a inicio -- sigue
+   midiendo la pantalla completa como si el teclado no existiera. Entonces cualquier
+   "bottom:0" quedaba tapado por el teclado, dejando ver contenido del chat detrás.
+   Además, escuchar el evento "scroll" del visualViewport para volver a calcular
+   posición hacía que la barra se reacomodara (y por lo tanto pareciera "moverse")
+   mientras el usuario scrolleaba los mensajes.
+   La solución de fondo: en vez de una barra "fixed" flotando sola, todo el chat
+   (título + mensajes + barra de escribir) vive DENTRO de #coachChatWrap, un único
+   contenedor flex-column cuyo alto se fija explícitamente por JS usando
+   window.visualViewport (la única fuente que sabe cuánta pantalla está realmente
+   visible arriba del teclado en iOS). La barra de escribir es simplemente el último
+   hijo del flex-column -- no tiene posición propia que calcular ni que se pueda
+   desincronizar, así que no puede "flotar mal" ni moverse al hacer scroll interno
+   del chat (ese scroll queda contenido en #chatLog, no en la página ni en el
+   visualViewport). Solo se vuelve a medir cuando el teclado realmente abre/cierra
+   (evento resize) o cuando la ventana cambia de tamaño -- nunca durante el scroll. */
+function syncCoachChatLayout(){
+  const wrap = document.getElementById('coachChatWrap');
+  const header = document.getElementById('mainHeader');
+  const tabbar = document.getElementById('tabbar');
   const chatBar = document.getElementById('chatBar');
   const scrollBtnWrap = document.getElementById('chatScrollBtnWrap');
-  if(!viewCoach || !chatBar) return;
-  const rect = chatBar.getBoundingClientRect();
-  if(rect.height <= 0) return; // todavía no está visible/medible (display:none)
-  const distFromViewportBottom = window.innerHeight - rect.top;
-  const gap = 16;
-  viewCoach.style.paddingBottom = (distFromViewportBottom + gap) + 'px';
-  if(scrollBtnWrap) scrollBtnWrap.style.bottom = (distFromViewportBottom + 12) + 'px';
-}
-window.addEventListener('resize', syncChatBottomSpacing);
-/* ---- alto real del teclado en pantalla (fix para iOS Safari / PWA standalone) ----
-   El bug reportado (espacio raro / contenido del chat asomando detrás de la barra cuando
-   se abre el teclado en el iPhone) NO se arreglaba con getBoundingClientRect()+window.innerHeight
-   porque ambos son valores del "layout viewport", y en iOS ese viewport NO se achica cuando
-   aparece el teclado (sobre todo en modo standalone/agregado a inicio) -- sigue midiendo el
-   alto de pantalla completo, como si el teclado no existiera. Entonces "bottom:0" posicionaba
-   la barra en la base de ESE viewport completo, que queda tapada por el teclado, y lo que se
-   veía en su lugar era el contenido del chat de más arriba.
-   El "visual viewport" (window.visualViewport) sí sabe cuánta pantalla está realmente visible
-   arriba del teclado -- lo usamos para calcular cuánto teclado hay y subir la barra esa
-   distancia exacta, en vez de asumir un valor fijo. */
-function applyKeyboardInset(){
+  if(!wrap) return;
   const vv = window.visualViewport;
-  if(!vv){ syncChatBottomSpacing(); return; }
-  const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  document.documentElement.style.setProperty('--kb-inset', inset + 'px');
-  syncChatBottomSpacing();
+  const viewportH = vv ? vv.height : window.innerHeight;
+  const viewportOffsetTop = vv ? vv.offsetTop : 0;
+  const headerH = (header && header.style.display !== 'none') ? header.offsetHeight : 0;
+  const kbOpen = document.body.classList.contains('chat-kb-open');
+  // con el teclado cerrado, el chat termina justo arriba de la tabbar (con un
+  // pequeño margen); con el teclado abierto, la tabbar ya está oculta y el chat
+  // baja pegado directamente al borde del teclado, sin hueco.
+  const tabbarH = (!kbOpen && tabbar && tabbar.style.display !== 'none') ? tabbar.offsetHeight : 0;
+  const bottomGap = kbOpen ? 0 : 8;
+  const top = Math.round(viewportOffsetTop + headerH);
+  const height = Math.max(0, Math.round(viewportH - headerH - tabbarH - bottomGap));
+  wrap.style.top = top + 'px';
+  wrap.style.height = height + 'px';
+  if(scrollBtnWrap && chatBar) scrollBtnWrap.style.bottom = (chatBar.offsetHeight + 14) + 'px';
 }
+window.addEventListener('resize', syncCoachChatLayout);
 if(window.visualViewport){
-  window.visualViewport.addEventListener('resize', applyKeyboardInset);
-  window.visualViewport.addEventListener('scroll', applyKeyboardInset);
+  window.visualViewport.addEventListener('resize', syncCoachChatLayout);
+  // El scroll del visualViewport (que en iOS puede dispararse solo por tener el
+  // teclado abierto, sin que el usuario haya tocado nada) se escucha con un
+  // pequeño debounce -- corrige cualquier desvío real una vez que el gesto
+  // terminó, pero nunca reposiciona nada MIENTRAS el usuario está scrolleando.
+  let vvScrollDebounce = null;
+  window.visualViewport.addEventListener('scroll', ()=>{
+    clearTimeout(vvScrollDebounce);
+    vvScrollDebounce = setTimeout(syncCoachChatLayout, 150);
+  });
 }
 /* ---- hide tab bar while the chat keyboard is open (avoids the squished bottom bar) ---- */
 (function(){
   const chatInputEl = document.getElementById('chatInput');
-  const chatBarEl = document.getElementById('chatBar');
   const tabbarEl = document.getElementById('tabbar');
   if(!chatInputEl) return;
-  // La barra se desliza a su nueva posición con una transición CSS (.15s) -- volvemos a
-  // medir cuando esa animación termina, así el padding queda sincronizado con la posición
-  // final real y no con un punto intermedio del movimiento.
-  if(chatBarEl) chatBarEl.addEventListener('transitionend', (e)=>{ if(e.propertyName==='bottom') syncChatBottomSpacing(); });
   // El teclado de iOS tarda unos cientos de ms en aparecer/desaparecer y el evento
   // visualViewport.resize llega de forma asincrónica durante esa animación -- volvemos a
   // medir varias veces mientras se mueve, en vez de confiar en una sola lectura inmediata
   // que probablemente todavía esté midiendo el estado anterior (sin teclado).
   function reapplyDuringAnimation(){
-    applyKeyboardInset();
-    [50, 120, 220, 350, 500].forEach(ms => setTimeout(applyKeyboardInset, ms));
+    syncCoachChatLayout();
+    [50, 120, 220, 350, 500].forEach(ms => setTimeout(syncCoachChatLayout, ms));
   }
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';
-    if(chatBarEl) chatBarEl.classList.add('kb-open');
     document.body.classList.add('chat-kb-open');
     reapplyDuringAnimation();
   });
   chatInputEl.addEventListener('blur', ()=>{
     if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
-    if(chatBarEl) chatBarEl.classList.remove('kb-open');
     document.body.classList.remove('chat-kb-open');
-    document.documentElement.style.setProperty('--kb-inset', '0px');
     reapplyDuringAnimation();
   });
 })();
@@ -3107,7 +3132,7 @@ async function showView(v){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   document.getElementById('chatBar').classList.toggle('active', v==='coach');
   (document.scrollingElement || document.documentElement).scrollTop = 0;
-  if(v==='coach'){ syncChatBottomSpacing(); scrollChatToBottom(); state.lastSeenChatTs = Date.now(); persist(); updateChatBadge(); } else { updateChatScrollBtn(); }
+  if(v==='coach'){ syncCoachChatLayout(); scrollChatToBottom(); state.lastSeenChatTs = Date.now(); persist(); updateChatBadge(); } else { updateChatScrollBtn(); }
   if(v==='inicio'){ await refreshStateFromServer(); renderHome(); renderPlan(); }
   if(v==='history'){ await refreshStateFromServer(); renderHistory(); }
   if(v==='plan'){ await refreshStateFromServer(); viewingWeekOffset = 0; renderPlan(); }
@@ -4069,7 +4094,10 @@ function sendChatChip(key){
   handleChatSendClick();
 }
 function scrollChatToBottom(){
-  const scroller = document.scrollingElement || document.documentElement;
+  // El chat ahora scrollea dentro de #chatLog (no la página entera) -- ver
+  // syncCoachChatLayout() para el porqué del cambio de modelo.
+  const scroller = document.getElementById('chatLog');
+  if(!scroller) return;
   requestAnimationFrame(()=>{ scroller.scrollTop = scroller.scrollHeight; });
 }
 // Botón flotante para volver al último mensaje cuando el corredor scrolleó para
@@ -4079,11 +4107,12 @@ function updateChatScrollBtn(){
   if(!btn) return;
   const coachActive = document.getElementById('view-coach')?.classList.contains('active');
   if(!coachActive){ btn.style.display='none'; return; }
-  const scroller = document.scrollingElement || document.documentElement;
+  const scroller = document.getElementById('chatLog');
+  if(!scroller) return;
   const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
   btn.style.display = distanceFromBottom > 200 ? 'flex' : 'none';
 }
-window.addEventListener('scroll', updateChatScrollBtn, {passive:true});
+document.getElementById('chatLog')?.addEventListener('scroll', updateChatScrollBtn, {passive:true});
 function paceMinPerKmOf(r){
   if(!r || !r.distanceKm) return '—';
   const p = (r.durationSec/60)/r.distanceKm;
