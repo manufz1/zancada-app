@@ -2271,7 +2271,13 @@ async function checkForAppUpdate(){
   if(appUpdateChecking) return false;
   appUpdateChecking = true;
   try{
-    const res = await fetch(location.pathname + '?_v=' + Date.now(), { cache:'no-store' });
+    /* Antes esto pedía index.html y buscaba `const APP_VERSION` ahí adentro — funcionaba
+       porque todo el JS vivía inline en index.html. Desde que se separó el código a
+       app.js, index.html ya no contiene esa constante, así que el regex nunca matcheaba
+       y el aviso de actualización dejó de aparecer (en cualquier plataforma, no solo
+       en el celular — simplemente nadie lo notó en desktop todavía). Hay que pedir
+       app.js, que es donde vive ahora. */
+    const res = await fetch('/app.js?_v=' + Date.now(), { cache:'no-store' });
     if(!res.ok) return false;
     const text = await res.text();
     const m = text.match(/const APP_VERSION\s*=\s*'([^']+)'/);
