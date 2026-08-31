@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T20:11:30Z';
+const APP_VERSION = '2026-08-31T22:07:08Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
@@ -172,6 +172,11 @@ function showConfirm(message, opts){
 let state = {onboarded:false, profile:{}, plan:[], runs:[], shoes:[], event:null, chat:[], lang:lang, painLog:[], readinessLog:[]};
 let pendingEmail = '';
 let currentUserId = null;
+/* ---- pantalla de "confirmá tu mail", con reintento automático de login mientras se espera ---- */
+let confirmEmailAddr = '';
+let confirmEmailPw = '';
+let confirmEmailPollTimer = null;
+let confirmEmailResendCooldown = false;
 const DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const ZONE_COLORS = {1:'#5B9BFF',2:'#4ADE80',3:'#FACC15',4:'#FB923C',5:'#FF6B5D'};
 const MI_PER_KM = 0.621371, KM_PER_MI = 1.609344;
@@ -514,13 +519,64 @@ async function handleSignUp(){
       err.innerHTML = `${t('login_err_exists')} <button type="button" class="small-link" style="padding:0; font-size:inherit; vertical-align:baseline;" onclick="goToLoginFromSignup()">${t('login_go_signin_short')}</button>`;
       err.style.display='block'; return;
     }
-    if(!data.session){ err.textContent = t('login_check_email'); err.style.display='block'; return; }
+    if(!data.session){ showConfirmEmailScreen(email, password); return; }
     pendingEmail = email;
     currentUserId = data.user.id;
     document.getElementById('signup').style.display='none';
     document.getElementById('onboard').style.display='block';
     resetOnboardSteps();
   }finally{ setBtnBusy('signup-submit-btn', false); }
+}
+function showConfirmEmailScreen(email, password){
+  confirmEmailAddr = email;
+  confirmEmailPw = password;
+  document.getElementById('signup').style.display = 'none';
+  document.getElementById('confirm-email').style.display = 'block';
+  document.getElementById('confirm-email-lead').textContent = t('confirm_email_lead', {email});
+  startConfirmEmailPolling();
+}
+function stopConfirmEmailPolling(){
+  if(confirmEmailPollTimer){ clearInterval(confirmEmailPollTimer); confirmEmailPollTimer = null; }
+}
+function startConfirmEmailPolling(){
+  stopConfirmEmailPolling();
+  /* Mientras el usuario tiene esta pantalla abierta, probamos loguearlo cada pocos segundos.
+     El login solo va a funcionar una vez que confirme el mail (Supabase rechaza el login con
+     "Email not confirmed" hasta ese momento) — así detectamos la confirmación sin importar si
+     abrió el link de otra pestaña, del celular, o de otra compu, sin depender de que el link de
+     confirmación vuelva a esta misma pestaña. */
+  confirmEmailPollTimer = setInterval(async ()=>{
+    if(document.visibilityState !== 'visible') return;
+    try{
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email: confirmEmailAddr, password: confirmEmailPw });
+      if(!error && data.session){
+        stopConfirmEmailPolling();
+        const user = data.user;
+        confirmEmailPw = '';
+        document.getElementById('confirm-email').style.display = 'none';
+        await loadUserAndEnter(user);
+      }
+    }catch(e){ /* todavía no confirmó, seguimos esperando */ }
+  }, 4000);
+}
+function goBackFromConfirmEmail(){
+  stopConfirmEmailPolling();
+  confirmEmailPw = '';
+  document.getElementById('confirm-email').style.display = 'none';
+  document.getElementById('signup').style.display = 'block';
+}
+async function handleResendConfirmation(){
+  if(confirmEmailResendCooldown) return;
+  confirmEmailResendCooldown = true;
+  setBtnBusy('confirm-email-resend-btn', true, t('signup_loading'));
+  try{
+    const { error } = await supabaseClient.auth.resend({ type:'signup', email: confirmEmailAddr });
+    if(error){ showToast(translateAuthError(error), 'error'); return; }
+    showToast(t('confirm_email_resent_toast'), 'success');
+  } finally {
+    setBtnBusy('confirm-email-resend-btn', false);
+    setTimeout(()=>{ confirmEmailResendCooldown = false; }, 30000);
+  }
 }
 async function handleForgotPassword(){
   if(document.getElementById('login-forgot-btn')?.disabled) return;
