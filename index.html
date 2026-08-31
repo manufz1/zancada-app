@@ -1340,7 +1340,13 @@ function showToast(message, type){
     document.body.appendChild(wrap);
   }
   const icon = type==='error' ? ICONS.warn : type==='success' ? ICONS.check : '';
-  wrap.innerHTML = `<div class="toast ${type}" id="toast-el">${icon?`<span class="icon-sq" style="width:16px; height:16px; flex-shrink:0;">${icon}</span>`:''}<span>${message}</span></div>`;
+  // escapeHtml() acá porque el mensaje puede traer texto libre del usuario
+  // interpolado (por ejemplo el nombre de una zapatilla, vía
+  // t('shoe_wear_alert_msg', {name:...})). Ningún llamado a showToast()
+  // necesita insertar HTML de verdad, así que escapar siempre acá adentro
+  // es más seguro que confiar en que cada call-site se acuerde de escapar
+  // los datos del usuario que le pasa.
+  wrap.innerHTML = `<div class="toast ${type}" id="toast-el">${icon?`<span class="icon-sq" style="width:16px; height:16px; flex-shrink:0;">${icon}</span>`:''}<span>${escapeHtml(message)}</span></div>`;
   const el = document.getElementById('toast-el');
   requestAnimationFrame(()=>el.classList.add('show'));
   if(type==='error') haptic(35);
