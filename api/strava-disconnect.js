@@ -11,24 +11,19 @@
 //   SUPABASE_URL
 //   SUPABASE_SERVICE_KEY
 
+const verifyUser = require('./_lib/verify-user');
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) { res.status(401).json({ error: 'Missing token' }); return; }
+  const auth = await verifyUser(req);
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+  const userId = auth.userId;
 
   const base = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_KEY;
 
   try {
-    const userRes = await fetch(`${base}/auth/v1/user`, {
-      headers: { apikey: key, Authorization: `Bearer ${token}` }
-    });
-    const user = await userRes.json();
-    if (!userRes.ok || !user || !user.id) { res.status(401).json({ error: 'Invalid session' }); return; }
-    const userId = user.id;
-
     const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 
     try {

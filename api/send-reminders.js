@@ -1,4 +1,5 @@
 const webpush = require('web-push');
+const requireCronSecret = require('./_lib/require-cron-secret');
 
 // Mensajes cortos por idioma — no necesita el diccionario completo de la app.
 const MSGS = {
@@ -11,8 +12,7 @@ const MSGS = {
 };
 
 module.exports = async (req, res) => {
-  const auth = req.headers['authorization'];
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!requireCronSecret(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -1,4 +1,6 @@
 // api/chat.js — función serverless de Vercel.
+const verifyUser = require('./_lib/verify-user');
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: { message: 'Method Not Allowed' } });
@@ -10,23 +12,9 @@ module.exports = async (req, res) => {
   // podía pegarle directo a esta URL (sin pasar por la app ni tener cuenta)
   // con su propio "system" y "messages", y la respuesta la pagábamos
   // nosotros — un uso gratis e ilimitado de la API a costa nuestra.
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) {
-    res.status(401).json({ error: { message: 'Missing token' } });
-    return;
-  }
-  try {
-    const userRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${token}` }
-    });
-    if (!userRes.ok) {
-      res.status(401).json({ error: { message: 'Invalid session' } });
-      return;
-    }
-  } catch (e) {
-    console.error('chat: token verification failed', e);
-    res.status(401).json({ error: { message: 'Invalid session' } });
+  const auth = await verifyUser(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: { message: auth.error } });
     return;
   }
 

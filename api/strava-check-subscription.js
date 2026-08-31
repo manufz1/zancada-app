@@ -1,4 +1,14 @@
+const requireCronSecret = require('./_lib/require-cron-secret');
+
+// Este endpoint no tenía NINGUNA protección: cualquiera en internet que
+// conociera esta URL podía llamarlo. No exponía tu client_secret de Strava
+// en la respuesta, pero sí dejaba que cualquiera consultara el estado de tu
+// suscripción al webhook a voluntad. Ahora requiere el mismo secreto que el
+// resto de los endpoints de administración (por header Authorization).
 module.exports = async (req, res) => {
+  if (!requireCronSecret(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   try {
     const url = `https://www.strava.com/api/v3/push_subscriptions?client_id=${process.env.STRAVA_CLIENT_ID}&client_secret=${process.env.STRAVA_CLIENT_SECRET}`;
     const response = await fetch(url);

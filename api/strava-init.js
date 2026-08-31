@@ -16,30 +16,22 @@
 //                          en ningún otro lado)
 
 const crypto = require('crypto');
+const verifyUser = require('./_lib/verify-user');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token) { res.status(401).json({ error: 'Missing token' }); return; }
-
-  const base = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
   const secret = process.env.STRAVA_STATE_SECRET;
   if (!secret) { res.status(500).json({ error: 'Missing STRAVA_STATE_SECRET' }); return; }
 
-  try {
-    // Verificamos el token contra Supabase Auth: el state solo puede
-    // generarse para el usuario que realmente inició sesión, nunca para un
-    // user_id que venga suelto del cliente.
-    const userRes = await fetch(`${base}/auth/v1/user`, {
-      headers: { apikey: key, Authorization: `Bearer ${token}` }
-    });
-    const user = await userRes.json();
-    if (!userRes.ok || !user || !user.id) { res.status(401).json({ error: 'Invalid session' }); return; }
-    const userId = user.id;
+  // Verificamos el token contra Supabase Auth: el state solo puede
+  // generarse para el usuario que realmente inició sesión, nunca para un
+  // user_id que venga suelto del cliente.
+  const auth = await verifyUser(req);
+  if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+  const userId = auth.userId;
 
+  try {
     const timestamp = Date.now().toString();
     const payload = `${userId}.${timestamp}`;
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');

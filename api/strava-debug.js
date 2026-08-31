@@ -1,5 +1,10 @@
+const requireCronSecret = require('./_lib/require-cron-secret');
+
 module.exports = async (req, res) => {
-  if (req.query.secret !== process.env.CRON_SECRET) {
+  // Antes este secreto se mandaba por query string (?secret=...); ahora va
+  // por el header Authorization, igual que el resto de los endpoints de
+  // cron/debug (ver api/_lib/require-cron-secret.js para el por qué).
+  if (!requireCronSecret(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
