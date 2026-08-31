@@ -78,6 +78,13 @@
   .overlay h2{font-size:28px;}
   .overlay .lead{color:var(--mist); margin-top:6px; font-size:14px; line-height:1.5;}
 
+  .confirm-email-icon{width:76px; height:76px; border-radius:50%; background:var(--hivis-dim); color:var(--hivis);
+    display:flex; align-items:center; justify-content:center; margin:4px auto 22px;}
+  .confirm-email-icon svg{width:32px; height:32px;}
+  #confirm-email h2,#confirm-email .lead{text-align:center;}
+  #confirm-email .lead strong{color:var(--hivis); font-weight:700;}
+  .confirm-email-waiting{display:flex; align-items:center; justify-content:center; gap:8px; margin-top:24px; color:var(--mist); font-size:13.5px;}
+
   .ob-progress-wrap{display:flex; align-items:center; gap:10px; margin-bottom:22px;}
   .ob-progress{flex:1; height:5px; background:var(--asphalt-3); border-radius:999px; overflow:hidden;}
   .ob-progress-fill{height:100%; width:20%; background:var(--hivis); border-radius:999px; transition:width .3s ease;}
@@ -471,10 +478,16 @@
   </div>
 
   <div class="overlay" id="confirm-email" style="display:none;">
+    <div class="confirm-email-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7 10-7"/></svg>
+    </div>
     <h2 class="display" data-i18n="confirm_email_title"></h2>
     <p class="lead" id="confirm-email-lead"></p>
-    <p class="muted" style="text-align:center; margin-top:8px;" data-i18n="confirm_email_waiting"></p>
-    <div class="field" style="margin-top:24px;"><button class="btn btn-outline" id="confirm-email-resend-btn" data-i18n="confirm_email_resend_btn" onclick="handleResendConfirmation()"></button></div>
+    <div class="confirm-email-waiting">
+      <span class="icon-sq spin-icon" style="width:14px; height:14px; color:var(--hivis);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a10 10 0 1 0 10 10"/></svg></span>
+      <span data-i18n="confirm_email_waiting"></span>
+    </div>
+    <div class="field" style="margin-top:26px;"><button class="btn btn-outline" id="confirm-email-resend-btn" data-i18n="confirm_email_resend_btn" onclick="handleResendConfirmation()"></button></div>
     <button class="small-link" style="display:block; text-align:center; width:100%; margin-top:14px;" onclick="goBackFromConfirmEmail()" data-i18n="confirm_email_back"></button>
   </div>
 
