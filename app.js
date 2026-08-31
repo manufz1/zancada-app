@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T22:36:59Z';
+const APP_VERSION = '2026-08-31T22:50:03Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
@@ -968,6 +968,7 @@ function enterApp(){
   repairCorruptedCustomDays();
   checkProactiveCoachNudge();
   checkPainCheckins();
+  refreshEstimatedHrMax();
   checkHrMaxFromRuns();
   updateChatBadge(); // por si algún mensaje del coach se agregó recién arriba (ajuste automático, aviso proactivo) sin pasar por renderChat
   if(relinkTodayRun()) persist();
@@ -2482,6 +2483,23 @@ function checkShoeWearAlerts(){
       s.wearAlerted = false;
     }
   });
+}
+function refreshEstimatedHrMax(){
+  /* Los perfiles armados antes de este cambio quedaron con la fórmula vieja (220-edad)
+     guardada tal cual en hrMax -- cambiar estimateHrMax() no les recalcula nada solo,
+     porque el valor ya está persistido. Para quien todavía no tiene una FC máxima real
+     cargada (hrKnown=false), la recalculamos con la fórmula nueva (Tanaka) cada vez que
+     entra a la app, así no quedan pegados para siempre a la estimación vieja por haberse
+     registrado antes de este cambio. A quien ya tiene una FC real cargada no le tocamos
+     nada -- un dato real siempre le gana a cualquier estimación por edad. */
+  const p = state.profile;
+  if(!p || p.hrKnown || !p.birth) return;
+  const newEstimate = estimateHrMax(ageFromBirth(p.birth));
+  if(newEstimate && newEstimate !== p.hrMax){
+    p.hrMax = newEstimate;
+    p.hrZones = computeZones(newEstimate);
+    persist();
+  }
 }
 function checkHrMaxFromRuns(){
   /* Un pico de FC real registrado en una carrera (reloj sincronizado por Strava) es más
