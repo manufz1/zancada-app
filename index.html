@@ -269,7 +269,8 @@
      puede quedar mal calculada ni moverse sola al hacer scroll del chat). */
   #coachChatWrap{position:fixed; left:0; right:0; max-width:480px; margin:0 auto; top:64px; bottom:78px;
     display:flex; flex-direction:column; z-index:15; background:var(--asphalt);}
-  #coachChatTitle{font-size:25px; margin:0; padding:14px 20px 10px; flex-shrink:0;}
+  #coachChatTitle{font-size:25px; margin:0; padding:14px 20px 0; flex-shrink:0;}
+  .coach-disclaimer{flex-shrink:0; margin:0; padding:4px 20px 10px; font-size:11px; color:var(--mist-dim); line-height:1.4;}
   #chatLog{display:flex; flex-direction:column; flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px 10px; overscroll-behavior:contain;}
   .msg{max-width:82%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.5; margin-bottom:10px;}
   .msg.first,.msg.mid{margin-bottom:2px;}
@@ -875,6 +876,7 @@
          realmente visible (visualViewport) y el chat interno se scrollea solo. -->
     <div id="coachChatWrap">
       <h2 class="display" id="coachChatTitle" data-i18n="coach_title"></h2>
+      <p class="coach-disclaimer" data-i18n="coach_disclaimer"></p>
       <div id="chatLog"></div>
       <div class="chat-scroll-btn-wrap" id="chatScrollBtnWrap">
         <button class="chat-scroll-btn" id="chat-scroll-bottom-btn" style="display:none;" onclick="scrollChatToBottom()" data-i18n-aria="aria_scroll_bottom"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>

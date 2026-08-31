@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T22:53:12Z';
+const APP_VERSION = '2026-08-31T23:45:27Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
@@ -532,7 +532,14 @@ function showConfirmEmailScreen(email, password){
   confirmEmailPw = password;
   document.getElementById('signup').style.display = 'none';
   document.getElementById('confirm-email').style.display = 'block';
-  document.getElementById('confirm-email-lead').textContent = t('confirm_email_lead', {email});
+  // Resaltamos el email en negrita/color dentro de la frase, en vez de mostrarlo como texto plano.
+  // Escapamos el email vía textContent->innerHTML (truco seguro) por si contuviera caracteres especiales.
+  const marker = '';
+  const escapeHtml = (str)=>{ const d = document.createElement('span'); d.textContent = str; return d.innerHTML; };
+  const template = t('confirm_email_lead', {email: marker});
+  document.getElementById('confirm-email-lead').innerHTML = template.split(marker)
+    .map(escapeHtml)
+    .join(`<strong>${escapeHtml(email)}</strong>`);
   startConfirmEmailPolling();
 }
 function stopConfirmEmailPolling(){
