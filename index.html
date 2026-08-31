@@ -464,6 +464,14 @@
     </p>
   </div>
 
+  <div class="overlay" id="confirm-email" style="display:none;">
+    <h2 class="display" data-i18n="confirm_email_title"></h2>
+    <p class="lead" id="confirm-email-lead"></p>
+    <p class="muted" style="text-align:center; margin-top:8px;" data-i18n="confirm_email_waiting"></p>
+    <div class="field" style="margin-top:24px;"><button class="btn btn-outline" id="confirm-email-resend-btn" data-i18n="confirm_email_resend_btn" onclick="handleResendConfirmation()"></button></div>
+    <button class="small-link" style="display:block; text-align:center; width:100%; margin-top:14px;" onclick="goBackFromConfirmEmail()" data-i18n="confirm_email_back"></button>
+  </div>
+
   <div class="overlay" id="recovery-set-password" style="display:none;">
     <h2 class="display" data-i18n="login_recovery_title"></h2>
     <p class="lead" data-i18n="login_recovery_lead"></p>
