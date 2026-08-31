@@ -1,11 +1,45 @@
 // api/chat.js — función serverless de Vercel.
 const verifyUser = require('./_lib/verify-user');
 
+// Mensajes que sí le mostramos al corredor tal cual, en su idioma. Antes, cualquier error
+// que no fuera "muy solicitado" (token de sesión faltante/vencido, un error interno de la
+// API de Gemini, una excepción de red, la falta de configuración de GEMINI_API_KEY) se le
+// mandaba al chat como texto plano y en inglés/técnico -- un amigo probando la app llegó a
+// ver literalmente "Missing token" como si fuera la respuesta del coach. El detalle técnico
+// real ahora se loguea acá (console.error, visible en los logs de Vercel) para que lo
+// podamos diagnosticar nosotros, pero el corredor solo ve uno de estos mensajes.
+const BUSY_MSG = {
+  es: 'El coach está muy solicitado ahora mismo. Probá de nuevo en un minuto.',
+  en: 'The coach is very busy right now. Try again in a minute.',
+  pt: 'O coach está muito solicitado agora. Tente de novo em um minuto.',
+  fr: 'Le coach est très sollicité en ce moment. Réessaie dans une minute.',
+  it: 'Il coach è molto richiesto in questo momento. Riprova tra un minuto.',
+  de: 'Der Coach ist gerade sehr gefragt. Versuch es in einer Minute noch mal.'
+};
+const AUTH_ERROR_MSG = {
+  es: 'Tu sesión expiró. Cerrá sesión y volvé a entrar para seguir usando el coach.',
+  en: 'Your session expired. Log out and back in to keep using the coach.',
+  pt: 'Sua sessão expirou. Saia e entre de novo para continuar usando o coach.',
+  fr: 'Ta session a expiré. Déconnecte-toi et reconnecte-toi pour continuer à utiliser le coach.',
+  it: 'La tua sessione è scaduta. Esci e accedi di nuovo per continuare a usare il coach.',
+  de: 'Deine Sitzung ist abgelaufen. Melde dich ab und wieder an, um den Coach weiter zu nutzen.'
+};
+const GENERIC_ERROR_MSG = {
+  es: 'No me pude conectar ahora mismo. Probá de nuevo en un momento.',
+  en: "I couldn't connect right now. Try again in a moment.",
+  pt: 'Não consegui me conectar agora. Tente de novo em instantes.',
+  fr: "Je n'ai pas pu me connecter là. Réessaie dans un instant.",
+  it: 'Non sono riuscito a connettermi ora. Riprova tra un momento.',
+  de: 'Ich konnte mich gerade nicht verbinden. Versuch es gleich noch mal.'
+};
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: { message: 'Method Not Allowed' } });
     return;
   }
+
+  const { lang } = req.body || {};
 
   // Verificamos que quien llama esté realmente logueado en la app, antes de
   // gastar la cuota de Gemini en el pedido. Sin esto, cualquiera en internet
@@ -14,27 +48,20 @@ module.exports = async (req, res) => {
   // nosotros — un uso gratis e ilimitado de la API a costa nuestra.
   const auth = await verifyUser(req);
   if (!auth.ok) {
-    res.status(auth.status).json({ error: { message: auth.error } });
+    console.error('chat: auth failed —', auth.error);
+    res.status(auth.status).json({ error: { message: AUTH_ERROR_MSG[lang] || AUTH_ERROR_MSG.es } });
     return;
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: { message: 'Falta configurar GEMINI_API_KEY en las variables de entorno de Vercel.' } });
+    console.error('chat: falta configurar GEMINI_API_KEY en las variables de entorno de Vercel.');
+    res.status(500).json({ error: { message: GENERIC_ERROR_MSG[lang] || GENERIC_ERROR_MSG.es } });
     return;
   }
 
   try {
-    const { system, tools, messages, lang } = req.body || {};
-
-    const BUSY_MSG = {
-      es: 'El coach está muy solicitado ahora mismo. Probá de nuevo en un minuto.',
-      en: 'The coach is very busy right now. Try again in a minute.',
-      pt: 'O coach está muito solicitado agora. Tente de novo em um minuto.',
-      fr: 'Le coach est très sollicité en ce moment. Réessaie dans une minute.',
-      it: 'Il coach è molto richiesto in questo momento. Riprova tra un minuto.',
-      de: 'Der Coach ist gerade sehr gefragt. Versuch es in einer Minute noch mal.'
-    };
+    const { system, tools, messages } = req.body || {};
     const busyMessage = BUSY_MSG[lang] || BUSY_MSG.es;
 
     const idToName = {};
@@ -106,9 +133,9 @@ module.exports = async (req, res) => {
     }
 
     if (data.error) {
-      const friendlyMessage = isRetryable(lastError || data.error)
-        ? busyMessage
-        : data.error.message;
+      const retryable = isRetryable(lastError || data.error);
+      if (!retryable) console.error('chat: error no reintentable de Gemini —', data.error);
+      const friendlyMessage = retryable ? busyMessage : (GENERIC_ERROR_MSG[lang] || GENERIC_ERROR_MSG.es);
       res.status(200).json({ error: { message: friendlyMessage } });
       return;
     }
@@ -132,6 +159,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ content });
   } catch (err) {
-    res.status(500).json({ error: { message: err.message } });
+    console.error('chat: excepción no manejada —', err);
+    res.status(500).json({ error: { message: GENERIC_ERROR_MSG[lang] || GENERIC_ERROR_MSG.es } });
   }
 };
