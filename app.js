@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T22:18:11Z';
+const APP_VERSION = '2026-08-31T22:36:59Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
@@ -884,7 +884,12 @@ setupDateBox('perfil-racedate','perfil-racedate-text','date_placeholder');
 setupDateBox('man-date','man-date-text');
 setupDateBox('edit-run-date','edit-run-date-text');
 setupDateBox('ev-date','ev-date-text','date_placeholder');
-function estimateHrMax(age){ return 220-age; }
+/* Fórmula de Tanaka (208 - 0.7*edad) en vez de la clásica 220-edad: la de Tanaka viene de un
+   metaanálisis con miles de personas y tiene bastante menos error, sobre todo a medida que
+   sube la edad -- 220-edad tiende a subestimar la FC máxima real de gente mayor. Sigue siendo
+   una estimación (no reemplaza un test real), pero es la mejor estimación posible sin
+   necesidad de ningún test ni equipamiento. */
+function estimateHrMax(age){ return Math.round(208 - 0.7*age); }
 function computeZones(hrmax){
   return {1:{min:Math.round(hrmax*0.50),max:Math.round(hrmax*0.60)},2:{min:Math.round(hrmax*0.60)+1,max:Math.round(hrmax*0.70)},
     3:{min:Math.round(hrmax*0.70)+1,max:Math.round(hrmax*0.80)},4:{min:Math.round(hrmax*0.80)+1,max:Math.round(hrmax*0.90)},
@@ -963,6 +968,7 @@ function enterApp(){
   repairCorruptedCustomDays();
   checkProactiveCoachNudge();
   checkPainCheckins();
+  checkHrMaxFromRuns();
   updateChatBadge(); // por si algún mensaje del coach se agregó recién arriba (ajuste automático, aviso proactivo) sin pasar por renderChat
   if(relinkTodayRun()) persist();
   [...document.getElementById('voice-toggle').children].forEach(c=>c.classList.toggle('active', c.dataset.v === (state.voiceEnabled===false?'off':'on')));
@@ -2145,6 +2151,7 @@ async function refreshStateFromServer(){
         const prevRunIds = new Set((state.runs||[]).map(r=>String(r.id)));
         state = data.data;
         checkShoeWearAlerts();
+        checkHrMaxFromRuns();
         // Las carreras que llegan nuevas por la sincronización con Strava también pueden ser récord.
         const newRuns = (state.runs||[]).filter(r=>!prevRunIds.has(String(r.id)));
         if(newRuns.length){ newRuns.forEach(checkNewPR); persist(); }
@@ -2475,6 +2482,22 @@ function checkShoeWearAlerts(){
       s.wearAlerted = false;
     }
   });
+}
+function checkHrMaxFromRuns(){
+  /* Un pico de FC real registrado en una carrera (reloj sincronizado por Strava) es más
+     confiable que la estimación por edad -- si superó lo que tenemos guardado, lo tomamos
+     como la nueva FC máxima real, sin esperar a que el corredor se lo cuente a mano al coach
+     por chat (que hasta ahora era la única forma de que hrKnown pasara a true). Un tope de
+     220 evita que un pico raro de sensor (glitch del reloj) rompa las zonas. */
+  const observedMax = (state.runs||[]).reduce((max,r)=> (typeof r.maxHr==='number' && r.maxHr>max) ? r.maxHr : max, 0);
+  if(observedMax && observedMax<=220 && observedMax > (state.profile.hrMax||0)){
+    state.profile.hrMax = observedMax;
+    state.profile.hrKnown = true;
+    state.profile.hrZones = computeZones(observedMax);
+    persist();
+    if(document.getElementById('view-perfil') && document.getElementById('view-perfil').classList.contains('active')) renderZones();
+    showToast(t('hrmax_auto_update_msg', {bpm: observedMax}), 'success');
+  }
 }
 function setEvent(){
   const name = document.getElementById('ev-name').value.trim(); const date = document.getElementById('ev-date').value;

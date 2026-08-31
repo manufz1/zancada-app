@@ -120,6 +120,12 @@
   .cal-day.other-month{color:var(--mist-dim); opacity:.35; pointer-events:none;}
   .cal-day.today{border:1.5px solid var(--mist-dim);}
   .cal-day.selected{background:var(--hivis); color:var(--asphalt); font-weight:800;}
+  .cal-months-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .cal-years-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .cal-cell{padding:16px 4px; border-radius:14px; text-align:center; font-size:14.5px; cursor:pointer; color:var(--chalk); text-transform:capitalize;}
+  .cal-cell.current{border:1.5px solid var(--mist-dim);}
+  .cal-cell.selected{background:var(--hivis); color:var(--asphalt); font-weight:800;}
+  #cal-month-label{background:none; border:none; cursor:pointer; padding:6px 10px;}
   .field input:focus,.field select:focus{border-color:var(--hivis); box-shadow:0 0 0 3px var(--hivis-dim);}
   .date-box{transition:border-color .15s ease, box-shadow .15s ease;}
   .date-box:focus-within,.date-box.focused{border-color:var(--hivis); box-shadow:0 0 0 3px var(--hivis-dim);}
@@ -837,11 +843,13 @@
   <div class="overlay" id="calendar-modal" style="display:none; z-index:60;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
       <button class="small-link" onclick="calNavigate(-1)" style="font-size:22px; padding:6px 14px;">‹</button>
-      <span id="cal-month-label" style="font-weight:800; font-size:18px; text-transform:capitalize;"></span>
+      <button id="cal-month-label" onclick="calShowYears()" style="font-weight:800; font-size:18px; text-transform:capitalize;"></button>
       <button class="small-link" onclick="calNavigate(1)" style="font-size:22px; padding:6px 14px;">›</button>
     </div>
     <div class="cal-weekdays" id="cal-weekdays"></div>
     <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-months-grid" id="cal-months-grid" style="display:none;"></div>
+    <div class="cal-years-grid" id="cal-years-grid" style="display:none;"></div>
     <button class="btn btn-outline" style="width:100%; margin-top:24px;" onclick="closeCalendar()" data-i18n="cancel_word"></button>
   </div>
 
