@@ -608,6 +608,15 @@
       <div class="week-bars" id="home-week-bars"></div>
     </div>
 
+    <div class="card" id="readiness-card" style="display:none;">
+      <h3 style="margin:0 0 12px;" data-i18n="readiness_title"></h3>
+      <div class="choice-row" id="readiness-choice">
+        <div class="choice" data-v="mal" data-i18n="readiness_bad"></div>
+        <div class="choice" data-v="regular" data-i18n="readiness_ok"></div>
+        <div class="choice" data-v="bien" data-i18n="readiness_good"></div>
+      </div>
+    </div>
+
     <div class="card" id="load-card" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="margin:0;" data-i18n="home_load_title"></h3>
@@ -660,6 +669,7 @@
     <p class="muted" style="margin-bottom:14px;" data-i18n="plan_lead"></p>
     <p class="muted" id="plan-taper-note" style="display:none; color:var(--hivis); margin-bottom:14px;"></p>
     <div class="card" id="plan-list"></div>
+    <button class="btn btn-outline" style="margin-bottom:10px;" onclick="exportWeekToCalendar()" data-i18n="plan_export_ics"></button>
     <button class="btn btn-outline" data-i18n="plan_adjust" onclick="goCoachWithPrompt('')"></button>
     <div class="card" id="past-weeks-card" style="display:none; margin-top:14px;">
       <h3 data-i18n="plan_past_weeks"></h3>
@@ -738,12 +748,31 @@
       <div class="field"><label data-i18n="run_summary_shoe_q"></label><select id="man-shoe"></select></div>
       <button class="btn btn-primary btn-sm" style="width:100%; margin-top:6px;" data-i18n="hist_manual_save" onclick="saveManualRun()"></button>
     </div>
+    <input type="text" id="hist-search" data-i18n-ph="hist_search_ph" oninput="renderHistory()" style="width:100%; margin-bottom:14px; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:10px 12px; border-radius:var(--radius-sm); font-size:14px; font-family:inherit;">
     <div id="history-list"></div>
   </section>
 
   <div class="overlay" id="run-detail-modal" style="display:none;">
     <button class="week-nav-btn" onclick="closeRunDetail()" style="margin-bottom:14px;" data-i18n-aria="aria_back"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg></span></button>
     <div id="run-detail-content"></div>
+  </div>
+
+  <div class="overlay" id="edit-run-modal" style="display:none; z-index:55;">
+    <h2 class="display" style="font-size:22px;" data-i18n="edit_run_title"></h2>
+    <div class="field"><label data-i18n="hist_manual_date"></label>
+      <div class="date-box" onclick="openCalendar('edit-run-date')"><span class="date-box-text" id="edit-run-date-text"></span></div>
+      <input type="hidden" id="edit-run-date">
+    </div>
+    <div class="two-col">
+      <div class="field"><label data-i18n="hist_manual_dist"></label><input type="number" id="edit-run-dist" step="0.1"></div>
+      <div class="field"><label data-i18n="hist_manual_dur"></label><input type="number" id="edit-run-dur"></div>
+    </div>
+    <div class="field"><label data-i18n="hist_manual_hr"></label><input type="number" id="edit-run-hr"></div>
+    <div class="field"><label data-i18n="run_summary_shoe_q"></label><select id="edit-run-shoe"></select></div>
+    <div style="display:flex; gap:10px; margin-top:20px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeEditRun()" data-i18n="cancel_word"></button>
+      <button class="btn btn-primary" style="flex:1;" onclick="saveEditRun()" data-i18n="save_word"></button>
+    </div>
   </div>
 
   <div class="overlay" id="hist-info-modal" style="display:none; z-index:59;">
@@ -1037,11 +1066,11 @@
 <script>
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T15:04:06Z';
+const APP_VERSION = '2026-08-31T15:51:29Z';
 /* ================= I18N ================= */
 const I18N = {
 es:{app_tag:"Tu entrenador personal, en cualquier terreno.",splash_feat1_title:"Planes que se adaptan a tu progreso",splash_feat1_desc:"El volumen y la intensidad de cada semana se ajustan automáticamente según tu evolución.",splash_feat2_title:"Coach con inteligencia artificial",splash_feat2_desc:"Disponible en todo momento para resolver dudas de entrenamiento, con respuestas basadas en tu progreso real.",splash_feat3_title:"Sincronización con Strava",splash_feat3_desc:"Tu reloj se conecta una sola vez y tus carreras quedan registradas automáticamente.",start:"Comenzar",
-login_title:"Iniciá sesión",login_lead:"Iniciá sesión o creá tu cuenta. Tus datos quedan guardados de verdad, y los podés ver desde cualquier dispositivo.",login_email_label:"Tu email",login_email_ph:"vos@email.com",login_password_label:"Contraseña",login_password_ph:"Mínimo 6 caracteres",login_err:"Ingresá un email válido.",login_err_password:"La contraseña debe tener al menos 6 caracteres.",login_err_wrong_password:"Contraseña incorrecta.",login_continue:"Continuar",login_or:"o continuá con",login_google:"Continuar con Google",login_apple:"Continuar con Apple",login_soon:"Próximamente",login_soon_note:"Google Sign-In necesita un backend real (ver el blueprint) — todavía no está activo en este prototipo.",login_forgot:"¿Olvidaste tu contraseña?",login_recovery_find:"Buscar cuenta",login_recovery_submit:"Restablecer contraseña",login_new_password_label:"Nueva contraseña",login_recovery_answer_ph:"Tu respuesta",login_recovery_no_account:"No encontramos una cuenta con ese email.",login_recovery_no_question:"Esta cuenta no tiene pregunta de seguridad configurada (se creó antes de esta función). No se puede recuperar así — podés crear una cuenta nueva con otro email.",login_recovery_wrong:"Respuesta incorrecta.",login_create_account:"Crear cuenta",login_err_exists:"Ya existe una cuenta con ese email.",login_go_signin_short:"Iniciar sesión",login_check_email:"Revisá tu email para confirmar la cuenta.",login_recovery_sent:"Te mandamos un mail con el link para restablecer tu contraseña.",login_recovery_title:"Elegí una nueva contraseña",login_recovery_lead:"Confirmaste tu identidad por mail. Ahora poné tu nueva contraseña.",login_lead_signin:"Ingresá con tu email y contraseña.",login_go_signup:"¿No tenés cuenta? Creá una",signup_title:"Creá tu cuenta",signup_lead:"Elegí un email y una contraseña para empezar.",signup_go_login:"¿Ya tenés cuenta? Iniciá sesión",signup_legal_pre:"Al crear tu cuenta aceptás nuestros",signup_legal_and:"y nuestra",legal_terms_link:"Términos y Condiciones",legal_privacy_link:"Política de Privacidad",login_loading:"Ingresando…",signup_loading:"Creando cuenta…",forgot_loading:"Enviando…",google_loading:"Conectando…",
+login_title:"Iniciá sesión",login_lead:"Iniciá sesión o creá tu cuenta. Tus datos quedan guardados de verdad, y los podés ver desde cualquier dispositivo.",login_email_label:"Tu email",login_email_ph:"vos@email.com",login_password_label:"Contraseña",login_password_ph:"Mínimo 6 caracteres",login_err:"Ingresá un email válido.",login_err_password:"La contraseña debe tener al menos 6 caracteres.",login_err_wrong_password:"Contraseña incorrecta.",login_continue:"Continuar",login_or:"o continuá con",login_google:"Continuar con Google",login_apple:"Continuar con Apple",login_soon:"Próximamente",login_soon_note:"Google Sign-In necesita un backend real (ver el blueprint) — todavía no está activo en este prototipo.",login_forgot:"¿Olvidaste tu contraseña?",login_recovery_find:"Buscar cuenta",login_recovery_submit:"Restablecer contraseña",login_new_password_label:"Nueva contraseña",login_recovery_answer_ph:"Tu respuesta",login_recovery_no_account:"No encontramos una cuenta con ese email.",login_recovery_no_question:"Esta cuenta no tiene pregunta de seguridad configurada (se creó antes de esta función). No se puede recuperar así — podés crear una cuenta nueva con otro email.",login_recovery_wrong:"Respuesta incorrecta.",login_create_account:"Crear cuenta",login_err_exists:"Ya existe una cuenta con ese email.",login_go_signin_short:"Iniciar sesión",readiness_title:"¿Cómo dormiste anoche?",readiness_bad:"Mal",readiness_ok:"Regular",readiness_good:"Bien",readiness_lower_confirm:"¿Querés que baje un poco la sesión de hoy?",readiness_chat_bad:"Anoche dormí mal.",edit_run_title:"Editar carrera",edit_run_btn:"Editar",edit_run_invalid:"Revisá la fecha, distancia y tiempo.",hist_search_ph:"Buscar por fecha o zapatilla…",hist_search_empty:"No encontramos carreras que coincidan con tu búsqueda.",plan_export_ics:"Agregar semana al calendario",plan_export_ics_empty:"No hay sesiones de carrera esta semana para exportar.",sync_conflict_text:"Parece que guardaste cambios más recientes desde otro dispositivo. Si seguís acá, la próxima vez que se guarde algo podría pisarlos. ¿Querés recargar para traer los datos más nuevos?",sync_conflict_reload:"Recargar",sync_conflict_dismiss:"Seguir acá",login_check_email:"Revisá tu email para confirmar la cuenta.",login_recovery_sent:"Te mandamos un mail con el link para restablecer tu contraseña.",login_recovery_title:"Elegí una nueva contraseña",login_recovery_lead:"Confirmaste tu identidad por mail. Ahora poné tu nueva contraseña.",login_lead_signin:"Ingresá con tu email y contraseña.",login_go_signup:"¿No tenés cuenta? Creá una",signup_title:"Creá tu cuenta",signup_lead:"Elegí un email y una contraseña para empezar.",signup_go_login:"¿Ya tenés cuenta? Iniciá sesión",signup_legal_pre:"Al crear tu cuenta aceptás nuestros",signup_legal_and:"y nuestra",legal_terms_link:"Términos y Condiciones",legal_privacy_link:"Política de Privacidad",login_loading:"Ingresando…",signup_loading:"Creando cuenta…",forgot_loading:"Enviando…",google_loading:"Conectando…",
 ob_security_q_label:"Pregunta de seguridad",security_q_fixed:"¿Cómo se llamaba tu primera mascota?",
 ob_title:"Contame de vos",ob_lead:"Con esto arma tu coach un plan inicial. Después se afina hablando con vos.",ob_step2_title:"Tus datos físicos",ob_step3_title:"Tu experiencia",ob_step4_title:"Tus días de entrenamiento",ob_step5_title:"Tu objetivo",ob_name_label:"Tu nombre",ob_name_ph:"¿Cómo te llamás?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Fecha de nacimiento",ob_runnertype_label:"¿Ya corrés activamente o sos nuevo en esto?",ob_runnertype_new:"Soy nuevo/a",ob_runnertype_active:"Ya corro",ob_currentkm_label:"¿Cuántos km corrés por semana actualmente?",ob_newrunner_note:"Perfecto — vamos a arrancar con carga baja para que tu cuerpo se adapte bien, y subimos de a poco. Contale al coach en cuánto tiempo te gustaría prepararte, si tenés una fecha en mente.",ob_weeklykm_label:"¿Cuántos km corriste esta última semana?",ob_weeklykm_hint:"Si ponés 0, armamos un plan para arrancar desde cero.",ob_terrain_label:"Terreno donde más corrés",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixto",ob_goal_label:"¿Qué querés trabajar?",ob_goal_start:"Empezar a correr desde cero",ob_goal_5k:"Preparar un 5K",ob_goal_10k:"Preparar un 10K",ob_goal_15k:"Preparar un 15K",ob_goal_21k:"Preparar una media maratón",ob_goal_42k:"Preparar una maratón",ob_goal_ultra:"Más de 42K / ultra",ob_goal_lifestyle:"Salud y estilo de vida, sin carrera puntual",ob_racedate_label:"Fecha de tu carrera (opcional)",ob_racedate_hint:"Si la tenés, el coach arma el plan con el tiempo justo para llegar bien.",date_placeholder:"Elegir fecha",perfil_weeklykm_auto_note:"Los km semanales los calcula el coach solo, según tu objetivo y la fecha de carrera.",perfil_goal_km_check_hint:"Como cambiaste el objetivo, contanos cuánto corrés ahora para armar el plan desde tu realidad actual.",ob_hrmax_label:"¿Conocés tu frecuencia cardíaca máxima?",ob_hrmax_yes:"Sí, la sé",ob_hrmax_no:"No la sé",ob_hrmax_unknown_msg:"Sin un test no la podemos calcular con precisión. Te recomendamos un test de lactato o una prueba de esfuerzo con un profesional. Mientras tanto usamos una estimación según tu edad.",ob_submit:"Crear mi plan",
 nav_home:"Inicio",nav_plan:"Plan",nav_run:"Correr",nav_history:"Historial",nav_coach:"Coach",nav_profile:"Perfil",
@@ -1066,7 +1095,7 @@ save_word:"Guardar",save_confirmed:"Guardado",cancel_word:"Cancelar",confirm_del
 ob_days_label:"¿Qué días de la semana vas a entrenar?",perfil_personal_title:"Datos personales",perfil_weeklykm_label:"Km semanales base",perfil_goals_title:"Tus objetivos",perfil_goals_desc:"Contale al coach qué querés lograr, para que adapte sus consejos.",perfil_weekly_goal_label:"Meta semanal (km)",perfil_weekly_goal_ph:"Ej: 30",perfil_goal_note_label:"¿Qué querés lograr?",perfil_goal_note_ph:"Ej: bajar mi ritmo, correr sin dolor de rodilla, terminar mi primera maratón...",perfil_goal_progress_label:"Meta semanal",perfil_days_title:"Tus días de entreno",perfil_days_save:"Guardar días",perfil_days_empty_err:"Elegí al menos un día."},
 
 en:{app_tag:"Your personal coach, on any terrain.",splash_feat1_title:"Training plans that adapt to your progress",splash_feat1_desc:"Weekly volume and intensity adjust automatically based on your training history.",splash_feat2_title:"AI-powered coach",splash_feat2_desc:"Available at all times to answer training questions, using real context from your data.",splash_feat3_title:"Strava synchronization",splash_feat3_desc:"Connect your watch once and your runs are logged automatically.",start:"Get started",
-login_title:"Sign in",login_lead:"Sign in or create your account. Your data is really saved, and you can see it from any device.",login_email_label:"Your email",login_email_ph:"you@email.com",login_password_label:"Password",login_password_ph:"At least 6 characters",login_err:"Enter a valid email.",login_err_password:"Password must be at least 6 characters.",login_err_wrong_password:"Wrong password.",login_continue:"Continue",login_or:"or continue with",login_google:"Continue with Google",login_apple:"Continue with Apple",login_soon:"Coming soon",login_soon_note:"Google Sign-In needs a real backend (see the blueprint) — not active yet in this prototype.",login_forgot:"Forgot your password?",login_recovery_find:"Find account",login_recovery_submit:"Reset password",login_new_password_label:"New password",login_recovery_answer_ph:"Your answer",login_recovery_no_account:"We couldn't find an account with that email.",login_recovery_no_question:"This account doesn't have a security question set (it was created before this feature existed). It can't be recovered this way — you can create a new account with a different email.",login_recovery_wrong:"Wrong answer.",login_create_account:"Create account",login_err_exists:"An account with that email already exists.",login_go_signin_short:"Sign in",login_check_email:"Check your email to confirm your account.",login_recovery_sent:"We sent you an email with a link to reset your password.",login_recovery_title:"Choose a new password",login_recovery_lead:"You confirmed your identity by email. Now set your new password.",login_lead_signin:"Sign in with your email and password.",login_go_signup:"Don't have an account? Create one",signup_title:"Create your account",signup_lead:"Choose an email and password to get started.",signup_go_login:"Already have an account? Sign in",signup_legal_pre:"By creating your account you agree to our",signup_legal_and:"and our",legal_terms_link:"Terms and Conditions",legal_privacy_link:"Privacy Policy",login_loading:"Signing in…",signup_loading:"Creating account…",forgot_loading:"Sending…",google_loading:"Connecting…",
+login_title:"Sign in",login_lead:"Sign in or create your account. Your data is really saved, and you can see it from any device.",login_email_label:"Your email",login_email_ph:"you@email.com",login_password_label:"Password",login_password_ph:"At least 6 characters",login_err:"Enter a valid email.",login_err_password:"Password must be at least 6 characters.",login_err_wrong_password:"Wrong password.",login_continue:"Continue",login_or:"or continue with",login_google:"Continue with Google",login_apple:"Continue with Apple",login_soon:"Coming soon",login_soon_note:"Google Sign-In needs a real backend (see the blueprint) — not active yet in this prototype.",login_forgot:"Forgot your password?",login_recovery_find:"Find account",login_recovery_submit:"Reset password",login_new_password_label:"New password",login_recovery_answer_ph:"Your answer",login_recovery_no_account:"We couldn't find an account with that email.",login_recovery_no_question:"This account doesn't have a security question set (it was created before this feature existed). It can't be recovered this way — you can create a new account with a different email.",login_recovery_wrong:"Wrong answer.",login_create_account:"Create account",login_err_exists:"An account with that email already exists.",login_go_signin_short:"Sign in",readiness_title:"How did you sleep last night?",readiness_bad:"Bad",readiness_ok:"OK",readiness_good:"Good",readiness_lower_confirm:"Want me to ease up today's session a bit?",readiness_chat_bad:"I slept badly last night.",edit_run_title:"Edit run",edit_run_btn:"Edit",edit_run_invalid:"Check the date, distance, and time.",hist_search_ph:"Search by date or shoe…",hist_search_empty:"No runs match your search.",plan_export_ics:"Add week to calendar",plan_export_ics_empty:"There are no running sessions this week to export.",sync_conflict_text:"It looks like you saved more recent changes from another device. If you keep working here, the next save could overwrite them. Want to reload to get the latest data?",sync_conflict_reload:"Reload",sync_conflict_dismiss:"Stay here",login_check_email:"Check your email to confirm your account.",login_recovery_sent:"We sent you an email with a link to reset your password.",login_recovery_title:"Choose a new password",login_recovery_lead:"You confirmed your identity by email. Now set your new password.",login_lead_signin:"Sign in with your email and password.",login_go_signup:"Don't have an account? Create one",signup_title:"Create your account",signup_lead:"Choose an email and password to get started.",signup_go_login:"Already have an account? Sign in",signup_legal_pre:"By creating your account you agree to our",signup_legal_and:"and our",legal_terms_link:"Terms and Conditions",legal_privacy_link:"Privacy Policy",login_loading:"Signing in…",signup_loading:"Creating account…",forgot_loading:"Sending…",google_loading:"Connecting…",
 ob_security_q_label:"Security question",security_q_fixed:"What was the name of your first pet?",
 ob_title:"Tell us about you",ob_lead:"Your coach uses this to build a first plan, then fine-tunes it by talking with you.",ob_step2_title:"Your physical info",ob_step3_title:"Your experience",ob_step4_title:"Your training days",ob_step5_title:"Your goal",ob_name_label:"Your name",ob_name_ph:"What should we call you?",ob_weight_label:"Weight (kg)",ob_height_label:"Height (cm)",ob_birth_label:"Date of birth",ob_runnertype_label:"Are you already running actively, or new to this?",ob_runnertype_new:"I'm new",ob_runnertype_active:"I already run",ob_currentkm_label:"How many km do you currently run per week?",ob_newrunner_note:"Perfect — we'll start light so your body adapts well, and build up gradually. Tell your coach how much time you'd like to prepare, if you have a date in mind.",ob_weeklykm_label:"How many km did you run last week?",ob_weeklykm_hint:"If you enter 0, we build a plan to start from zero.",ob_terrain_label:"Terrain you run most",ob_terrain_asfalto:"Road",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixed",ob_goal_label:"What do you want to work on?",ob_goal_start:"Start running from scratch",ob_goal_5k:"Train for a 5K",ob_goal_10k:"Train for a 10K",ob_goal_15k:"Train for a 15K",ob_goal_21k:"Train for a half marathon",ob_goal_42k:"Train for a marathon",ob_goal_ultra:"Beyond 42K / ultra",ob_goal_lifestyle:"Health and lifestyle, no specific race",ob_racedate_label:"Your race date (optional)",ob_racedate_hint:"If you have one, your coach builds the plan around the time you actually have.",date_placeholder:"Choose date",perfil_weeklykm_auto_note:"Weekly km are calculated automatically by the coach, based on your goal and race date.",perfil_goal_km_check_hint:"Since you changed your goal, tell us how much you currently run so we can build the plan from where you actually are.",ob_hrmax_label:"Do you know your max heart rate?",ob_hrmax_yes:"Yes, I know it",ob_hrmax_no:"I don't know it",ob_hrmax_unknown_msg:"Without a test we can't calculate it precisely. We recommend a lactate test or a stress test with a professional. Meanwhile we use an age-based estimate.",ob_submit:"Create my plan",
 nav_home:"Home",nav_plan:"Plan",nav_run:"Run",nav_history:"History",nav_coach:"Coach",nav_profile:"Profile",
@@ -1091,7 +1120,7 @@ save_word:"Save",save_confirmed:"Saved",cancel_word:"Cancel",confirm_delete:"Del
 ob_days_label:"Which days of the week will you train?",perfil_personal_title:"Personal data",perfil_weeklykm_label:"Base weekly km",perfil_goals_title:"Your goals",perfil_goals_desc:"Tell your coach what you want to achieve, so it can tailor its advice.",perfil_weekly_goal_label:"Weekly goal (km)",perfil_weekly_goal_ph:"E.g. 30",perfil_goal_note_label:"What do you want to achieve?",perfil_goal_note_ph:"E.g. lower my pace, run without knee pain, finish my first marathon...",perfil_goal_progress_label:"Weekly goal",perfil_days_title:"Your training days",perfil_days_save:"Save days",perfil_days_empty_err:"Pick at least one day."},
 
 pt:{app_tag:"Seu treinador pessoal, em qualquer terreno.",splash_feat1_title:"Planos que se adaptam ao seu progresso",splash_feat1_desc:"O volume e a intensidade semanais se ajustam automaticamente com base na sua evolução.",splash_feat2_title:"Coach com inteligência artificial",splash_feat2_desc:"Disponível a qualquer momento para tirar dúvidas de treino, com respostas baseadas no seu progresso real.",splash_feat3_title:"Sincronização com o Strava",splash_feat3_desc:"Seu relógio se conecta uma única vez e suas corridas ficam registradas automaticamente.",start:"Começar",
-login_title:"Entrar",login_lead:"Entre ou crie sua conta. Seus dados ficam salvos de verdade, e você pode vê-los em qualquer dispositivo.",login_email_label:"Seu email",login_email_ph:"voce@email.com",login_password_label:"Senha",login_password_ph:"Mínimo 6 caracteres",login_err:"Digite um email válido.",login_err_password:"A senha deve ter pelo menos 6 caracteres.",login_err_wrong_password:"Senha incorreta.",login_continue:"Continuar",login_or:"ou continue com",login_google:"Continuar com Google",login_apple:"Continuar com Apple",login_soon:"Em breve",login_soon_note:"Google Sign-In precisa de um backend real (veja o blueprint) — ainda não está ativo neste protótipo.",login_forgot:"Esqueceu sua senha?",login_recovery_find:"Buscar conta",login_recovery_submit:"Redefinir senha",login_new_password_label:"Nova senha",login_recovery_answer_ph:"Sua resposta",login_recovery_no_account:"Não encontramos uma conta com esse email.",login_recovery_no_question:"Esta conta não tem pergunta de segurança configurada (foi criada antes dessa função existir). Não é possível recuperar assim — você pode criar uma conta nova com outro email.",login_recovery_wrong:"Resposta incorreta.",login_create_account:"Criar conta",login_err_exists:"Já existe uma conta com esse email.",login_go_signin_short:"Entrar",login_check_email:"Verifique seu email para confirmar a conta.",login_recovery_sent:"Enviamos um email com o link para redefinir sua senha.",login_recovery_title:"Escolha uma nova senha",login_recovery_lead:"Você confirmou sua identidade por email. Agora defina sua nova senha.",login_lead_signin:"Entre com seu email e senha.",login_go_signup:"Não tem conta? Crie uma",signup_title:"Crie sua conta",signup_lead:"Escolha um email e uma senha para começar.",signup_go_login:"Já tem conta? Entrar",signup_legal_pre:"Ao criar sua conta você concorda com nossos",signup_legal_and:"e nossa",legal_terms_link:"Termos e Condições",legal_privacy_link:"Política de Privacidade",login_loading:"Entrando…",signup_loading:"Criando conta…",forgot_loading:"Enviando…",google_loading:"Conectando…",
+login_title:"Entrar",login_lead:"Entre ou crie sua conta. Seus dados ficam salvos de verdade, e você pode vê-los em qualquer dispositivo.",login_email_label:"Seu email",login_email_ph:"voce@email.com",login_password_label:"Senha",login_password_ph:"Mínimo 6 caracteres",login_err:"Digite um email válido.",login_err_password:"A senha deve ter pelo menos 6 caracteres.",login_err_wrong_password:"Senha incorreta.",login_continue:"Continuar",login_or:"ou continue com",login_google:"Continuar com Google",login_apple:"Continuar com Apple",login_soon:"Em breve",login_soon_note:"Google Sign-In precisa de um backend real (veja o blueprint) — ainda não está ativo neste protótipo.",login_forgot:"Esqueceu sua senha?",login_recovery_find:"Buscar conta",login_recovery_submit:"Redefinir senha",login_new_password_label:"Nova senha",login_recovery_answer_ph:"Sua resposta",login_recovery_no_account:"Não encontramos uma conta com esse email.",login_recovery_no_question:"Esta conta não tem pergunta de segurança configurada (foi criada antes dessa função existir). Não é possível recuperar assim — você pode criar uma conta nova com outro email.",login_recovery_wrong:"Resposta incorreta.",login_create_account:"Criar conta",login_err_exists:"Já existe uma conta com esse email.",login_go_signin_short:"Entrar",readiness_title:"Como você dormiu ontem à noite?",readiness_bad:"Mal",readiness_ok:"Mais ou menos",readiness_good:"Bem",readiness_lower_confirm:"Quer que eu reduza um pouco a sessão de hoje?",readiness_chat_bad:"Dormi mal ontem à noite.",edit_run_title:"Editar corrida",edit_run_btn:"Editar",edit_run_invalid:"Confira a data, a distância e o tempo.",hist_search_ph:"Buscar por data ou tênis…",hist_search_empty:"Nenhuma corrida encontrada para essa busca.",plan_export_ics:"Adicionar semana ao calendário",plan_export_ics_empty:"Não há sessões de corrida esta semana para exportar.",sync_conflict_text:"Parece que você salvou mudanças mais recentes em outro dispositivo. Se continuar aqui, o próximo salvamento pode sobrescrevê-las. Quer recarregar para trazer os dados mais recentes?",sync_conflict_reload:"Recarregar",sync_conflict_dismiss:"Continuar aqui",login_check_email:"Verifique seu email para confirmar a conta.",login_recovery_sent:"Enviamos um email com o link para redefinir sua senha.",login_recovery_title:"Escolha uma nova senha",login_recovery_lead:"Você confirmou sua identidade por email. Agora defina sua nova senha.",login_lead_signin:"Entre com seu email e senha.",login_go_signup:"Não tem conta? Crie uma",signup_title:"Crie sua conta",signup_lead:"Escolha um email e uma senha para começar.",signup_go_login:"Já tem conta? Entrar",signup_legal_pre:"Ao criar sua conta você concorda com nossos",signup_legal_and:"e nossa",legal_terms_link:"Termos e Condições",legal_privacy_link:"Política de Privacidade",login_loading:"Entrando…",signup_loading:"Criando conta…",forgot_loading:"Enviando…",google_loading:"Conectando…",
 ob_security_q_label:"Pergunta de segurança",security_q_fixed:"Qual era o nome do seu primeiro animal de estimação?",
 ob_title:"Conte sobre você",ob_lead:"Seu coach usa isso para montar um plano inicial. Depois ajusta conversando com você.",ob_step2_title:"Seus dados físicos",ob_step3_title:"Sua experiência",ob_step4_title:"Seus dias de treino",ob_step5_title:"Seu objetivo",ob_name_label:"Seu nome",ob_name_ph:"Como podemos te chamar?",ob_weight_label:"Peso (kg)",ob_height_label:"Altura (cm)",ob_birth_label:"Data de nascimento",ob_runnertype_label:"Você já corre ativamente ou é novo nisso?",ob_runnertype_new:"Sou novo/a",ob_runnertype_active:"Já corro",ob_currentkm_label:"Quantos km você corre por semana atualmente?",ob_newrunner_note:"Perfeito — vamos começar leve para seu corpo se adaptar bem, e subir aos poucos. Conte ao coach em quanto tempo você gostaria de se preparar, se tiver uma data em mente.",ob_weeklykm_label:"Quantos km você correu na última semana?",ob_weeklykm_hint:"Se colocar 0, montamos um plano para começar do zero.",ob_terrain_label:"Terreno onde mais corre",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trilha",ob_terrain_mixto:"Misto",ob_goal_label:"O que você quer trabalhar?",ob_goal_start:"Começar a correr do zero",ob_goal_5k:"Treinar para um 5K",ob_goal_10k:"Treinar para um 10K",ob_goal_15k:"Treinar para um 15K",ob_goal_21k:"Treinar para uma meia maratona",ob_goal_42k:"Treinar para uma maratona",ob_goal_ultra:"Mais de 42K / ultra",ob_goal_lifestyle:"Saúde e estilo de vida, sem prova específica",ob_racedate_label:"Data da sua prova (opcional)",ob_racedate_hint:"Se tiver uma, o coach monta o plano com o tempo certo até lá.",date_placeholder:"Escolher data",perfil_weeklykm_auto_note:"Os km semanais são calculados automaticamente pelo coach, de acordo com seu objetivo e a data da prova.",perfil_goal_km_check_hint:"Como você mudou o objetivo, conte quanto você corre agora para montar o plano a partir da sua realidade atual.",ob_hrmax_label:"Você conhece sua frequência cardíaca máxima?",ob_hrmax_yes:"Sim, eu sei",ob_hrmax_no:"Não sei",ob_hrmax_unknown_msg:"Sem um teste não conseguimos calcular com precisão. Recomendamos um teste de lactato ou de esforço com um profissional. Enquanto isso, usamos uma estimativa pela sua idade.",ob_submit:"Criar meu plano",
 nav_home:"Início",nav_plan:"Plano",nav_run:"Correr",nav_history:"Histórico",nav_coach:"Coach",nav_profile:"Perfil",
@@ -1116,7 +1145,7 @@ save_word:"Salvar",save_confirmed:"Salvo",cancel_word:"Cancelar",confirm_delete:
 ob_days_label:"Em quais dias da semana você vai treinar?",perfil_personal_title:"Dados pessoais",perfil_weeklykm_label:"Km semanais base",perfil_goals_title:"Seus objetivos",perfil_goals_desc:"Conte ao coach o que você quer alcançar, para que ele adapte os conselhos.",perfil_weekly_goal_label:"Meta semanal (km)",perfil_weekly_goal_ph:"Ex: 30",perfil_goal_note_label:"O que você quer alcançar?",perfil_goal_note_ph:"Ex: baixar meu ritmo, correr sem dor no joelho, terminar minha primeira maratona...",perfil_goal_progress_label:"Meta semanal",perfil_days_title:"Seus dias de treino",perfil_days_save:"Salvar dias",perfil_days_empty_err:"Escolha pelo menos um dia."},
 
 fr:{app_tag:"Votre entraîneur personnel, sur tous les terrains.",splash_feat1_title:"Des plans qui s'adaptent à votre progression",splash_feat1_desc:"Le volume et l'intensité de chaque semaine s'ajustent automatiquement selon votre évolution.",splash_feat2_title:"Coach à intelligence artificielle",splash_feat2_desc:"Disponible à tout moment pour répondre aux questions d'entraînement, à partir de données réelles sur votre progression.",splash_feat3_title:"Synchronisation avec Strava",splash_feat3_desc:"La montre se connecte une seule fois et les courses sont enregistrées automatiquement.",start:"Commencer",
-login_title:"Connexion",login_lead:"Connecte-toi ou crée ton compte. Tes données sont vraiment sauvegardées, et tu peux les voir depuis n'importe quel appareil.",login_email_label:"Ton email",login_email_ph:"toi@email.com",login_password_label:"Mot de passe",login_password_ph:"6 caractères minimum",login_err:"Entre un email valide.",login_err_password:"Le mot de passe doit avoir au moins 6 caractères.",login_err_wrong_password:"Mot de passe incorrect.",login_continue:"Continuer",login_or:"ou continue avec",login_google:"Continuer avec Google",login_apple:"Continuer avec Apple",login_soon:"Bientôt",login_soon_note:"Google Sign-In nécessite un vrai backend (voir le blueprint) — pas encore actif dans ce prototype.",login_forgot:"Mot de passe oublié ?",login_recovery_find:"Trouver le compte",login_recovery_submit:"Réinitialiser le mot de passe",login_new_password_label:"Nouveau mot de passe",login_recovery_answer_ph:"Ta réponse",login_recovery_no_account:"Aucun compte trouvé avec cet email.",login_recovery_no_question:"Ce compte n'a pas de question de sécurité configurée (il a été créé avant cette fonction). Impossible de le récupérer ainsi — tu peux créer un nouveau compte avec un autre email.",login_recovery_wrong:"Réponse incorrecte.",login_create_account:"Créer un compte",login_err_exists:"Un compte avec cet email existe déjà.",login_go_signin_short:"Se connecter",login_check_email:"Vérifie ton email pour confirmer le compte.",login_recovery_sent:"On t'a envoyé un email avec un lien pour réinitialiser ton mot de passe.",login_recovery_title:"Choisis un nouveau mot de passe",login_recovery_lead:"Tu as confirmé ton identité par email. Choisis maintenant ton nouveau mot de passe.",login_lead_signin:"Connecte-toi avec ton email et ton mot de passe.",login_go_signup:"Pas de compte ? Crée-en un",signup_title:"Crée ton compte",signup_lead:"Choisis un email et un mot de passe pour commencer.",signup_go_login:"Déjà un compte ? Connexion",signup_legal_pre:"En créant ton compte, tu acceptes nos",signup_legal_and:"et notre",legal_terms_link:"Conditions Générales",legal_privacy_link:"Politique de Confidentialité",login_loading:"Connexion…",signup_loading:"Création du compte…",forgot_loading:"Envoi…",google_loading:"Connexion…",
+login_title:"Connexion",login_lead:"Connecte-toi ou crée ton compte. Tes données sont vraiment sauvegardées, et tu peux les voir depuis n'importe quel appareil.",login_email_label:"Ton email",login_email_ph:"toi@email.com",login_password_label:"Mot de passe",login_password_ph:"6 caractères minimum",login_err:"Entre un email valide.",login_err_password:"Le mot de passe doit avoir au moins 6 caractères.",login_err_wrong_password:"Mot de passe incorrect.",login_continue:"Continuer",login_or:"ou continue avec",login_google:"Continuer avec Google",login_apple:"Continuer avec Apple",login_soon:"Bientôt",login_soon_note:"Google Sign-In nécessite un vrai backend (voir le blueprint) — pas encore actif dans ce prototype.",login_forgot:"Mot de passe oublié ?",login_recovery_find:"Trouver le compte",login_recovery_submit:"Réinitialiser le mot de passe",login_new_password_label:"Nouveau mot de passe",login_recovery_answer_ph:"Ta réponse",login_recovery_no_account:"Aucun compte trouvé avec cet email.",login_recovery_no_question:"Ce compte n'a pas de question de sécurité configurée (il a été créé avant cette fonction). Impossible de le récupérer ainsi — tu peux créer un nouveau compte avec un autre email.",login_recovery_wrong:"Réponse incorrecte.",login_create_account:"Créer un compte",login_err_exists:"Un compte avec cet email existe déjà.",login_go_signin_short:"Se connecter",readiness_title:"Comment as-tu dormi cette nuit ?",readiness_bad:"Mal",readiness_ok:"Moyen",readiness_good:"Bien",readiness_lower_confirm:"Tu veux que j'allège un peu la séance d'aujourd'hui ?",readiness_chat_bad:"J'ai mal dormi cette nuit.",edit_run_title:"Modifier la course",edit_run_btn:"Modifier",edit_run_invalid:"Vérifie la date, la distance et le temps.",hist_search_ph:"Rechercher par date ou chaussure…",hist_search_empty:"Aucune course ne correspond à ta recherche.",plan_export_ics:"Ajouter la semaine au calendrier",plan_export_ics_empty:"Il n'y a pas de séances de course cette semaine à exporter.",sync_conflict_text:"On dirait que tu as enregistré des changements plus récents depuis un autre appareil. Si tu continues ici, le prochain enregistrement pourrait les écraser. Tu veux recharger pour récupérer les données les plus récentes ?",sync_conflict_reload:"Recharger",sync_conflict_dismiss:"Rester ici",login_check_email:"Vérifie ton email pour confirmer le compte.",login_recovery_sent:"On t'a envoyé un email avec un lien pour réinitialiser ton mot de passe.",login_recovery_title:"Choisis un nouveau mot de passe",login_recovery_lead:"Tu as confirmé ton identité par email. Choisis maintenant ton nouveau mot de passe.",login_lead_signin:"Connecte-toi avec ton email et ton mot de passe.",login_go_signup:"Pas de compte ? Crée-en un",signup_title:"Crée ton compte",signup_lead:"Choisis un email et un mot de passe pour commencer.",signup_go_login:"Déjà un compte ? Connexion",signup_legal_pre:"En créant ton compte, tu acceptes nos",signup_legal_and:"et notre",legal_terms_link:"Conditions Générales",legal_privacy_link:"Politique de Confidentialité",login_loading:"Connexion…",signup_loading:"Création du compte…",forgot_loading:"Envoi…",google_loading:"Connexion…",
 ob_security_q_label:"Question de sécurité",security_q_fixed:"Quel était le nom de ton premier animal de compagnie ?",
 ob_title:"Parle-nous de toi",ob_lead:"Ton coach s'en sert pour créer un premier plan, puis l'ajuste en discutant avec toi.",ob_step2_title:"Tes infos physiques",ob_step3_title:"Ton expérience",ob_step4_title:"Tes jours d'entraînement",ob_step5_title:"Ton objectif",ob_name_label:"Ton prénom",ob_name_ph:"Comment tu t'appelles ?",ob_weight_label:"Poids (kg)",ob_height_label:"Taille (cm)",ob_birth_label:"Date de naissance",ob_runnertype_label:"Tu cours déjà activement, ou tu débutes ?",ob_runnertype_new:"Je débute",ob_runnertype_active:"Je cours déjà",ob_currentkm_label:"Combien de km cours-tu par semaine actuellement ?",ob_newrunner_note:"Parfait — on va commencer léger pour que ton corps s'adapte bien, et augmenter petit à petit. Dis à ton coach en combien de temps tu aimerais te préparer, si tu as une date en tête.",ob_weeklykm_label:"Combien de km as-tu couru la semaine dernière ?",ob_weeklykm_hint:"Si tu mets 0, on crée un plan pour démarrer de zéro.",ob_terrain_label:"Terrain où tu cours le plus",ob_terrain_asfalto:"Route",ob_terrain_trail:"Trail",ob_terrain_mixto:"Mixte",ob_goal_label:"Sur quoi veux-tu travailler ?",ob_goal_start:"Commencer à courir de zéro",ob_goal_5k:"Préparer un 5K",ob_goal_10k:"Préparer un 10K",ob_goal_15k:"Préparer un 15K",ob_goal_21k:"Préparer un semi-marathon",ob_goal_42k:"Préparer un marathon",ob_goal_ultra:"Plus de 42K / ultra",ob_goal_lifestyle:"Santé et hygiène de vie, sans course précise",ob_racedate_label:"Date de ta course (facultatif)",ob_racedate_hint:"Si tu en as une, ton coach construit le plan avec le temps qu'il te reste vraiment.",date_placeholder:"Choisir une date",perfil_weeklykm_auto_note:"Les km hebdomadaires sont calculés automatiquement par le coach, selon ton objectif et la date de course.",perfil_goal_km_check_hint:"Comme tu as changé d'objectif, dis-nous combien tu cours actuellement pour construire le plan à partir de ta réalité.",ob_hrmax_label:"Connais-tu ta fréquence cardiaque max ?",ob_hrmax_yes:"Oui, je la connais",ob_hrmax_no:"Je ne la connais pas",ob_hrmax_unknown_msg:"Sans test, on ne peut pas la calculer précisément. On te recommande un test lactate ou une épreuve d'effort avec un professionnel. En attendant, on utilise une estimation selon ton âge.",ob_submit:"Créer mon plan",
 nav_home:"Accueil",nav_plan:"Plan",nav_run:"Courir",nav_history:"Historique",nav_coach:"Coach",nav_profile:"Profil",
@@ -1141,7 +1170,7 @@ save_word:"Enregistrer",save_confirmed:"Enregistré",cancel_word:"Annuler",confi
 ob_days_label:"Quels jours de la semaine vas-tu t'entraîner ?",perfil_personal_title:"Données personnelles",perfil_weeklykm_label:"Km hebdo de base",perfil_goals_title:"Tes objectifs",perfil_goals_desc:"Dis à ton coach ce que tu veux accomplir, pour qu'il adapte ses conseils.",perfil_weekly_goal_label:"Objectif hebdo (km)",perfil_weekly_goal_ph:"Ex : 30",perfil_goal_note_label:"Qu'est-ce que tu veux accomplir ?",perfil_goal_note_ph:"Ex : baisser mon allure, courir sans douleur au genou, terminer mon premier marathon...",perfil_goal_progress_label:"Objectif hebdo",perfil_days_title:"Tes jours d'entraînement",perfil_days_save:"Enregistrer les jours",perfil_days_empty_err:"Choisis au moins un jour."},
 
 it:{app_tag:"Il tuo allenatore personale, su ogni terreno.",splash_feat1_title:"Piani che si adattano ai tuoi progressi",splash_feat1_desc:"Il volume e l'intensità di ogni settimana si adattano automaticamente in base alla tua evoluzione.",splash_feat2_title:"Coach con intelligenza artificiale",splash_feat2_desc:"Disponibile in ogni momento per rispondere a dubbi di allenamento, con risposte basate sui tuoi progressi reali.",splash_feat3_title:"Sincronizzazione con Strava",splash_feat3_desc:"L'orologio si collega una sola volta e le corse vengono registrate automaticamente.",start:"Inizia",
-login_title:"Accedi",login_lead:"Accedi o crea il tuo account. I tuoi dati vengono salvati per davvero, e puoi vederli da qualsiasi dispositivo.",login_email_label:"La tua email",login_email_ph:"tu@email.com",login_password_label:"Password",login_password_ph:"Minimo 6 caratteri",login_err:"Inserisci un'email valida.",login_err_password:"La password deve avere almeno 6 caratteri.",login_err_wrong_password:"Password errata.",login_continue:"Continua",login_or:"oppure continua con",login_google:"Continua con Google",login_apple:"Continua con Apple",login_soon:"Presto",login_soon_note:"Google Sign-In richiede un vero backend (vedi il blueprint) — non ancora attivo in questo prototipo.",login_forgot:"Hai dimenticato la password?",login_recovery_find:"Cerca account",login_recovery_submit:"Reimposta password",login_new_password_label:"Nuova password",login_recovery_answer_ph:"La tua risposta",login_recovery_no_account:"Non abbiamo trovato un account con quell'email.",login_recovery_no_question:"Questo account non ha una domanda di sicurezza configurata (è stato creato prima di questa funzione). Non si può recuperare così — puoi creare un nuovo account con un'altra email.",login_recovery_wrong:"Risposta errata.",login_create_account:"Crea account",login_err_exists:"Esiste già un account con quell'email.",login_go_signin_short:"Accedi",login_check_email:"Controlla la tua email per confermare l'account.",login_recovery_sent:"Ti abbiamo mandato un'email con il link per reimpostare la password.",login_recovery_title:"Scegli una nuova password",login_recovery_lead:"Hai confermato la tua identità via email. Ora imposta la tua nuova password.",login_lead_signin:"Accedi con la tua email e password.",login_go_signup:"Non hai un account? Creane uno",signup_title:"Crea il tuo account",signup_lead:"Scegli un'email e una password per iniziare.",signup_go_login:"Hai già un account? Accedi",signup_legal_pre:"Creando il tuo account accetti i nostri",signup_legal_and:"e la nostra",legal_terms_link:"Termini e Condizioni",legal_privacy_link:"Informativa sulla Privacy",login_loading:"Accesso…",signup_loading:"Creazione account…",forgot_loading:"Invio…",google_loading:"Connessione…",
+login_title:"Accedi",login_lead:"Accedi o crea il tuo account. I tuoi dati vengono salvati per davvero, e puoi vederli da qualsiasi dispositivo.",login_email_label:"La tua email",login_email_ph:"tu@email.com",login_password_label:"Password",login_password_ph:"Minimo 6 caratteri",login_err:"Inserisci un'email valida.",login_err_password:"La password deve avere almeno 6 caratteri.",login_err_wrong_password:"Password errata.",login_continue:"Continua",login_or:"oppure continua con",login_google:"Continua con Google",login_apple:"Continua con Apple",login_soon:"Presto",login_soon_note:"Google Sign-In richiede un vero backend (vedi il blueprint) — non ancora attivo in questo prototipo.",login_forgot:"Hai dimenticato la password?",login_recovery_find:"Cerca account",login_recovery_submit:"Reimposta password",login_new_password_label:"Nuova password",login_recovery_answer_ph:"La tua risposta",login_recovery_no_account:"Non abbiamo trovato un account con quell'email.",login_recovery_no_question:"Questo account non ha una domanda di sicurezza configurata (è stato creato prima di questa funzione). Non si può recuperare così — puoi creare un nuovo account con un'altra email.",login_recovery_wrong:"Risposta errata.",login_create_account:"Crea account",login_err_exists:"Esiste già un account con quell'email.",login_go_signin_short:"Accedi",readiness_title:"Come hai dormito stanotte?",readiness_bad:"Male",readiness_ok:"Così così",readiness_good:"Bene",readiness_lower_confirm:"Vuoi che alleggerisca un po' la sessione di oggi?",readiness_chat_bad:"Stanotte ho dormito male.",edit_run_title:"Modifica corsa",edit_run_btn:"Modifica",edit_run_invalid:"Controlla la data, la distanza e il tempo.",hist_search_ph:"Cerca per data o scarpa…",hist_search_empty:"Nessuna corsa corrisponde alla tua ricerca.",plan_export_ics:"Aggiungi la settimana al calendario",plan_export_ics_empty:"Non ci sono sessioni di corsa questa settimana da esportare.",sync_conflict_text:"Sembra che tu abbia salvato modifiche più recenti da un altro dispositivo. Se continui qui, il prossimo salvataggio potrebbe sovrascriverle. Vuoi ricaricare per avere i dati più recenti?",sync_conflict_reload:"Ricarica",sync_conflict_dismiss:"Resta qui",login_check_email:"Controlla la tua email per confermare l'account.",login_recovery_sent:"Ti abbiamo mandato un'email con il link per reimpostare la password.",login_recovery_title:"Scegli una nuova password",login_recovery_lead:"Hai confermato la tua identità via email. Ora imposta la tua nuova password.",login_lead_signin:"Accedi con la tua email e password.",login_go_signup:"Non hai un account? Creane uno",signup_title:"Crea il tuo account",signup_lead:"Scegli un'email e una password per iniziare.",signup_go_login:"Hai già un account? Accedi",signup_legal_pre:"Creando il tuo account accetti i nostri",signup_legal_and:"e la nostra",legal_terms_link:"Termini e Condizioni",legal_privacy_link:"Informativa sulla Privacy",login_loading:"Accesso…",signup_loading:"Creazione account…",forgot_loading:"Invio…",google_loading:"Connessione…",
 ob_security_q_label:"Domanda di sicurezza",security_q_fixed:"Come si chiamava il tuo primo animale domestico?",
 ob_title:"Parlaci di te",ob_lead:"Il coach usa queste info per creare un primo piano, poi lo affina parlando con te.",ob_step2_title:"I tuoi dati fisici",ob_step3_title:"La tua esperienza",ob_step4_title:"I tuoi giorni di allenamento",ob_step5_title:"Il tuo obiettivo",ob_name_label:"Il tuo nome",ob_name_ph:"Come ti chiami?",ob_weight_label:"Peso (kg)",ob_height_label:"Altezza (cm)",ob_birth_label:"Data di nascita",ob_runnertype_label:"Corri già attivamente o sei nuovo/a?",ob_runnertype_new:"Sono nuovo/a",ob_runnertype_active:"Corro già",ob_currentkm_label:"Quanti km corri attualmente a settimana?",ob_newrunner_note:"Perfetto — inizieremo con un carico basso perché il tuo corpo si adatti bene, e aumenteremo poco alla volta. Di' al coach in quanto tempo vorresti prepararti, se hai una data in mente.",ob_weeklykm_label:"Quanti km hai corso la settimana scorsa?",ob_weeklykm_hint:"Se metti 0, creiamo un piano per partire da zero.",ob_terrain_label:"Terreno dove corri di più",ob_terrain_asfalto:"Asfalto",ob_terrain_trail:"Trail",ob_terrain_mixto:"Misto",ob_goal_label:"Su cosa vuoi lavorare?",ob_goal_start:"Iniziare a correre da zero",ob_goal_5k:"Preparare una 5K",ob_goal_10k:"Preparare una 10K",ob_goal_15k:"Preparare una 15K",ob_goal_21k:"Preparare una mezza maratona",ob_goal_42k:"Preparare una maratona",ob_goal_ultra:"Oltre 42K / ultra",ob_goal_lifestyle:"Salute e stile di vita, senza gara specifica",ob_racedate_label:"Data della tua gara (opzionale)",ob_racedate_hint:"Se ne hai una, il coach costruisce il piano con il tempo che hai davvero.",date_placeholder:"Scegli data",perfil_weeklykm_auto_note:"I km settimanali sono calcolati automaticamente dal coach, in base al tuo obiettivo e alla data della gara.",perfil_goal_km_check_hint:"Dato che hai cambiato obiettivo, dicci quanto corri adesso per costruire il piano dalla tua situazione reale.",ob_hrmax_label:"Conosci la tua frequenza cardiaca massima?",ob_hrmax_yes:"Sì, la conosco",ob_hrmax_no:"Non la conosco",ob_hrmax_unknown_msg:"Senza un test non possiamo calcolarla con precisione. Ti consigliamo un test del lattato o una prova da sforzo con un professionista. Nel frattempo usiamo una stima in base all'età.",ob_submit:"Crea il mio piano",
 nav_home:"Home",nav_plan:"Piano",nav_run:"Corri",nav_history:"Storico",nav_coach:"Coach",nav_profile:"Profilo",
@@ -1166,7 +1195,7 @@ save_word:"Salva",save_confirmed:"Salvato",cancel_word:"Annulla",confirm_delete:
 ob_days_label:"In quali giorni della settimana ti allenerai?",perfil_personal_title:"Dati personali",perfil_weeklykm_label:"Km settimanali base",perfil_goals_title:"I tuoi obiettivi",perfil_goals_desc:"Racconta al coach cosa vuoi ottenere, così adatta i suoi consigli.",perfil_weekly_goal_label:"Obiettivo settimanale (km)",perfil_weekly_goal_ph:"Es: 30",perfil_goal_note_label:"Cosa vuoi ottenere?",perfil_goal_note_ph:"Es: abbassare il mio ritmo, correre senza dolore al ginocchio, finire la mia prima maratona...",perfil_goal_progress_label:"Obiettivo settimanale",perfil_days_title:"I tuoi giorni di allenamento",perfil_days_save:"Salva giorni",perfil_days_empty_err:"Scegli almeno un giorno."},
 
 de:{app_tag:"Dein persönlicher Coach, auf jedem Terrain.",splash_feat1_title:"Trainingspläne, die sich anpassen",splash_feat1_desc:"Wochenvolumen und -intensität passen sich automatisch an deine Entwicklung an.",splash_feat2_title:"KI-gestützter Coach",splash_feat2_desc:"Jederzeit verfügbar, um Trainingsfragen mit echtem Kontext zu deinen Daten zu beantworten.",splash_feat3_title:"Synchronisierung mit Strava",splash_feat3_desc:"Die Uhr wird einmal verbunden, und deine Läufe werden automatisch erfasst.",start:"Loslegen",
-login_title:"Anmelden",login_lead:"Melde dich an oder erstelle dein Konto. Deine Daten werden wirklich gespeichert und sind auf jedem Gerät sichtbar.",login_email_label:"Deine E-Mail",login_email_ph:"du@email.com",login_password_label:"Passwort",login_password_ph:"Mindestens 6 Zeichen",login_err:"Gib eine gültige E-Mail ein.",login_err_password:"Das Passwort muss mindestens 6 Zeichen haben.",login_err_wrong_password:"Falsches Passwort.",login_continue:"Weiter",login_or:"oder weiter mit",login_google:"Weiter mit Google",login_apple:"Weiter mit Apple",login_soon:"Demnächst",login_soon_note:"Google Sign-In braucht ein echtes Backend (siehe Blueprint) — in diesem Prototyp noch nicht aktiv.",login_forgot:"Passwort vergessen?",login_recovery_find:"Konto suchen",login_recovery_submit:"Passwort zurücksetzen",login_new_password_label:"Neues Passwort",login_recovery_answer_ph:"Deine Antwort",login_recovery_no_account:"Wir haben kein Konto mit dieser E-Mail gefunden.",login_recovery_no_question:"Dieses Konto hat keine Sicherheitsfrage eingerichtet (es wurde vor dieser Funktion erstellt). Es kann so nicht wiederhergestellt werden — du kannst ein neues Konto mit einer anderen E-Mail anlegen.",login_recovery_wrong:"Falsche Antwort.",login_create_account:"Konto erstellen",login_err_exists:"Es gibt bereits ein Konto mit dieser E-Mail.",login_go_signin_short:"Anmelden",login_check_email:"Überprüfe deine E-Mail, um das Konto zu bestätigen.",login_recovery_sent:"Wir haben dir eine E-Mail mit einem Link zum Zurücksetzen deines Passworts geschickt.",login_recovery_title:"Wähle ein neues Passwort",login_recovery_lead:"Du hast deine Identität per E-Mail bestätigt. Lege jetzt dein neues Passwort fest.",login_lead_signin:"Melde dich mit deiner E-Mail und deinem Passwort an.",login_go_signup:"Kein Konto? Erstelle eins",signup_title:"Konto erstellen",signup_lead:"Wähle eine E-Mail und ein Passwort, um loszulegen.",signup_go_login:"Schon ein Konto? Anmelden",signup_legal_pre:"Mit der Erstellung deines Kontos akzeptierst du unsere",signup_legal_and:"und unsere",legal_terms_link:"Allgemeinen Geschäftsbedingungen",legal_privacy_link:"Datenschutzerklärung",login_loading:"Anmeldung…",signup_loading:"Konto wird erstellt…",forgot_loading:"Wird gesendet…",google_loading:"Verbindung…",
+login_title:"Anmelden",login_lead:"Melde dich an oder erstelle dein Konto. Deine Daten werden wirklich gespeichert und sind auf jedem Gerät sichtbar.",login_email_label:"Deine E-Mail",login_email_ph:"du@email.com",login_password_label:"Passwort",login_password_ph:"Mindestens 6 Zeichen",login_err:"Gib eine gültige E-Mail ein.",login_err_password:"Das Passwort muss mindestens 6 Zeichen haben.",login_err_wrong_password:"Falsches Passwort.",login_continue:"Weiter",login_or:"oder weiter mit",login_google:"Weiter mit Google",login_apple:"Weiter mit Apple",login_soon:"Demnächst",login_soon_note:"Google Sign-In braucht ein echtes Backend (siehe Blueprint) — in diesem Prototyp noch nicht aktiv.",login_forgot:"Passwort vergessen?",login_recovery_find:"Konto suchen",login_recovery_submit:"Passwort zurücksetzen",login_new_password_label:"Neues Passwort",login_recovery_answer_ph:"Deine Antwort",login_recovery_no_account:"Wir haben kein Konto mit dieser E-Mail gefunden.",login_recovery_no_question:"Dieses Konto hat keine Sicherheitsfrage eingerichtet (es wurde vor dieser Funktion erstellt). Es kann so nicht wiederhergestellt werden — du kannst ein neues Konto mit einer anderen E-Mail anlegen.",login_recovery_wrong:"Falsche Antwort.",login_create_account:"Konto erstellen",login_err_exists:"Es gibt bereits ein Konto mit dieser E-Mail.",login_go_signin_short:"Anmelden",readiness_title:"Wie hast du letzte Nacht geschlafen?",readiness_bad:"Schlecht",readiness_ok:"Mittelmäßig",readiness_good:"Gut",readiness_lower_confirm:"Soll ich die heutige Einheit etwas abschwächen?",readiness_chat_bad:"Ich habe letzte Nacht schlecht geschlafen.",edit_run_title:"Lauf bearbeiten",edit_run_btn:"Bearbeiten",edit_run_invalid:"Überprüfe Datum, Distanz und Zeit.",hist_search_ph:"Nach Datum oder Schuh suchen…",hist_search_empty:"Keine Läufe gefunden, die zu deiner Suche passen.",plan_export_ics:"Woche zum Kalender hinzufügen",plan_export_ics_empty:"Diese Woche gibt es keine Lauf-Einheiten zum Exportieren.",sync_conflict_text:"Es sieht so aus, als hättest du auf einem anderen Gerät neuere Änderungen gespeichert. Wenn du hier weitermachst, könnte das nächste Speichern sie überschreiben. Möchtest du neu laden, um die aktuellsten Daten zu bekommen?",sync_conflict_reload:"Neu laden",sync_conflict_dismiss:"Hier bleiben",login_check_email:"Überprüfe deine E-Mail, um das Konto zu bestätigen.",login_recovery_sent:"Wir haben dir eine E-Mail mit einem Link zum Zurücksetzen deines Passworts geschickt.",login_recovery_title:"Wähle ein neues Passwort",login_recovery_lead:"Du hast deine Identität per E-Mail bestätigt. Lege jetzt dein neues Passwort fest.",login_lead_signin:"Melde dich mit deiner E-Mail und deinem Passwort an.",login_go_signup:"Kein Konto? Erstelle eins",signup_title:"Konto erstellen",signup_lead:"Wähle eine E-Mail und ein Passwort, um loszulegen.",signup_go_login:"Schon ein Konto? Anmelden",signup_legal_pre:"Mit der Erstellung deines Kontos akzeptierst du unsere",signup_legal_and:"und unsere",legal_terms_link:"Allgemeinen Geschäftsbedingungen",legal_privacy_link:"Datenschutzerklärung",login_loading:"Anmeldung…",signup_loading:"Konto wird erstellt…",forgot_loading:"Wird gesendet…",google_loading:"Verbindung…",
 ob_security_q_label:"Sicherheitsfrage",security_q_fixed:"Wie hieß dein erstes Haustier?",
 ob_title:"Erzähl uns von dir",ob_lead:"Dein Coach nutzt das für einen ersten Plan und feilt ihn dann im Gespräch mit dir weiter aus.",ob_step2_title:"Deine körperlichen Daten",ob_step3_title:"Deine Erfahrung",ob_step4_title:"Deine Trainingstage",ob_step5_title:"Dein Ziel",ob_name_label:"Dein Name",ob_name_ph:"Wie heißt du?",ob_weight_label:"Gewicht (kg)",ob_height_label:"Größe (cm)",ob_birth_label:"Geburtsdatum",ob_runnertype_label:"Läufst du schon aktiv oder bist du neu dabei?",ob_runnertype_new:"Ich bin neu",ob_runnertype_active:"Ich laufe schon",ob_currentkm_label:"Wie viele km läufst du aktuell pro Woche?",ob_newrunner_note:"Perfekt — wir starten locker, damit sich dein Körper gut anpasst, und steigern langsam. Sag deinem Coach, in wie viel Zeit du dich vorbereiten möchtest, falls du ein Datum im Kopf hast.",ob_weeklykm_label:"Wie viele km bist du letzte Woche gelaufen?",ob_weeklykm_hint:"Bei 0 erstellen wir einen Plan für den Einstieg bei null.",ob_terrain_label:"Terrain, auf dem du am meisten läufst",ob_terrain_asfalto:"Straße",ob_terrain_trail:"Trail",ob_terrain_mixto:"Gemischt",ob_goal_label:"Woran willst du arbeiten?",ob_goal_start:"Von null mit dem Laufen anfangen",ob_goal_5k:"Für einen 5K trainieren",ob_goal_10k:"Für einen 10K trainieren",ob_goal_15k:"Für einen 15K trainieren",ob_goal_21k:"Für einen Halbmarathon trainieren",ob_goal_42k:"Für einen Marathon trainieren",ob_goal_ultra:"Über 42K / Ultra",ob_goal_lifestyle:"Gesundheit und Lifestyle, kein bestimmtes Rennen",ob_racedate_label:"Datum deines Rennens (optional)",ob_racedate_hint:"Falls vorhanden, plant dein Coach mit der Zeit, die dir wirklich bleibt.",date_placeholder:"Datum wählen",perfil_weeklykm_auto_note:"Die wöchentlichen Km werden vom Coach automatisch berechnet, basierend auf deinem Ziel und dem Renndatum.",perfil_goal_km_check_hint:"Da du dein Ziel geändert hast, sag uns, wie viel du aktuell läufst, damit wir den Plan von deiner echten Ausgangslage aus erstellen.",ob_hrmax_label:"Kennst du deine maximale Herzfrequenz?",ob_hrmax_yes:"Ja, ich kenne sie",ob_hrmax_no:"Ich kenne sie nicht",ob_hrmax_unknown_msg:"Ohne Test können wir sie nicht genau berechnen. Wir empfehlen einen Laktattest oder eine Leistungsdiagnostik mit einer Fachperson. In der Zwischenzeit nutzen wir eine Schätzung nach Alter.",ob_submit:"Meinen Plan erstellen",
 nav_home:"Start",nav_plan:"Plan",nav_run:"Laufen",nav_history:"Verlauf",nav_coach:"Coach",nav_profile:"Profil",
@@ -1351,7 +1380,7 @@ function showConfirm(message, opts){
 }
 
 /* ================= STATE ================= */
-let state = {onboarded:false, profile:{}, plan:[], runs:[], shoes:[], event:null, chat:[], lang:lang, painLog:[]};
+let state = {onboarded:false, profile:{}, plan:[], runs:[], shoes:[], event:null, chat:[], lang:lang, painLog:[], readinessLog:[]};
 let pendingEmail = '';
 let currentUserId = null;
 const DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -1451,16 +1480,48 @@ function updateSyncBadge(){
   if(hasPendingBackup()){ badge.style.display = 'inline-flex'; }
   else { badge.style.display = 'none'; }
 }
+let loadedStateVersion = null;
 async function persist(){
   if(!currentUserId) return;
   try{
-    await supabaseClient.from('app_state').upsert({ user_id: currentUserId, data: state, updated_at: new Date().toISOString() });
+    const nowIso = new Date().toISOString();
+    await supabaseClient.from('app_state').upsert({ user_id: currentUserId, data: state, updated_at: nowIso });
+    loadedStateVersion = nowIso; // este guardado ya es la versión más nueva que conocemos
     clearPendingBackup();
   }catch(e){
     console.error('persist error', e);
     savePendingBackup(); // sin conexión: lo guardamos en el teléfono y reintentamos más tarde
   }
   updateSyncBadge();
+}
+/* ---- aviso de conflicto entre dispositivos -----
+   Antes, el "último que guarda gana" a ciegas: si abrís la app en el celu y la tablet
+   casi al mismo tiempo, el segundo guardado pisaba al primero sin avisar nada, aunque
+   tuviera cambios reales adentro (una carrera cargada, una molestia, lo que sea).
+   Esto no arma un merge real (sería un cambio mucho más grande) pero al menos detecta
+   la situación y le avisa al corredor ANTES de que pierda algo, dándole la opción de
+   recargar los datos más nuevos en vez de seguir de largo con lo que tiene en pantalla. */
+let checkingRemoteConflict = false;
+async function checkForRemoteConflict(){
+  if(!currentUserId || checkingRemoteConflict || document.visibilityState !== 'visible') return;
+  checkingRemoteConflict = true;
+  try{
+    const { data, error } = await supabaseClient.from('app_state').select('updated_at').eq('user_id', currentUserId).maybeSingle();
+    if(error || !data || !data.updated_at) return;
+    if(loadedStateVersion && new Date(data.updated_at).getTime() > new Date(loadedStateVersion).getTime()){
+      const reload = await showConfirm(t('sync_conflict_text'), {confirmText:t('sync_conflict_reload'), cancelText:t('sync_conflict_dismiss')});
+      if(reload){ location.reload(); return; }
+      // si el corredor prefiere seguir acá, no le repetimos el mismo aviso mil veces --
+      // adoptamos la versión remota como "conocida" para no comparar contra algo viejo,
+      // aunque el contenido en pantalla siga siendo el local hasta que guarde de nuevo.
+      loadedStateVersion = data.updated_at;
+    }
+  }catch(e){ console.error('conflict check error', e); }
+  finally{ checkingRemoteConflict = false; }
+}
+if(typeof document !== 'undefined'){
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkForRemoteConflict(); });
+  window.addEventListener('focus', checkForRemoteConflict);
 }
 function flushPendingBackup(){
   if(!currentUserId || (typeof navigator!=='undefined' && navigator.onLine===false)) return;
@@ -1484,10 +1545,11 @@ if(typeof window !== 'undefined'){
 async function loadUserAndEnter(user, isRetry){
   currentUserId = user.id;
   try{
-    const { data, error } = await supabaseClient.from('app_state').select('data').eq('user_id', user.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('app_state').select('data, updated_at').eq('user_id', user.id).maybeSingle();
     if(error) throw error;
     if(data && data.data && Object.keys(data.data).length){
       state = data.data; lang = state.lang || 'es';
+      loadedStateVersion = data.updated_at || null;
       const pending = readPendingBackup(user.id);
       if(pending && pending.data && (pending.data.runs||[]).length > (state.runs||[]).length){
         // había una carrera guardada en el teléfono que no llegó a subirse la última vez -> la recuperamos
@@ -1919,6 +1981,7 @@ setupDateBox('ob-birth','ob-birth-text');
 setupDateBox('ob-racedate','ob-racedate-text','date_placeholder');
 setupDateBox('perfil-racedate','perfil-racedate-text','date_placeholder');
 setupDateBox('man-date','man-date-text');
+setupDateBox('edit-run-date','edit-run-date-text');
 setupDateBox('ev-date','ev-date-text','date_placeholder');
 function estimateHrMax(age){ return 220-age; }
 function computeZones(hrmax){
@@ -2557,6 +2620,54 @@ function planLabel(d){
   return {type:t('type_'+d.typeKey), desc};
 }
 
+/* ---- exportar la semana como archivo .ics -----
+   Para que el corredor vea sus sesiones en Google/Apple Calendar sin depender de abrir
+   la app. Son eventos de día completo (sin hora fija, porque el plan no define una) --
+   así evitamos meternos con huso horario y cada uno lo agenda a la hora que le sirva. */
+function icsEscape(str){
+  return String(str||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function icsDateStamp(dateObj){
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth()+1).padStart(2,'0');
+  const d = String(dateObj.getDate()).padStart(2,'0');
+  return `${y}${m}${d}`;
+}
+function generateWeekICS(){
+  const monday = new Date(state.weekStart+'T00:00:00');
+  const nowStamp = icsDateStamp(new Date());
+  const events = state.plan.filter(d=>d.dist>0).map(d=>{
+    const idx = DAY_KEYS.indexOf(d.day);
+    const date = new Date(monday); date.setDate(monday.getDate()+idx);
+    const nextDate = new Date(date); nextDate.setDate(date.getDate()+1);
+    const lbl = planLabel(d);
+    const summary = `${lbl.type} · ${fmtDist(d.dist,1)}${distUnit()}`;
+    const uid = `zancada-${state.weekStart}-${d.day}@zancada.app`;
+    return ['BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${nowStamp}T000000Z`,
+      `DTSTART;VALUE=DATE:${icsDateStamp(date)}`,
+      `DTEND;VALUE=DATE:${icsDateStamp(nextDate)}`,
+      `SUMMARY:${icsEscape(summary)}`,
+      `DESCRIPTION:${icsEscape(lbl.desc)}`,
+      'END:VEVENT'].join('\r\n');
+  });
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Zancada//Plan Semanal//ES','CALSCALE:GREGORIAN',
+    ...events,'END:VCALENDAR'].join('\r\n');
+}
+function exportWeekToCalendar(){
+  if(!state.plan.some(d=>d.dist>0)){ showToast(t('plan_export_ics_empty'),'error'); return; }
+  const blob = new Blob([generateWeekICS()], {type:'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `zancada-semana-${state.weekStart}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
 /* ================= RENDER ================= */
 function renderAll(){ renderHome(); renderPlan(); renderPerfil(); }
 
@@ -2632,6 +2743,8 @@ function renderHome(){
 
   const msgs = [t('home_msg_new'), t('home_msg_going'), t('home_msg_pain')];
   document.getElementById('home-coach-msg').textContent = msgs[state.runs.length % msgs.length];
+
+  renderReadinessCard();
 
   const loadCard = document.getElementById('load-card');
   const load = calcTrainingLoad();
@@ -2873,6 +2986,11 @@ function saveCustomZones(){
    activa (ver activePainEntries) sube la "cautela" del plan -- ver trainingCaution() --
    y se le avisa al coach en cada mensaje (ver buildContext). */
 const PAIN_BODY_PARTS = ['rodilla','tobillo','pantorrilla','isquios','cadera','espalda','pie','cuadriceps','otro'];
+document.getElementById('readiness-choice').addEventListener('click', e=>{
+  const c=e.target.closest('.choice'); if(!c) return;
+  haptic(15);
+  logReadiness(c.dataset.v);
+});
 document.getElementById('pain-body-choice').addEventListener('click', e=>{
   const c=e.target.closest('.choice'); if(!c) return;
   [...document.getElementById('pain-body-choice').children].forEach(x=>x.classList.remove('active')); c.classList.add('active');
@@ -2965,6 +3083,55 @@ function renderPainLog(){
       </div>
     </div>`;
   }).join('');
+}
+
+/* ---- check-in de sueño/energía ----
+   Antes, "¿Cómo dormiste anoche?" era solo un mensaje decorativo que rotaba en la
+   pantalla de Inicio -- aunque el corredor contestara en el chat, esa respuesta no
+   quedaba guardada en ningún lado ni afectaba nada. Ahora es un check-in real: se
+   responde con un toque (mal/regular/bien), queda guardado por día, se lo pasamos al
+   coach en cada mensaje, y si la noche fue mala se le ofrece al corredor bajar un poco
+   la sesión de HOY puntual (no toda la semana, que sería una sobrecorrección por una
+   sola mala noche). */
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayReadinessEntry(){
+  return (state.readinessLog||[]).find(r=>r.date === todayISO());
+}
+function renderReadinessCard(){
+  const card = document.getElementById('readiness-card');
+  if(!card) return;
+  card.style.display = (state.onboarded && !todayReadinessEntry()) ? 'block' : 'none';
+}
+function lowerTodaySession(pct){
+  const idx = (new Date().getDay()+6)%7;
+  const today = state.plan[idx];
+  if(!today || today.dist<=0 || today.status) return false;
+  const factor = 1 + (pct/100);
+  today.dist = Math.max(1, Math.round(today.dist*factor));
+  renderPlan(); renderHome();
+  return true;
+}
+async function logReadiness(quality){
+  if(!state.readinessLog) state.readinessLog = [];
+  state.readinessLog = state.readinessLog.filter(r=>r.date !== todayISO());
+  state.readinessLog.push({date: todayISO(), quality});
+  // no hace falta guardar esto para siempre -- alcanza con una ventana razonable
+  if(state.readinessLog.length > 60) state.readinessLog = state.readinessLog.slice(-60);
+  renderReadinessCard();
+  await persist();
+  if(quality === 'mal'){
+    const idx = (new Date().getDay()+6)%7;
+    const today = state.plan[idx];
+    const hasSessionToday = today && today.dist>0 && !today.status;
+    if(hasSessionToday && await showConfirm(t('readiness_lower_confirm'))){
+      lowerTodaySession(-15);
+      await persist();
+    }
+    // le avisamos al coach en el momento, tenga o no sesión hoy -- así puede
+    // tenerlo en cuenta si le preguntan algo en la charla.
+    const chatInput = document.getElementById('chatInput');
+    if(chatInput){ chatInput.value = t('readiness_chat_bad'); sendChat(); }
+  }
 }
 
 let editingShoeId = null;
@@ -3824,13 +3991,38 @@ function renderHistory(){
     ${prEntries.map(e=>`<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--asphalt-3);"><span class="muted">${t('pr_label_'+e.key)}</span><span class="mono" style="font-weight:700;">${fmtTime(e.rec.durationSec)}</span></div>`).join('')}
   </div>` : '';
   if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
-  el.innerHTML = trendsCard + mixCard + prCard + state.runs.slice().reverse().map(r=>{
+  // Buscador simple + encabezados de mes -- con varios meses de historial cargado, una
+  // lista plana se vuelve incómoda de recorrer. El buscador filtra por lo que se ve en
+  // cada tarjeta (fecha, zapatilla, "manual"/Strava); los encabezados de mes se insertan
+  // solos al detectar un cambio de mes en la lista ya ordenada de más nueva a más vieja.
+  const searchEl = document.getElementById('hist-search');
+  const query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const allRunsDesc = state.runs.slice().reverse();
+  const filteredRuns = !query ? allRunsDesc : allRunsDesc.filter(r=>{
+    const shoe = state.shoes.find(s=>String(s.id)===String(r.shoeId));
+    const longDateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const haystack = [longDateStr, shoe?shoe.name:'', r.manual?t('hist_manual_tag'):'', r.source==='strava'?'strava':''].join(' ').toLowerCase();
+    return haystack.includes(query);
+  });
+  if(query && !filteredRuns.length){
+    el.innerHTML = trendsCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><p class="muted" style="margin:0;">${t('hist_search_empty')}</p></div>`;
+    animateHistTrendBars();
+    return;
+  }
+  let lastMonthKey = null;
+  el.innerHTML = trendsCard + mixCard + prCard + filteredRuns.map(r=>{
     const shoe = state.shoes.find(s=>String(s.id)===String(r.shoeId));
     const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
     const cal = r.calories || Math.round((state.profile.weight||70)*r.distanceKm*1.036);
     const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'short', day:'numeric', month:'short'});
-    return `<div class="swipe-item" data-swipe-id="${r.id}">
+    const monthKey = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {month:'long', year:'numeric'});
+    let monthHeader = '';
+    if(monthKey !== lastMonthKey){
+      monthHeader = `<div class="hist-month-header" style="margin:${lastMonthKey?'22px':'2px'} 2px 8px; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--mist-dim);">${monthKey}</div>`;
+      lastMonthKey = monthKey;
+    }
+    return `${monthHeader}<div class="swipe-item" data-swipe-id="${r.id}">
       <div class="swipe-action-delete" role="button" tabindex="0" aria-label="${t('aria_delete')}" onclick="deleteRun('${r.id}')"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
       <div class="card hist-card swipe-content" onclick="openRunDetail('${r.id}')" style="cursor:pointer;">
         <div class="hist-top"><span style="font-weight:700;">${dateStr}</span><span class="hist-date">${r.manual? `<span class="tag tag-soon" style="margin-right:6px;">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto" style="margin-right:6px;">Strava</span>`:''}${fmtTime(r.durationSec)}</span></div>
@@ -3952,6 +4144,7 @@ function openRunDetail(runId){
     </div>
     ${r.hrLog && r.hrLog.length>1 ? `<div class="hist-hrlist" style="margin-top:12px;">${r.hrLog.map(h=>`<span class="zone-chip zone-${classifyHR(h.bpm)}">${h.bpm} bpm</span>`).join('')}</div>` : ''}
     ${r.splits && r.splits.length ? `<button class="btn" style="width:100%; margin-top:20px; background:#4A9EFF; color:#fff; border:none;" onclick="toggleSplitsPanel()">${t('hist_splits_title')}</button><div id="splits-panel" style="display:none;">${renderSplitsSection(r.splits)}</div>` : ''}
+    <button class="btn btn-outline" style="width:100%; margin-top:20px;" onclick="openEditRun('${r.id}')">${t('edit_run_btn')}</button>
     <button class="btn btn-danger" style="width:100%; margin-top:12px;" onclick="deleteRun('${r.id}')">${t('hist_delete_run')}</button>
   `;
   document.getElementById('run-detail-modal').style.display='block';
@@ -4260,6 +4453,65 @@ function changeRunShoe(runId, newShoeId){
   renderPerfil();
 }
 
+/* ---- editar una carrera cargada -----
+   Antes, la única forma de corregir una carrera con un dato mal cargado (una
+   distancia mal importada de Strava, un error al cargarla a mano) era borrarla
+   entera y perder el registro. Reutiliza los mismos campos que el alta manual. */
+let editingRunId = null;
+function openEditRun(runId){
+  const r = state.runs.find(x => String(x.id) === String(runId));
+  if(!r) return;
+  editingRunId = runId;
+  document.getElementById('edit-run-date').value = new Date(r.date).toISOString().slice(0,10);
+  dateBoxUpdaters['edit-run-date'] && dateBoxUpdaters['edit-run-date']();
+  document.getElementById('edit-run-dist').value = r.distanceKm;
+  document.getElementById('edit-run-dur').value = Math.round((r.durationSec/60)*10)/10;
+  const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : '');
+  document.getElementById('edit-run-hr').value = avgHr || '';
+  const sel = document.getElementById('edit-run-shoe');
+  sel.innerHTML = `<option value="">${t('hist_no_shoe')}</option>` + state.shoes.map(s=>`<option value="${s.id}" ${String(s.id)===String(r.shoeId)?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  document.getElementById('edit-run-modal').style.display = 'block';
+}
+function closeEditRun(){ document.getElementById('edit-run-modal').style.display = 'none'; editingRunId = null; }
+async function saveEditRun(){
+  const r = state.runs.find(x => String(x.id) === String(editingRunId));
+  if(!r) return;
+  const date = document.getElementById('edit-run-date').value;
+  const dist = parseFloat(document.getElementById('edit-run-dist').value);
+  const durMin = parseFloat(document.getElementById('edit-run-dur').value);
+  if(!date || !(dist>0) || !(durMin>0)){ showToast(t('edit_run_invalid'),'error'); return; }
+  const hr = parseInt(document.getElementById('edit-run-hr').value);
+  const newShoeId = document.getElementById('edit-run-shoe').value || null;
+
+  // reacomodamos el kilometraje acumulado de zapatillas: se lo restamos al par viejo
+  // (con la distancia vieja) y se lo sumamos al par nuevo (con la distancia nueva) --
+  // puede ser el mismo par, en cuyo caso el resultado neto es solo el ajuste de km.
+  const oldShoe = state.shoes.find(s => String(s.id) === String(r.shoeId));
+  if(oldShoe) oldShoe.km = Math.max(0, oldShoe.km - r.distanceKm);
+
+  // conservamos la hora original de la carrera, solo cambiamos el día -- así no se
+  // desordena si en algún lado se usa la hora para algo.
+  const oldMoment = new Date(r.date);
+  const newDate = new Date(date+'T00:00:00');
+  newDate.setHours(oldMoment.getHours(), oldMoment.getMinutes(), oldMoment.getSeconds());
+  r.date = newDate.toISOString();
+  r.distanceKm = dist;
+  r.durationSec = Math.round(durMin*60);
+  if(hr>0){ r.avgHr = hr; if(!r.hrLog || r.hrLog.length<=1) r.hrLog = [{t:0,bpm:hr}]; }
+  r.shoeId = newShoeId;
+
+  const newShoe = state.shoes.find(s => String(s.id) === String(newShoeId));
+  if(newShoe) newShoe.km += dist;
+  checkShoeWearAlerts();
+
+  const savedRunId = r.id;
+  closeEditRun();
+  renderHistory(); renderPerfil(); renderAll();
+  openRunDetail(savedRunId); // refresca el detalle con los datos nuevos, por si vuelve a mirarlo
+  await persist();
+  showToast(t('save_confirmed'));
+}
+
 /* ================= COACH CHAT (con tool-use real para editar el plan) ================= */
 function seedCoachGreeting(){
   state.chat = [{role:'coach', text: t('coach_greeting', {name:state.profile.name, km:state.profile.weeklyKm, goal:t('ob_goal_'+state.profile.goal)}), ts:Date.now()}];
@@ -4363,6 +4615,8 @@ function buildContext(){
   if(p.coachNotes && p.coachNotes.length) ctx += ` Notas permanentes guardadas sobre el corredor (lesiones, preferencias u otros datos a tener en cuenta siempre): ${p.coachNotes.map(n=>`"${n}"`).join('; ')}.`;
   const activePains = activePainEntries();
   if(activePains.length) ctx += ` Molestias activas registradas por el corredor: ${activePains.map(pa=>`${t('pain_body_'+pa.bodyPart)} (desde ${pa.date}${pa.note?', nota: "'+pa.note+'"':''})`).join('; ')}. Tenelas en cuenta al sugerir ejercicios y preguntá cómo siguen si corresponde.`;
+  const todayReadiness = todayReadinessEntry();
+  if(todayReadiness) ctx += ` Check-in de hoy sobre cómo durmió/energía: ${todayReadiness.quality}.`;
   if(state.event) ctx += ` Evento objetivo: ${state.event.name} (${state.event.type}) el ${state.event.date}.`;
   if(state.runs.length){
     // En vez de solo la última carrera, le damos al coach una tendencia real: las
@@ -4376,6 +4630,12 @@ function buildContext(){
     ctx += ` Últimas carreras registradas (de más vieja a más nueva): ${runsSummary}. Total corrido en los últimos 28 días: ${last4wKm.toFixed(1)}km.`;
   }
   if(state.shoes.length) ctx += ` Zapatillas: ${state.shoes.map(s=>`${s.name} (${s.km.toFixed(0)}km, ${s.terrain})`).join(', ')}.`;
+  // Le pasamos al coach el mismo indicador de carga (agudo:crónico) que ya ve el
+  // corredor en la pantalla de Inicio -- antes lo calculábamos solo para mostrar el
+  // tag ahí, y si preguntaban "¿cómo viene mi carga?" el coach no tenía ese dato y
+  // podía contestar algo inconsistente con lo que el usuario ya está viendo en pantalla.
+  const load = calcTrainingLoad();
+  if(load) ctx += ` Indicador de carga de entrenamiento (semana actual vs. promedio reciente): ${load.level} (ratio ${load.ratio.toFixed(2)}, corrió ${load.acuteKm.toFixed(1)}km esta semana vs. promedio de ${load.chronicWeeklyAvg.toFixed(1)}km/semana). Este es el mismo indicador que ve en la pantalla de Inicio -- si te pregunta por su carga o riesgo de lesión por volumen, usá este dato en vez de estimarlo de nuevo.`;
   ctx += ` Plan actual: ${state.plan.map(d=>`${d.day}=${d.custom?d.type:d.typeKey}${d.zone?'/Z'+d.zone:''}/${d.dist}km${d.status?'/'+d.status:''}${d.rating?'/calificó:'+d.rating:''}`).join(', ')}.`;
   const nw = getNextWeekPlan();
   ctx += ` Plan de la semana que sigue (semana ${nw.weekNumber}, ya calculado y puede ajustarse un poco según cómo termine esta semana): ${nw.plan.map(d=>`${d.day}=${d.custom?d.type:d.typeKey}${d.zone?'/Z'+d.zone:''}/${d.dist}km`).join(', ')}.`;
