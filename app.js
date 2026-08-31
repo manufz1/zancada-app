@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-08-31T22:07:08Z';
+const APP_VERSION = '2026-08-31T22:18:11Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
@@ -771,6 +771,7 @@ function setupDateBox(inputId, textId, placeholderKey){
   dateBoxUpdaters[inputId] = update;
 }
 let calTargetInputId = null, calViewDate = new Date(), calSelectedDate = null;
+let calViewMode = 'days', calYearsRangeStart = 1995;
 function openCalendar(inputId){
   calTargetInputId = inputId;
   const input = document.getElementById(inputId);
@@ -783,10 +784,65 @@ function closeCalendar(){
   document.getElementById('calendar-modal').style.display = 'none';
 }
 function calNavigate(delta){
+  /* El significado de las flechas cambia según qué grilla se esté mostrando: un mes a la
+     vez en la vista de días, un año a la vez en la de meses, y un bloque de 16 años en la
+     de años — así no hay que ir de a un paso para saltos grandes (ver calShowYears). */
+  if(calViewMode === 'years'){ calYearsRangeStart += delta*16; renderCalYears(); return; }
+  if(calViewMode === 'months'){ calViewDate.setFullYear(calViewDate.getFullYear() + delta); renderCalMonths(); return; }
   calViewDate.setMonth(calViewDate.getMonth() + delta);
   renderCalendar();
 }
+function calShowYears(){
+  calYearsRangeStart = Math.floor(calViewDate.getFullYear() / 16) * 16;
+  renderCalYears();
+}
+function calShowMonths(year){
+  calViewDate.setFullYear(year);
+  renderCalMonths();
+}
+function calSelectMonth(monthIndex){
+  calViewDate.setMonth(monthIndex);
+  renderCalendar();
+}
+function renderCalMonths(){
+  calViewMode = 'months';
+  document.getElementById('cal-grid').style.display = 'none';
+  document.getElementById('cal-weekdays').style.display = 'none';
+  document.getElementById('cal-years-grid').style.display = 'none';
+  document.getElementById('cal-months-grid').style.display = 'grid';
+  const y = calViewDate.getFullYear();
+  document.getElementById('cal-month-label').textContent = y;
+  const today = new Date();
+  const selMonth = (calSelectedDate && calSelectedDate.getFullYear()===y) ? calSelectedDate.getMonth() : null;
+  document.getElementById('cal-months-grid').innerHTML = Array.from({length:12}, (_,m)=>{
+    const label = new Date(y,m,1).toLocaleDateString(LOCALE_MAP[lang], {month:'short'});
+    const isCurrent = today.getFullYear()===y && today.getMonth()===m;
+    const isSelected = selMonth===m;
+    return `<div class="cal-cell ${isCurrent?'current':''} ${isSelected?'selected':''}" onclick="calSelectMonth(${m})">${label}</div>`;
+  }).join('');
+}
+function renderCalYears(){
+  calViewMode = 'years';
+  document.getElementById('cal-grid').style.display = 'none';
+  document.getElementById('cal-weekdays').style.display = 'none';
+  document.getElementById('cal-months-grid').style.display = 'none';
+  document.getElementById('cal-years-grid').style.display = 'grid';
+  document.getElementById('cal-month-label').textContent = `${calYearsRangeStart}–${calYearsRangeStart+15}`;
+  const curYear = new Date().getFullYear();
+  const selYear = calSelectedDate ? calSelectedDate.getFullYear() : null;
+  document.getElementById('cal-years-grid').innerHTML = Array.from({length:16}, (_,i)=>{
+    const yr = calYearsRangeStart + i;
+    const isCurrent = yr===curYear;
+    const isSelected = yr===selYear;
+    return `<div class="cal-cell ${isCurrent?'current':''} ${isSelected?'selected':''}" onclick="calShowMonths(${yr})">${yr}</div>`;
+  }).join('');
+}
 function renderCalendar(){
+  calViewMode = 'days';
+  document.getElementById('cal-grid').style.display = 'grid';
+  document.getElementById('cal-weekdays').style.display = 'grid';
+  document.getElementById('cal-months-grid').style.display = 'none';
+  document.getElementById('cal-years-grid').style.display = 'none';
   const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
   document.getElementById('cal-month-label').textContent = new Date(y,m,1).toLocaleDateString(LOCALE_MAP[lang], {month:'long', year:'numeric'});
 
