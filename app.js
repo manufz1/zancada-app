@@ -1634,11 +1634,13 @@ function planLabel(d){
     desc += t('desc_zone_suffix', {zone:d.zone});
   }
   // Entrada en calor y vuelta a la calma para toda sesión que implique correr (no en
-  // días de descanso). Antes cada tipo de sesión mencionaba (o no) esto con números
-  // fijos distintos entre sí (10 min acá, 5-10 allá, 10-15 más allá) -- ahora es un
-  // solo rango consistente (5 a 15 min) agregado acá una sola vez, en vez de repetido
-  // a mano en cada desc_* de los 6 idiomas.
-  if(d.dist>0) desc += t('desc_warmup_cooldown');
+  // días de descanso). Antes era una frase agregada al final ("...y sumale 5 a 15 min
+  // de trote suave al principio y al final"); ahora el pedido es una ESTRUCTURA fija de
+  // 3 partes -- entrada en calor, el detalle de la sesión, vuelta a la calma, cada una
+  // en su propio párrafo -- con 10 minutos fijos en vez de un rango. El \n se ve como
+  // salto de línea real en todos los lugares donde se muestra esto (home, plan, correr)
+  // gracias a white-space:pre-line en .muted y .day-detail.
+  if(d.dist>0) desc = `${t('desc_warmup_prefix')}\n${desc}\n${t('desc_cooldown_suffix')}`;
   return {type:t('type_'+d.typeKey), desc};
 }
 
@@ -2516,47 +2518,19 @@ if(window.visualViewport){
     reapplyDuringAnimation();
   });
 })();
-/* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
-let appUpdateChecking = false;
-async function checkForAppUpdate(){
-  // Adentro del wrapper nativo no hay nada que "detectar" -- app.js viene empaquetado
-  // en el binario y las actualizaciones llegan por la tienda, no recargando la página.
-  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return false;
-  if(appUpdateChecking) return false;
-  appUpdateChecking = true;
-  try{
-    /* Antes esto pedía index.html y buscaba `const APP_VERSION` ahí adentro — funcionaba
-       porque todo el JS vivía inline en index.html. Desde que se separó el código a
-       app.js, index.html ya no contiene esa constante, así que el regex nunca matcheaba
-       y el aviso de actualización dejó de aparecer (en cualquier plataforma, no solo
-       en el celular — simplemente nadie lo notó en desktop todavía). Hay que pedir
-       app.js, que es donde vive ahora. */
-    const res = await fetch('/app.js?_v=' + Date.now(), { cache:'no-store' });
-    if(!res.ok) return false;
-    const text = await res.text();
-    const m = text.match(/const APP_VERSION\s*=\s*'([^']+)'/);
-    if(m && m[1] && m[1] !== APP_VERSION){
-      haptic([10,30,10]);
-      showToast(t('update_found_msg'), 'success');
-      /* location.reload() puede volver a servir una copia vieja de la caché del navegador —
-         navegar a una URL con un parámetro único fuerza a pedirla de nuevo al servidor. */
-      setTimeout(()=>{ location.href = location.pathname + '?_r=' + Date.now(); }, 700);
-      return true;
-    }
-    return false;
-  }catch(e){ console.error('update check failed', e); return false; }
-  finally{ appUpdateChecking = false; }
-}
-if(typeof document !== 'undefined'){
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState === 'visible') checkForAppUpdate();
-  });
-}
+/* ---- detección de versión nueva: DESACTIVADA a pedido explícito -----
+   Había un mecanismo que revisaba app.js cada vez que la pestaña volvía a
+   estar visible y, si detectaba una versión distinta a la cargada, recargaba
+   la app sola (con un toast de aviso). La idea original era buena (evitar
+   quedarse con una versión vieja en caché), pero en la práctica el usuario
+   lo vivía como que "la app se actualiza sola" de forma inesperada mientras
+   la estaba usando -- sobre todo en un período con despliegues seguidos, cada
+   uno disparaba una recarga. Se saca el chequeo automático por completo; si
+   hace falta la versión más nueva, alcanza con cerrar y volver a abrir la
+   app (o refrescar manualmente).*/
 async function doPullRefresh(){
   const indicator = document.getElementById('pull-refresh-indicator');
   if(indicator) indicator.style.display = 'flex';
-  const updating = await checkForAppUpdate();
-  if(updating) return;
   await refreshStateFromServer();
   autoSkipPastDays();
   autoClearPastEvent();
