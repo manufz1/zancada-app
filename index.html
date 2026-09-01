@@ -99,7 +99,8 @@ try{
   ::selection{background:var(--hivis); color:var(--ink);}
 
   #app{max-width:480px; margin:0 auto; min-height:100dvh; position:relative;
-    background:radial-gradient(60% 40% at 50% 0%, rgba(214,255,63,.06), transparent 60%), var(--asphalt);
+    background:radial-gradient(60% 40% at 50% 0%, rgba(214,255,63,.07), transparent 60%),
+      radial-gradient(55% 35% at 100% 12%, rgba(192,106,46,.05), transparent 62%), var(--asphalt);
     display:flex; flex-direction:column;}
 
   .pulse-strip{width:100%; height:34px; overflow:hidden; opacity:.55;}
@@ -127,7 +128,7 @@ try{
   .lang-row{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:28px;}
   .lang-pill{padding:8px 13px; border-radius:999px; border:1.5px solid var(--asphalt-4); background:var(--asphalt-2);
     color:var(--mist); font-size:12px; font-weight:700; cursor:pointer;}
-  .lang-pill.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim);}
+  .lang-pill.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim); box-shadow:0 4px 14px var(--hivis-glow);}
 
   .overlay{position:fixed; inset:0; z-index:50; background:var(--asphalt); max-width:480px; margin:0 auto;
     overflow-y:auto; display:none; padding:calc(28px + var(--safe-top)) 24px calc(28px + var(--safe-bottom));}
@@ -196,7 +197,7 @@ try{
   .choice{flex:1; min-width:80px; text-align:center; padding:11px 6px; border-radius:var(--radius-sm);
     border:1.5px solid var(--asphalt-4); background:var(--asphalt-2); color:var(--mist);
     font-size:12.5px; font-weight:600; cursor:pointer; user-select:none;}
-  .choice.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim);}
+  .choice.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim); box-shadow:0 4px 14px var(--hivis-glow);}
   .switch{position:relative; display:inline-block; width:51px; height:31px; flex-shrink:0;}
   .switch input{opacity:0; width:0; height:0; position:absolute;}
   .switch-slider{position:absolute; cursor:pointer; inset:0; background:var(--asphalt-4); transition:.2s; border-radius:31px;}
@@ -210,9 +211,9 @@ try{
 
   .btn{border:none; border-radius:999px; padding:15px 22px; font-weight:700; font-size:15px; cursor:pointer;
     width:100%; display:flex; align-items:center; justify-content:center; gap:8px;}
-  .btn-primary{background:var(--hivis); color:var(--ink);}
-  .btn-primary:active{transform:scale(.98);}
-  .btn-outline{background:transparent; border:1.5px solid var(--asphalt-4); color:var(--chalk); transition:transform .12s ease, background .12s ease;}
+  .btn-primary{background:var(--hivis); color:var(--ink); box-shadow:0 10px 24px var(--hivis-glow); transition:transform .12s ease, box-shadow .12s ease;}
+  .btn-primary:active{transform:scale(.98); box-shadow:0 4px 12px var(--hivis-glow);}
+  .btn-outline{background:var(--asphalt-2); border:1.5px solid var(--overlay-hairline); color:var(--chalk); box-shadow:var(--shadow-card); transition:transform .12s ease, background .12s ease;}
   .btn-outline:active{transform:scale(.97); background:var(--press);}
   .btn-saved-flash{background:var(--hivis) !important; border-color:var(--hivis) !important; color:var(--ink) !important; transition:background .15s ease, color .15s ease;}
   .btn-danger{background:var(--danger-dim); color:var(--danger);}
@@ -241,13 +242,13 @@ try{
   #view-coach.active{animation:viewFadeInOpacity .22s ease;}
   @keyframes viewFadeInOpacity{from{opacity:0;} to{opacity:1;}}
 
-  .card{background:var(--asphalt-2); border-radius:var(--radius); padding:20px; margin-bottom:14px; border:1px solid var(--overlay-hairline); box-shadow:var(--shadow-card);}
+  .card{background:var(--asphalt-2); border-radius:var(--radius); padding:20px; margin-bottom:16px; border:1px solid var(--overlay-hairline); box-shadow:var(--shadow-card);}
   .card[onclick]{cursor:pointer; transition:transform .12s ease;}
   .card[onclick]:active{transform:scale(.98);}
-  .card h3{font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--mist); font-weight:700; margin-bottom:10px;}
+  .card h3{font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--mist); font-weight:700; margin-bottom:12px;}
   .muted{color:var(--mist); font-size:13.5px; line-height:1.5;}
 
-  .tag{display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 9px; border-radius:999px;}
+  .tag{display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:5px 10px; border-radius:999px;}
   .tag-asfalto{background:var(--asphalt-4); color:var(--chalk);}
   .tag-trail{background:var(--clay-dim); color:var(--clay);}
   .tag-mixto{background:var(--hivis-dim); color:var(--hivis-text);}
@@ -255,7 +256,7 @@ try{
   .tag-load-caution{background:var(--clay-dim); color:var(--clay);}
   .tag-load-risk{background:var(--danger-dim); color:var(--danger);}
 
-  .zone-chip{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px;}
+  .zone-chip{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:5px 10px; border-radius:999px;}
   .zone-1{background:var(--zone1-bg); color:var(--zone1);}
   .zone-2{background:var(--zone2-bg); color:var(--zone2);}
   .zone-3{background:var(--zone3-bg); color:var(--zone3);}
@@ -366,7 +367,7 @@ try{
   .day-picker{display:flex; flex-wrap:wrap; gap:8px;}
   .day-pill{width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     border:1.5px solid var(--asphalt-4); background:var(--asphalt-2); color:var(--mist); font-size:11px; font-weight:700; cursor:pointer; user-select:none; flex-shrink:0;}
-  .day-pill.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim);}
+  .day-pill.active{border-color:var(--hivis); color:var(--hivis-text); background:var(--hivis-dim); box-shadow:0 4px 14px var(--hivis-glow);}
 
   .hist-card{margin-bottom:12px;}
   .type-breakdown-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
