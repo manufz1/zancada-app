@@ -721,7 +721,17 @@ function renderPerfilDays(){
 function preserveLivedDays(oldPlan, newPlan){
   if(!oldPlan || !oldPlan.length) return newPlan;
   const todayIdx = (new Date().getDay()+6)%7;
-  return newPlan.map((newDay,i)=> (i<=todayIdx && oldPlan[i]) ? oldPlan[i] : newDay);
+  // Ojo: antes esto preservaba TODOS los días hasta hoy del plan viejo, sin
+  // chequear si ese día realmente se "vivió" (hecho o salteado). Eso hacía
+  // que, al cambiar los días de entrenamiento (o el evento, o el perfil),
+  // un día que pasó a ser descanso en el plan nuevo se pisara con la
+  // versión vieja -- que todavía tenía terreno/zona/distancia de cuando
+  // era día de entrenamiento -- y apareciera con el cartel de zona
+  // colgado en un día de descanso. Ahora solo preservamos los días que de
+  // verdad se marcaron como hechos o salteados; el resto toma el plan
+  // nuevo, que es el que refleja el cambio que acaba de hacer el usuario.
+  return newPlan.map((newDay,i)=>
+    (i<=todayIdx && oldPlan[i] && (oldPlan[i].status==='done'||oldPlan[i].status==='skipped')) ? oldPlan[i] : newDay);
 }
 function relinkTodayRun(){
   const todayIdx = (new Date().getDay()+6)%7;
@@ -1597,6 +1607,12 @@ function planLabel(d){
     // durante el tramo principal" encima se contradice con la sesión misma
     desc += t('desc_zone_suffix', {zone:d.zone});
   }
+  // Entrada en calor y vuelta a la calma para toda sesión que implique correr (no en
+  // días de descanso). Antes cada tipo de sesión mencionaba (o no) esto con números
+  // fijos distintos entre sí (10 min acá, 5-10 allá, 10-15 más allá) -- ahora es un
+  // solo rango consistente (5 a 15 min) agregado acá una sola vez, en vez de repetido
+  // a mano en cada desc_* de los 6 idiomas.
+  if(d.dist>0) desc += t('desc_warmup_cooldown');
   return {type:t('type_'+d.typeKey), desc};
 }
 
@@ -1679,7 +1695,7 @@ function renderHome(){
   document.getElementById('home-next-title').textContent = lbl.type;
   document.getElementById('home-next-desc').textContent = lbl.desc;
   document.getElementById('home-next-dist').textContent = today.dist>0 ? fmtDist(today.dist,1)+' '+distUnit() : '';
-  document.getElementById('home-next-zone').innerHTML = today.zone ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
+  document.getElementById('home-next-zone').innerHTML = (today.dist>0 && today.zone) ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
 
   const weekRuns = (state.runs||[]).filter(r => getMondayISO(new Date(r.date)) === state.weekStart);
   const doneKm = weekRuns.reduce((a,r)=>a+r.distanceKm, 0);
@@ -1749,7 +1765,7 @@ function renderRunTodayCard(){
   document.getElementById('run-today-title').textContent = lbl.type;
   document.getElementById('run-today-desc').textContent = lbl.desc;
   document.getElementById('run-today-dist').textContent = today.dist>0 ? fmtDist(today.dist,1)+' '+distUnit() : '';
-  document.getElementById('run-today-zone').innerHTML = today.zone ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
+  document.getElementById('run-today-zone').innerHTML = (today.dist>0 && today.zone) ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
   card.style.display = 'block';
 }
 function getPlanStartDate(){
@@ -1875,8 +1891,12 @@ function renderPlan(){
     if(d.raceDay && state.event){
       meta = `<span class="tag tag-mixto">${escapeHtml(state.event.name)}</span>`;
     } else {
-      if(d.terrain) meta += `<span class="tag tag-${d.terrain}">${t('ob_terrain_'+d.terrain)}</span>`;
-      if(d.zone) meta += `<span class="zone-chip zone-${d.zone}">${t('zone_word')} ${d.zone}</span>`;
+      // d.dist>0 acá es a propósito, no solo d.terrain/d.zone: un día de
+      // descanso nunca debería mostrar cartel de terreno/zona, ni siquiera
+      // si por algún dato viejo esos campos quedaran seteados -- así el
+      // cartel de "Descanso" siempre gana en un día sin distancia.
+      if(d.dist>0 && d.terrain) meta += `<span class="tag tag-${d.terrain}">${t('ob_terrain_'+d.terrain)}</span>`;
+      if(d.dist>0 && d.zone) meta += `<span class="zone-chip zone-${d.zone}">${t('zone_word')} ${d.zone}</span>`;
       if(!meta) meta = t('type_rest');
     }
     const statusIcon = d.status==='done' ? `<div class="icon-sq" style="width:16px; height:16px; color:var(--hivis);">${ICONS.check}</div>` : d.status==='skipped' ? `<div class="icon-sq" style="width:16px; height:16px; color:var(--danger);">${ICONS.cross}</div>` : '';
