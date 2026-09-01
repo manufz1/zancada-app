@@ -2465,10 +2465,16 @@ function syncCoachChatLayout(){
   // con el teclado cerrado, el chat termina justo arriba de la tabbar (con un
   // pequeño margen); con el teclado abierto, la tabbar ya está oculta y el chat
   // baja pegado directamente al borde del teclado, sin hueco.
-  const tabbarH = (!kbOpen && tabbar && tabbar.style.display !== 'none') ? tabbar.offsetHeight : 0;
+  const tabbarVisible = !kbOpen && tabbar && tabbar.style.display !== 'none';
+  const tabbarH = tabbarVisible ? tabbar.offsetHeight : 0;
+  // la tabbar ahora "flota" separada del borde inferior (nav.tabbar tiene
+  // bottom:14px en vez de bottom:0) -- ese hueco no forma parte de su
+  // offsetHeight, así que hay que sumarlo aparte para que el chat no quede
+  // metido debajo de la pill flotante.
+  const tabbarFloatGap = tabbarVisible ? 14 : 0;
   const bottomGap = kbOpen ? 0 : 8;
   const top = Math.round(viewportOffsetTop + headerH);
-  const height = Math.max(0, Math.round(viewportH - headerH - tabbarH - bottomGap));
+  const height = Math.max(0, Math.round(viewportH - headerH - tabbarH - tabbarFloatGap - bottomGap));
   wrap.style.top = top + 'px';
   wrap.style.height = height + 'px';
   if(scrollBtnWrap && chatBar) scrollBtnWrap.style.bottom = (chatBar.offsetHeight + 14) + 'px';
