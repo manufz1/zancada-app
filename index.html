@@ -242,7 +242,12 @@ try{
   @keyframes viewFadeInOpacity{from{opacity:0;} to{opacity:1;}}
 
   .card{background:linear-gradient(180deg, var(--asphalt-2), var(--asphalt-2)); border-radius:var(--radius); padding:22px; margin-bottom:16px; border:1px solid var(--overlay-hairline); box-shadow:var(--shadow-card);}
-  :root:not([data-theme="light"]) .card{background:linear-gradient(180deg, var(--asphalt-2), rgba(27,30,32,.7)); box-shadow:var(--shadow-card), inset 0 1px 0 rgba(255,255,255,.03);}
+  /* Nada de alpha acá: las tarjetas tipo "swipe to delete" (history, zapatillas)
+     ponen esta misma clase .card ARRIBA de un fondo rojo de "borrar" -- un
+     segundo color con transparencia dejaba traslucir ese rojo por debajo,
+     incluso en reposo. El highlight de "elevada" se logra solo con el inset,
+     que no afecta la opacidad del fondo. */
+  :root:not([data-theme="light"]) .card{background:var(--asphalt-2); box-shadow:var(--shadow-card), inset 0 1px 0 rgba(255,255,255,.03);}
   .card[onclick]{cursor:pointer; transition:transform .12s ease;}
   .card[onclick]:active{transform:scale(.98);}
   .card h3{font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--mist); font-weight:700; margin-bottom:12px;}
@@ -381,6 +386,16 @@ try{
   #history-list .swipe-item .hist-card{margin-bottom:0;}
   .swipe-action-delete{position:absolute; top:0; right:0; bottom:0; width:78px; background:var(--danger);
     color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  /* #history-list: acá el fondo rojo NO pinta directo sobre el rectángulo del botón
+     (que sigue siendo el área completa, para no achicar el tap target) -- pinta en un
+     ::before, separado unos px de las esquinas redondeadas de la tarjeta de arriba.
+     Con las dos formas coincidiendo exactamente en la esquina, quedaba asomando un
+     hilito de rojo sin antialiasear ahí (bug clásico de recortes redondeados
+     superpuestos) -- separándolo unos píxeles, el rojo nunca llega a esa zona. */
+  #history-list .swipe-action-delete{background:none;}
+  #history-list .swipe-action-delete::before{content:''; position:absolute; top:4px; right:4px; bottom:4px; left:0;
+    background:var(--danger); border-radius:0 var(--radius-sm) var(--radius-sm) 0;}
+  #history-list .swipe-action-delete .icon-sq{position:relative;}
   .swipe-content{position:relative; touch-action:pan-y; will-change:transform; backface-visibility:hidden;}
   .swipe-content.swipe-anim{transition:transform .25s cubic-bezier(.22,1,.36,1);}
   .shoe-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--asphalt-3);}
