@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
   }
 
   webpush.setVapidDetails(
-    'mailto:noreply@zancada.app',
+    'mailto:info@zancada.org',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
