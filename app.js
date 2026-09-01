@@ -46,6 +46,31 @@ document.getElementById('perfil-lang-choice').addEventListener('click', e=>{
   setLang(c.dataset.v);
 });
 
+/* ================= TEMA CLARO / OSCURO =================
+   Vive en state.profile.theme ('dark' por default, o 'light') y se guarda junto
+   con el resto del perfil, así que sigue al usuario entre dispositivos igual que
+   el idioma o las unidades. Además se cachea en localStorage nada más que para
+   poder aplicarlo antes de que la sesión termine de cargar (ver el script chiquito
+   al principio del <head> de index.html) y evitar el parpadeo del tema equivocado
+   al abrir la app. */
+function applyTheme(theme){
+  const isLight = theme === 'light';
+  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+  try{ localStorage.setItem('zancada_theme', isLight ? 'light' : 'dark'); }catch(e){}
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if(metaTheme) metaTheme.content = isLight ? '#F7F6F2' : '#121415';
+  const toggle = document.getElementById('theme-toggle');
+  if(toggle) toggle.checked = isLight;
+  const status = document.getElementById('theme-status');
+  if(status) status.textContent = t(isLight ? 'perfil_theme_light' : 'perfil_theme_dark');
+}
+function handleThemeToggle(checked){
+  const theme = checked ? 'light' : 'dark';
+  state.profile.theme = theme;
+  applyTheme(theme);
+  persist();
+}
+
 /* ================= ICONS ================= */
 const ICONS = {
   bulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.45 1 1.2 1 2.1h5c0-.9.4-1.65 1-2.1A6 6 0 0 0 12 3z"/></svg>',
@@ -1028,6 +1053,7 @@ function syncTabbarHeight(){
 }
 window.addEventListener('resize', syncTabbarHeight);
 function enterApp(){
+  applyTheme(state.profile.theme === 'light' ? 'light' : 'dark');
   document.getElementById('splash').style.display='none';
   document.getElementById('login').style.display='none';
   document.getElementById('onboard').style.display='none';
