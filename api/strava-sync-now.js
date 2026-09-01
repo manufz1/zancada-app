@@ -1,7 +1,10 @@
 const verifyUser = require('./_lib/verify-user');
 const { activityToRun, mergeStravaRuns } = require('./_lib/strava-activity-helpers');
+const { applyCors, isPreflight } = require('./_lib/cors');
 
 module.exports = async (req, res) => {
+  applyCors(req, res);
+  if (isPreflight(req, res)) return;
   const auth = await verifyUser(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const userId = auth.userId;

@@ -33,6 +33,20 @@ const GENERIC_ERROR_MSG = {
   it: 'Non sono riuscito a connettermi ora. Riprova tra un momento.',
   de: 'Ich konnte mich gerade nicht verbinden. Versuch es gleich noch mal.'
 };
+// Tope de mensajes por día por usuario -- ver sql/chat_usage.sql para el
+// porqué. 60 es generoso para una conversación normal con el coach (varias
+// idas y vueltas por sesión, todos los días) pero corta un uso en loop o
+// una cuenta comprometida antes de que la cuota de Gemini se dispare.
+// Ajustable sin tocar código con la variable de entorno CHAT_DAILY_LIMIT.
+const CHAT_DAILY_LIMIT = parseInt(process.env.CHAT_DAILY_LIMIT, 10) || 60;
+const LIMIT_MSG = {
+  es: 'Llegaste al límite de mensajes al coach por hoy. Probá de nuevo mañana.',
+  en: "You've reached today's limit of messages to the coach. Try again tomorrow.",
+  pt: 'Você atingiu o limite de mensagens ao coach por hoje. Tente de novo amanhã.',
+  fr: "Tu as atteint la limite de messages au coach pour aujourd'hui. Réessaie demain.",
+  it: 'Hai raggiunto il limite di messaggi al coach per oggi. Riprova domani.',
+  de: 'Du hast das heutige Limit an Nachrichten an den Coach erreicht. Versuch es morgen noch mal.'
+};
 
 module.exports = async (req, res) => {
   applyCors(req, res);
@@ -61,6 +75,33 @@ module.exports = async (req, res) => {
     console.error('chat: falta configurar GEMINI_API_KEY en las variables de entorno de Vercel.');
     res.status(500).json({ error: { message: GENERIC_ERROR_MSG[lang] || GENERIC_ERROR_MSG.es } });
     return;
+  }
+
+  // Cortamos ACÁ, antes de gastar nada en Gemini, si el usuario ya mandó
+  // demasiados mensajes hoy (ver sql/chat_usage.sql). Si por lo que sea la
+  // función de Supabase falla (tabla no creada todavía, RPC caída, etc.), lo
+  // logueamos pero dejamos pasar el mensaje -- preferimos arriesgarnos a
+  // algún costo de más antes que romper el chat para todo el mundo por un
+  // problema de infraestructura del rate limit en sí.
+  try {
+    const base = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    const rpcRes = await fetch(`${base}/rest/v1/rpc/increment_chat_usage`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_user_id: auth.userId, p_limit: CHAT_DAILY_LIMIT })
+    });
+    if (rpcRes.ok) {
+      const withinLimit = await rpcRes.json();
+      if (withinLimit === false) {
+        res.status(200).json({ error: { message: LIMIT_MSG[lang] || LIMIT_MSG.es } });
+        return;
+      }
+    } else {
+      console.error('chat: increment_chat_usage rpc failed', rpcRes.status, await rpcRes.text().catch(() => ''));
+    }
+  } catch (e) {
+    console.error('chat: rate limit check failed', e);
   }
 
   try {

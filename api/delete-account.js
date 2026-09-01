@@ -11,8 +11,11 @@
 //   SUPABASE_SERVICE_KEY
 
 const verifyUser = require('./_lib/verify-user');
+const { applyCors, isPreflight } = require('./_lib/cors');
 
 module.exports = async (req, res) => {
+  applyCors(req, res);
+  if (isPreflight(req, res)) return;
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   // Verificamos el token contra Supabase Auth para saber con certeza qué

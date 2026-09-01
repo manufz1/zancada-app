@@ -155,4 +155,33 @@ async function mergeStravaRuns(base, headers, userId, newRuns, mode) {
   return { merged: true };
 }
 
-module.exports = { decodePolyline, fetchSplits, getMondayISO, activityToRun, mergeStravaRuns };
+// Borra de app_state.data.runs las carreras importadas de Strava
+// (source==='strava') para un usuario, y recalcula el km de cada zapatilla
+// sumando solo las carreras que quedan (así no arrastran kilometraje de
+// carreras ya borradas). La usan strava-disconnect.js (cuando el usuario
+// desconecta desde la app) y strava-webhook.js (cuando Strava avisa que el
+// usuario revocó el acceso desde su propia cuenta) -- en los dos casos hay
+// que dejar de tener datos de Strava que ya no estamos autorizados a
+// conservar. No hace nada si el usuario no tiene carreras de Strava
+// guardadas.
+async function purgeStravaRunsForUser(base, headers, userId) {
+  const stateRes = await fetch(`${base}/rest/v1/app_state?user_id=eq.${userId}&select=data`, { headers });
+  const stateRows = await stateRes.json();
+  const data = stateRows && stateRows[0] && stateRows[0].data;
+  if (!data || !Array.isArray(data.runs) || !data.runs.some(r => r.source === 'strava')) return;
+
+  data.runs = data.runs.filter(r => r.source !== 'strava');
+  if (Array.isArray(data.shoes)) {
+    data.shoes = data.shoes.map(shoe => ({
+      ...shoe,
+      km: data.runs.filter(r => String(r.shoeId) === String(shoe.id)).reduce((a, r) => a + (r.distanceKm || 0), 0)
+    }));
+  }
+  const patchRes = await fetch(`${base}/rest/v1/app_state?user_id=eq.${userId}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ data, updated_at: new Date().toISOString() })
+  });
+  if (!patchRes.ok) throw new Error(`purgeStravaRunsForUser: PATCH failed: ${patchRes.status} ${await patchRes.text().catch(() => '')}`);
+}
+
+module.exports = { decodePolyline, fetchSplits, getMondayISO, activityToRun, mergeStravaRuns, purgeStravaRunsForUser };

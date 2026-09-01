@@ -17,8 +17,11 @@
 
 const crypto = require('crypto');
 const verifyUser = require('./_lib/verify-user');
+const { applyCors, isPreflight } = require('./_lib/cors');
 
 module.exports = async (req, res) => {
+  applyCors(req, res);
+  if (isPreflight(req, res)) return;
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   const secret = process.env.STRAVA_STATE_SECRET;

@@ -1,7 +1,17 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-01T00:56:44Z';
+const APP_VERSION = '2026-09-01T01:59:43Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
+/* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
+   binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
+   hay que pegarle directo al dominio real. window.Capacitor lo inyecta solo el runtime
+   nativo al arrancar; en el navegador/PWA no existe, y ahí seguimos usando rutas relativas
+   como siempre (mismo origen, sin necesidad de CORS). Envolver cada fetch a /api/ con
+   apiUrl(...) es lo único que hace falta para que el mismo app.js sirva a los dos casos. */
+function apiUrl(path){
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  return native ? ('https://zancada.org' + path) : path;
+}
 const LANG_NAMES={es:"español",en:"English",pt:"português",fr:"français",it:"italiano",de:"Deutsch"};
 const LOCALE_MAP={es:"es-AR",en:"en-US",pt:"pt-BR",fr:"fr-FR",it:"it-IT",de:"de-DE"};
 function detectInitialLang(){
@@ -20,8 +30,8 @@ function applyStaticTranslations(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder = t(el.dataset.i18nPh); });
   document.querySelectorAll('[data-i18n-aria]').forEach(el=>{ el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
-  document.querySelectorAll('a[href^="/privacy.html"]').forEach(el=>{ el.href = '/privacy.html?lang=' + lang; });
-  document.querySelectorAll('a[href^="/terms.html"]').forEach(el=>{ el.href = '/terms.html?lang=' + lang; });
+  document.querySelectorAll('a[href^="/privacy.html"]').forEach(el=>{ el.href = apiUrl('/privacy.html?lang=' + lang); });
+  document.querySelectorAll('a[href^="/terms.html"]').forEach(el=>{ el.href = apiUrl('/terms.html?lang=' + lang); });
   document.getElementById('pauseBtn').textContent = tracker.running ? t('run_pause') : t('run_resume');
   [...document.getElementById('perfil-lang-choice').children].forEach(c=>c.classList.toggle('active', c.dataset.v===lang));
 }
@@ -64,6 +74,14 @@ const ICONS = {
 
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
 function haptic(pattern){
+  // En la app nativa (Capacitor) usamos el plugin Haptics -- iOS nunca soportó la
+  // Vibration API del navegador, así que sin esto no vibraba nunca ahí. El plugin
+  // se registra solo como Capacitor.Plugins.Haptics apenas corre nativo, sin
+  // necesitar import ni bundler (ver mobile/README para el detalle).
+  try{
+    const Haptics = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(Haptics){ Haptics.impact({ style: 'MEDIUM' }); return; }
+  }catch(e){}
   try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
 }
 // Escapa texto libre (nombres, mensajes de chat, etc.) antes de insertarlo
@@ -199,7 +217,11 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 /* ---- Notificaciones push ---- */
 const VAPID_PUBLIC_KEY = 'BLBsiej6FgDHLt2S5DvrDfYU9_jf1_qfIzRswRgjcvLvMTPT1lDnVo9NUu8lRfYSVobM_zI80R9KWDbfb-tZXfU';
-if('serviceWorker' in navigator){
+// El service worker es para la PWA web (offline + detectar versión nueva). Adentro del
+// wrapper nativo (Capacitor) no tiene sentido -- ahí las actualizaciones llegan por la
+// tienda, no por la red, y registrar un SW sobre los archivos empaquetados solo suma
+// riesgo de comportamiento raro de caché sin ningún beneficio real.
+if('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){
   navigator.serviceWorker.register('/sw.js').catch(e=>console.error('SW registration failed', e));
 }
 function urlBase64ToUint8Array(base64String){
@@ -419,6 +441,27 @@ async function handleGoogleSignIn(btnId){
     if(error){ console.error(error); showToast(t('login_err'),'error'); }
   }finally{ setBtnBusy(btnId, false); }
 }
+// "Sign in with Apple" -- solo se usa en la app nativa de iOS (ver toggle de visibilidad
+// de los botones en init(), más abajo). Usa el plugin @capawesome/capacitor-apple-sign-in,
+// que se registra solo como Capacitor.Plugins.AppleSignIn apenas corre nativo, sin
+// necesitar import ni bundler (mismo patrón que haptic() más arriba). TODO: falta probar
+// este flujo en un dispositivo real una vez armado el proyecto Xcode -- ver mobile/README.md.
+async function handleAppleSignIn(btnId){
+  setBtnBusy(btnId, true, t('google_loading'));
+  try{
+    const AppleSignIn = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppleSignIn;
+    if(!AppleSignIn){ showToast(t('login_err'),'error'); return; }
+    const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const result = await AppleSignIn.signIn({ scopes: ['email', 'fullName'], nonce });
+    const idToken = result && result.idToken;
+    if(!idToken) throw new Error('Apple sign-in: no idToken en la respuesta');
+    const { error } = await supabaseClient.auth.signInWithIdToken({ provider:'apple', token: idToken, nonce });
+    if(error){ console.error(error); showToast(t('login_err'),'error'); }
+  }catch(e){
+    console.error(e);
+    showToast(t('login_err'),'error');
+  }finally{ setBtnBusy(btnId, false); }
+}
 
 /* ---- Strava ---- */
 const STRAVA_CLIENT_ID = '275082';
@@ -430,7 +473,7 @@ async function connectStrava(){
   try{
     const { data: { session } } = await supabaseClient.auth.getSession();
     if(!session){ showToast(t('strava_connect_error'),'error'); return; }
-    const res = await fetch('/api/strava-init', {
+    const res = await fetch(apiUrl('/api/strava-init'), {
       method:'POST',
       headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`}
     });
@@ -467,7 +510,7 @@ async function disconnectStrava(){
       // le pedimos al backend que revoque el permiso del lado de Strava, no solo
       // que borre la conexión de nuestra base (si esto falla, borramos igual la
       // fila local desde acá para no dejar al usuario con el botón trabado).
-      const res = await fetch('/api/strava-disconnect', {
+      const res = await fetch(apiUrl('/api/strava-disconnect'), {
         method:'POST',
         headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`}
       });
@@ -478,6 +521,20 @@ async function disconnectStrava(){
   }catch(e){
     console.error(e);
     try{ await supabaseClient.from('strava_connections').delete().eq('user_id', currentUserId); }catch(e2){}
+  }
+  // El backend ya borró las carreras importadas de Strava de app_state.data.runs --
+  // pero acá en memoria seguían estando. Si no las sacamos también de state.runs,
+  // el próximo persist() (por cualquier otra acción del usuario) las manda de
+  // vuelta al servidor y deshace el borrado. Recalculamos el km de las zapatillas
+  // igual que hace el backend, sumando solo las carreras que quedan.
+  if(state.runs && state.runs.some(r=>r.source==='strava')){
+    state.runs = state.runs.filter(r=>r.source!=='strava');
+    if(state.shoes){
+      state.shoes.forEach(shoe=>{
+        shoe.km = state.runs.filter(r=>String(r.shoeId)===String(shoe.id)).reduce((a,r)=>a+(r.distanceKm||0),0);
+      });
+    }
+    renderHistory(); renderHome(); renderPerfil(); persist();
   }
   await updateStravaStatusDisplay();
 }
@@ -1001,7 +1058,7 @@ async function deleteAccount(){
   try{
     const { data: { session } } = await supabaseClient.auth.getSession();
     if(!session){ showToast(t('delete_account_error'),'error'); return; }
-    const res = await fetch('/api/delete-account', {
+    const res = await fetch(apiUrl('/api/delete-account'), {
       method:'POST',
       headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`}
     });
@@ -1013,6 +1070,14 @@ async function deleteAccount(){
   }
 }
 (async function init(){
+  // "Sign in with Apple" solo tiene sentido en la app nativa de iOS (Apple lo exige ahí
+  // porque ya ofrecemos login con Google) -- en la web/PWA y en Android el botón queda oculto.
+  if(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios'){
+    ['login-apple-btn','signup-apple-btn'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.style.display = '';
+    });
+  }
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session && session.user){ await loadUserAndEnter(session.user); }
 })();
@@ -1146,7 +1211,7 @@ async function syncTodayNow(){
     if(session && session.access_token){
       const controller = new AbortController();
       const timeoutId = setTimeout(()=>controller.abort(), 12000);
-      const res = await fetch('/api/strava-sync-now', {
+      const res = await fetch(apiUrl('/api/strava-sync-now'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
         signal: controller.signal
@@ -1791,6 +1856,13 @@ function renderPlan(){
   const todayIdx = (new Date().getDay()+6)%7;
   document.getElementById('plan-list').innerHTML = wd.plan.map((d,i)=>{
     const lbl = planLabel(d);
+    // d.custom viene de texto libre que el coach (IA) escribió a partir de un pedido del
+    // usuario (modificar_sesion / ajuste de volumen) -- a diferencia de las descripciones
+    // fijas de las traducciones o el nombre del evento (que ya se escapa en planLabel), acá
+    // nunca escapamos antes, así que hay que hacerlo recién en este punto, al insertarlo
+    // como HTML, para no habilitar un XSS guardado en el plan.
+    const lblType = d.custom ? escapeHtml(lbl.type) : lbl.type;
+    const lblDesc = d.custom ? escapeHtml(lbl.desc) : lbl.desc;
     let dateLbl = '';
     if(wd.weekStart){
       const dt = new Date(wd.weekStart+'T00:00:00'); dt.setDate(dt.getDate()+i);
@@ -1826,10 +1898,10 @@ function renderPlan(){
     return `<div>
       <div class="day-row" onclick="toggleDay(${i})">
         <div class="day-badge"><div class="d">${t('day_'+d.day).slice(0,3)}</div>${dateLbl?`<div class="mono muted" style="font-size:10px; margin-top:2px;">${dateLbl}</div>`:''}</div>
-        <div class="day-info"><div class="t">${lbl.type}</div><div class="m">${meta}</div></div>
+        <div class="day-info"><div class="t">${lblType}</div><div class="m">${meta}</div></div>
         <div style="text-align:right;"><div class="day-dist">${d.dist>0? fmtDist(d.dist,1)+' '+distUnit():''}</div>${statusIcon}</div>
       </div>
-      <div class="day-detail" id="detail-${i}">${lbl.desc}${zoneDetail}${statusBlock}</div>
+      <div class="day-detail" id="detail-${i}">${lblDesc}${zoneDetail}${statusBlock}</div>
     </div>`;
   }).join('');
   renderPastWeeks();
@@ -2395,6 +2467,9 @@ if(window.visualViewport){
 /* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
 let appUpdateChecking = false;
 async function checkForAppUpdate(){
+  // Adentro del wrapper nativo no hay nada que "detectar" -- app.js viene empaquetado
+  // en el binario y las actualizaciones llegan por la tienda, no recargando la página.
+  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return false;
   if(appUpdateChecking) return false;
   appUpdateChecking = true;
   try{
@@ -2989,7 +3064,7 @@ function renderHistory(){
           <div class="stat-box"><div class="n mono">${cal}</div><div class="l">${t('run_calories')}</div></div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
-          <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? shoe.name : t('hist_no_shoe')}</p>
+          <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? escapeHtml(shoe.name) : t('hist_no_shoe')}</p>
           <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
         </div>
       </div>
@@ -3784,7 +3859,7 @@ Sé breve (4-6 líneas salvo que pidan más detalle). Si mencionan dolor agudo, 
     // cualquiera que le pegue directo a la URL.
     const { data: { session } } = await supabaseClient.auth.getSession();
     for(let loop=0; loop<4; loop++){
-      const res = await fetch('/api/chat', {
+      const res = await fetch(apiUrl('/api/chat'), {
         method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token || ''}`},
         body: JSON.stringify({system, tools:TOOLS, messages, lang}),
         signal: chatAbortController.signal
