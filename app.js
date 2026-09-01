@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-01T01:59:43Z';
+const APP_VERSION = '2026-09-01T20:04:25Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2518,19 +2518,47 @@ if(window.visualViewport){
     reapplyDuringAnimation();
   });
 })();
-/* ---- detección de versión nueva: DESACTIVADA a pedido explícito -----
-   Había un mecanismo que revisaba app.js cada vez que la pestaña volvía a
-   estar visible y, si detectaba una versión distinta a la cargada, recargaba
-   la app sola (con un toast de aviso). La idea original era buena (evitar
-   quedarse con una versión vieja en caché), pero en la práctica el usuario
-   lo vivía como que "la app se actualiza sola" de forma inesperada mientras
-   la estaba usando -- sobre todo en un período con despliegues seguidos, cada
-   uno disparaba una recarga. Se saca el chequeo automático por completo; si
-   hace falta la versión más nueva, alcanza con cerrar y volver a abrir la
-   app (o refrescar manualmente).*/
+/* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
+let appUpdateChecking = false;
+async function checkForAppUpdate(){
+  // Adentro del wrapper nativo no hay nada que "detectar" -- app.js viene empaquetado
+  // en el binario y las actualizaciones llegan por la tienda, no recargando la página.
+  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return false;
+  if(appUpdateChecking) return false;
+  appUpdateChecking = true;
+  try{
+    /* Antes esto pedía index.html y buscaba `const APP_VERSION` ahí adentro — funcionaba
+       porque todo el JS vivía inline en index.html. Desde que se separó el código a
+       app.js, index.html ya no contiene esa constante, así que el regex nunca matcheaba
+       y el aviso de actualización dejó de aparecer (en cualquier plataforma, no solo
+       en el celular — simplemente nadie lo notó en desktop todavía). Hay que pedir
+       app.js, que es donde vive ahora. */
+    const res = await fetch('/app.js?_v=' + Date.now(), { cache:'no-store' });
+    if(!res.ok) return false;
+    const text = await res.text();
+    const m = text.match(/const APP_VERSION\s*=\s*'([^']+)'/);
+    if(m && m[1] && m[1] !== APP_VERSION){
+      haptic([10,30,10]);
+      showToast(t('update_found_msg'), 'success');
+      /* location.reload() puede volver a servir una copia vieja de la caché del navegador —
+         navegar a una URL con un parámetro único fuerza a pedirla de nuevo al servidor. */
+      setTimeout(()=>{ location.href = location.pathname + '?_r=' + Date.now(); }, 700);
+      return true;
+    }
+    return false;
+  }catch(e){ console.error('update check failed', e); return false; }
+  finally{ appUpdateChecking = false; }
+}
+if(typeof document !== 'undefined'){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') checkForAppUpdate();
+  });
+}
 async function doPullRefresh(){
   const indicator = document.getElementById('pull-refresh-indicator');
   if(indicator) indicator.style.display = 'flex';
+  const updating = await checkForAppUpdate();
+  if(updating) return;
   await refreshStateFromServer();
   autoSkipPastDays();
   autoClearPastEvent();
