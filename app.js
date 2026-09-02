@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:40:00Z';
+const APP_VERSION = '2026-09-02T18:43:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2824,24 +2824,31 @@ if(window.visualViewport){
   // position:fixed (como la tabbar) se quedan "congelados" en la posición vieja a
   // nivel del motor de renderizado -- no es que el CSS o el JS estén mal, es que
   // WebKit directamente no vuelve a calcular dónde va el elemento fijo hasta que
-  // pasa OTRA cosa que fuerce ese recálculo. El truco estándar para forzar ese
-  // recálculo (usado en un montón de apps con este mismo problema) es scrollear la
-  // página 1px y volver a 0 -- ese movimiento real (no un no-op de "ya estás en 0")
-  // hace que WebKit vuelva a ubicar todo lo que es position:fixed correctamente.
+  // pasa OTRA cosa que fuerce ese recálculo.
+  //
+  // El primer intento acá scrolleaba la página 1px y volvía a 0 -- ese truco solo
+  // funciona si hay algo para scrollear, y en esta pantalla #app mide justo lo que
+  // mide la pantalla (sin overflow), así que ese scroll probablemente nunca movía
+  // nada de verdad y por lo tanto nunca forzaba ningún recálculo. Este segundo intento
+  // usa un truco distinto que no depende de que haya scroll disponible: esconder y
+  // volver a mostrar sincrónicamente el <body> entero (display:none -> leer offsetHeight
+  // fuerza el reflow ahí mismo -> display original). Como todo pasa en el mismo tick de
+  // JS sin ceder el control al navegador, no llega a pintarse el estado "oculto" -- no
+  // hay parpadeo -- pero WebKit sí se ve obligado a recalcular la posición de TODOS los
+  // elementos position:fixed de la página, tabbar incluida.
   function forceFixedLayoutReflow(){
-    const scroller = document.scrollingElement || document.documentElement;
-    const original = scroller.scrollTop;
-    window.scrollTo(0, original + 1);
-    requestAnimationFrame(()=>{
-      window.scrollTo(0, original);
-      // Lo repetimos una vez más un toque más tarde por si el teclado todavía
-      // estaba a mitad de animación de cierre cuando hicimos el primer intento.
-      setTimeout(()=>{
-        window.scrollTo(0, original + 1);
-        requestAnimationFrame(()=> window.scrollTo(0, original));
-      }, 350);
-    });
+    const original = document.body.style.display;
+    document.body.style.display = 'none';
+    void document.body.offsetHeight; // fuerza el reflow síncrono, ahí mismo
+    document.body.style.display = original;
+    syncCoachChatLayout();
   }
+  // La primera llamada ya ocurre arriba, dentro del blur principal (línea con
+  // forceFixedLayoutReflow() junto a reapplyDuringAnimation()). Acá solo agregamos una
+  // segunda pasada 350ms más tarde, por si el teclado todavía estaba a mitad de la
+  // animación de cierre cuando se disparó el blur (en un teléfono real puede tardar
+  // más que en el simulador).
+  chatInputEl.addEventListener('blur', ()=> setTimeout(forceFixedLayoutReflow, 350));
 })();
 /* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
 let appUpdateChecking = false;
