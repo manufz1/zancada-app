@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T16:10:00Z';
+const APP_VERSION = '2026-09-02T16:18:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2703,13 +2703,30 @@ if(window.visualViewport){
   // "detectar" cuándo terminó la animación (eso puede fallar si el navegador no dispara
   // ningún evento intermedio), simplemente insistimos el tiempo suficiente como para
   // cubrir cualquier animación real, por lenta que sea.
+  //
+  // Segunda causa del mismo síntoma, distinta a la anterior: cuando el input del chat
+  // recibe foco, iOS Safari (más notorio todavía en modo standalone/PWA) puede scrollear
+  // el DOCUMENTO ENTERO hacia arriba por su cuenta para "asegurarse" de que el input
+  // quede visible arriba del teclado -- aunque #coachChatWrap ya es position:fixed y se
+  // reacomoda solo, sin necesitar ese scroll. Ese scroll del documento no siempre se
+  // deshace solo al cerrar el teclado, y como #app no ocupa más que 100dvh, quedar
+  // scrolleado deja ver, debajo de la tabbar, el fondo vacío que hay más allá del final
+  // de #app -- exactamente el hueco vacío "de más" que se ve en capturas reales. Por eso,
+  // en cada re-medición forzamos también el scroll del documento de vuelta a 0.
   let animationPollId = null;
+  function resetDocumentScroll(){
+    const scroller = document.scrollingElement || document.documentElement;
+    if(scroller.scrollTop !== 0) scroller.scrollTop = 0;
+    if(window.scrollY) window.scrollTo(0, 0);
+  }
   function reapplyDuringAnimation(){
     if(animationPollId) clearInterval(animationPollId);
     syncCoachChatLayout();
+    resetDocumentScroll();
     const deadline = Date.now() + 2000;
     animationPollId = setInterval(()=>{
       syncCoachChatLayout();
+      resetDocumentScroll();
       if(Date.now() >= deadline){ clearInterval(animationPollId); animationPollId = null; }
     }, 80);
   }
