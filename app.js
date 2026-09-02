@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T16:18:00Z';
+const APP_VERSION = '2026-09-02T18:01:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -3129,6 +3129,10 @@ function actuallyStartRun(saved){
   document.getElementById('runIdle').style.display='none';
   document.getElementById('runSummary').style.display='none';
   document.getElementById('runActive').style.display='block';
+  // El botón arranca en "Pausar" -- sin esto quedaba con el texto que tenía la
+  // última vez que se renderizó la pantalla (típicamente "Reanudar", puesto por
+  // applyStaticTranslations() al cargar la app con tracker.running todavía en false).
+  document.getElementById('pauseBtn').textContent = t('run_pause');
   initLiveMap();
   updateLiveStats();
   setupWorkoutGuide();
@@ -3273,14 +3277,6 @@ function saveManualRun(){
 }
 
 /* ================= HISTORY ================= */
-function miniRouteSvg(points){
-  if(!points || points.length<2) return `<div class="hist-route" style="display:flex;align-items:center;justify-content:center; color:var(--mist-dim); font-size:12px;">—</div>`;
-  const lats=points.map(p=>p.lat), lons=points.map(p=>p.lon);
-  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLon=Math.min(...lons), maxLon=Math.max(...lons);
-  const w=300,h=104,pad=14, sx=(maxLon-minLon)||0.0002, sy=(maxLat-minLat)||0.0002;
-  const pts = points.map(p=>`${(pad+((p.lon-minLon)/sx)*(w-2*pad)).toFixed(1)},${(h-pad-((p.lat-minLat)/sy)*(h-2*pad)).toFixed(1)}`).join(' ');
-  return `<svg class="hist-route" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="#D6FF3F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-}
 function computeDailyTrend(days){
   const result = [];
   const today = new Date(); today.setHours(0,0,0,0);
