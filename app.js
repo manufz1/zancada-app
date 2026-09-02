@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T13:12:00Z';
+const APP_VERSION = '2026-09-02T14:12:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1790,6 +1790,18 @@ function renderHome(){
   renderRaceTip();
   document.getElementById('home-name').textContent = state.profile.name;
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString(LOCALE_MAP[lang],{weekday:'short',day:'numeric',month:'short'});
+
+  // Racha de semanas seguidas cumpliendo el plan (≥70%) -- ver buildWeeklyRecapMessage().
+  // La mostramos acá recién a partir de la 2da semana seguida, igual que en el chat del
+  // coach, para no mostrar un badge "1" que se sienta como un contador vacío recién
+  // arrancado.
+  const streakBadge = document.getElementById('home-streak-badge');
+  if((state.streakWeeks||0) >= 2){
+    streakBadge.style.display = 'inline-flex';
+    streakBadge.textContent = t('home_streak_badge', {n: state.streakWeeks});
+  } else {
+    streakBadge.style.display = 'none';
+  }
   const idx = (new Date().getDay()+6)%7;
   const today = state.plan[idx];
   const lbl = planLabel(today);
@@ -2850,7 +2862,7 @@ async function deleteEvent(){
 }
 
 /* ================= LIVE TRACKER + MAP ================= */
-let tracker = {watchId:null, timerId:null, points:[], distanceKm:0, elapsedSec:0, running:false, hrLog:[], lastAnnouncedKm:0, startedAt:null};
+let tracker = {watchId:null, timerId:null, points:[], distanceKm:0, elapsedSec:0, running:false, hrLog:[], lastAnnouncedKm:0, startedAt:null, workout:null};
 let liveMap, liveMarker, startMarker, livePolyline;
 let wakeLockSentinel = null;
 
@@ -2891,6 +2903,136 @@ function maybeAnnounceKm(){
     const paceMin = (tracker.elapsedSec/60)/tracker.distanceKm;
     const paceStr = `${Math.floor(paceMin)}:${String(Math.round((paceMin%1)*60)).padStart(2,'0')}`;
     speak(t('voice_km',{km:currentKm, pace:paceStr}));
+  }
+}
+
+/* ---- Guía en vivo de series/subidas ----
+   Antes, el tracker en vivo era el mismo sin importar qué entrenamiento tocaba hoy --
+   solo avisaba el km y el ritmo, ni idea de si era un día de series, subidas o rodaje
+   fácil. Esto lo hace consciente del tipo de sesión: si hoy hay series (intervals) o
+   subidas (hills) -- los dos únicos tipos que ya traen una estructura de repeticiones
+   concreta en dayObj.interval (ver buildIntervalStructure/buildHillStructure) -- guía
+   al corredor repetición por repetición por voz y con un cartel en pantalla, sin que
+   tenga que mirar el reloj ni contar mentalmente.
+
+   Por qué arranca en "pending" y no arranca solo: el dato que tenemos (today.dist) es
+   la distancia TOTAL de la sesión (entrada en calor + series + vuelta a la calma), no
+   dónde empiezan las series -- así que no hay forma automática y confiable de saber
+   cuándo terminó de calentar. Se lo preguntamos con un botón en vez de adivinar mal.
+
+   Las series (intervals) miden el esfuerzo por DISTANCIA (repMeters) porque así están
+   pensadas -- "corré 400m fuerte" -- y la recuperación por TIEMPO (recoveryMin), tal
+   cual la arma buildIntervalStructure(). Las subidas (hills) miden el esfuerzo por
+   TIEMPO (effortSec) porque en una pendiente la distancia varía mucho según el
+   terreno; buildHillStructure() no define una duración de recuperación (el texto
+   dice solo "bajá trotando suave"), así que la estimamos como 1.6x el esfuerzo --
+   una bajada trotando suave típicamente lleva más que la subida fuerte, pero no el
+   doble. Es una heurística, no una medición real, y se lo explicamos así al usuario
+   si pregunta por chat. */
+function getTodayWorkoutStructure(){
+  const idx = (new Date().getDay()+6)%7;
+  const today = state.plan[idx];
+  if(!today || !today.interval) return null;
+  if(today.typeKey==='intervals') return {typeKey:'intervals', reps:today.interval.reps, repMeters:today.interval.repMeters, recoveryMin:today.interval.recoveryMin};
+  if(today.typeKey==='hills') return {typeKey:'hills', reps:today.interval.reps, effortSec:today.interval.effortSec};
+  return null;
+}
+function setupWorkoutGuide(){
+  const structure = getTodayWorkoutStructure();
+  tracker.workout = structure ? {structure, phase:'pending', currentRep:0, phaseStartDistanceKm:0, phaseStartElapsedSec:0} : null;
+  renderWorkoutGuide();
+}
+function beginWorkoutReps(){
+  if(!tracker.workout) return;
+  const w = tracker.workout;
+  w.phase = 'effort';
+  w.currentRep = 1;
+  w.phaseStartDistanceKm = tracker.distanceKm;
+  w.phaseStartElapsedSec = tracker.elapsedSec;
+  haptic([15,40,15]);
+  announceWorkoutPhase();
+  renderWorkoutGuide();
+}
+function announceWorkoutPhase(){
+  const w = tracker.workout; if(!w) return;
+  const s = w.structure;
+  if(w.phase==='effort'){
+    speak(s.typeKey==='intervals' ? t('voice_rep_start',{cur:w.currentRep, total:s.reps}) : t('voice_hill_start',{cur:w.currentRep, total:s.reps}));
+  } else if(w.phase==='recovery'){
+    speak(s.typeKey==='intervals' ? t('voice_rep_recovery',{cur:w.currentRep, min:s.recoveryMin}) : t('voice_hill_recovery',{cur:w.currentRep}));
+  } else if(w.phase==='done'){
+    speak(t('voice_workout_done'));
+  }
+}
+function advanceWorkoutPhase(){
+  const w = tracker.workout; const s = w.structure;
+  if(w.phase==='effort'){
+    if(w.currentRep >= s.reps){
+      w.phase = 'done';
+    } else {
+      w.phase = 'recovery';
+      w.phaseStartElapsedSec = tracker.elapsedSec;
+    }
+  } else if(w.phase==='recovery'){
+    w.currentRep++;
+    w.phase = 'effort';
+    w.phaseStartDistanceKm = tracker.distanceKm;
+    w.phaseStartElapsedSec = tracker.elapsedSec;
+  }
+  haptic([15,40,15]);
+  announceWorkoutPhase();
+}
+function tickWorkoutGuide(){
+  const w = tracker.workout;
+  if(!w || w.phase==='pending' || w.phase==='done') return;
+  const s = w.structure;
+  let complete = false;
+  if(s.typeKey==='intervals'){
+    if(w.phase==='effort') complete = (tracker.distanceKm - w.phaseStartDistanceKm)*1000 >= s.repMeters;
+    else complete = (tracker.elapsedSec - w.phaseStartElapsedSec) >= s.recoveryMin*60;
+  } else {
+    const target = w.phase==='effort' ? s.effortSec : Math.round(s.effortSec*1.6);
+    complete = (tracker.elapsedSec - w.phaseStartElapsedSec) >= target;
+  }
+  if(complete) advanceWorkoutPhase();
+  renderWorkoutGuide();
+}
+function renderWorkoutGuide(){
+  const card = document.getElementById('workout-guide-card');
+  if(!card) return;
+  const w = tracker.workout;
+  if(!w){ card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const pendingEl = document.getElementById('workout-guide-pending');
+  const activeEl = document.getElementById('workout-guide-active');
+  const doneEl = document.getElementById('workout-guide-done');
+  pendingEl.style.display = w.phase==='pending' ? 'block' : 'none';
+  activeEl.style.display = (w.phase==='effort' || w.phase==='recovery') ? 'block' : 'none';
+  doneEl.style.display = w.phase==='done' ? 'block' : 'none';
+  if(w.phase==='pending'){
+    const idx = (new Date().getDay()+6)%7;
+    const today = state.plan[idx];
+    document.getElementById('workout-guide-desc').textContent = today ? planLabel(today).desc : '';
+    document.getElementById('workout-guide-start-btn').textContent = t('run_guide_start_btn');
+  } else if(w.phase==='effort' || w.phase==='recovery'){
+    const s = w.structure;
+    const tag = document.getElementById('workout-guide-phase-tag');
+    const isEffort = w.phase==='effort';
+    tag.textContent = isEffort ? t('run_guide_tag_effort') : t('run_guide_tag_recovery');
+    tag.className = 'tag ' + (isEffort ? 'tag-load-risk' : 'tag-mixto');
+    document.getElementById('workout-guide-rep-count').textContent = `${w.currentRep}/${s.reps}`;
+    let pct;
+    if(s.typeKey==='intervals'){
+      pct = isEffort
+        ? ((tracker.distanceKm - w.phaseStartDistanceKm)*1000 / s.repMeters)*100
+        : ((tracker.elapsedSec - w.phaseStartElapsedSec) / (s.recoveryMin*60))*100;
+    } else {
+      const target = isEffort ? s.effortSec : Math.round(s.effortSec*1.6);
+      pct = ((tracker.elapsedSec - w.phaseStartElapsedSec) / target)*100;
+    }
+    document.getElementById('workout-guide-progress-bar').style.width = Math.max(0,Math.min(100,pct)) + '%';
+  } else if(w.phase==='done'){
+    document.getElementById('workout-guide-done-text').textContent = t('voice_workout_done');
   }
 }
 
@@ -2954,9 +3096,10 @@ function actuallyStartRun(saved){
   document.getElementById('runActive').style.display='block';
   initLiveMap();
   updateLiveStats();
+  setupWorkoutGuide();
   saveRunProgress();
   tracker.watchId = navigator.geolocation.watchPosition(onPosition, onPosError, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
-  tracker.timerId = setInterval(()=>{ if(tracker.running){ tracker.elapsedSec++; updateLiveStats(); if(tracker.elapsedSec % 15 === 0) saveRunProgress(); } }, 1000);
+  tracker.timerId = setInterval(()=>{ if(tracker.running){ tracker.elapsedSec++; updateLiveStats(); tickWorkoutGuide(); if(tracker.elapsedSec % 15 === 0) saveRunProgress(); } }, 1000);
 }
 function onPosition(pos){
   const {latitude:lat, longitude:lon, accuracy} = pos.coords;
@@ -2967,6 +3110,7 @@ function onPosition(pos){
   updateLiveMap(lat,lon);
   updateLiveStats();
   maybeAnnounceKm();
+  tickWorkoutGuide();
   saveRunProgress();
 }
 function onPosError(){ document.getElementById('geo-warning').style.display='block'; document.getElementById('geo-warning').textContent=t('geo_err_permission'); }
@@ -2988,6 +3132,8 @@ function stopRun(){
   clearInterval(tracker.timerId);
   if(tracker.watchId!==null) navigator.geolocation.clearWatch(tracker.watchId);
   releaseWakeLock();
+  tracker.workout = null;
+  document.getElementById('workout-guide-card').style.display = 'none';
   document.getElementById('runActive').style.display='none';
   document.getElementById('runSummary').style.display='block';
   const paceMin = tracker.distanceKm>0.02 ? (tracker.elapsedSec/60)/tracker.distanceKm : 0;
@@ -3114,6 +3260,26 @@ function computeDailyTrend(days){
       if(planDay && planDay.dist>0) planned = true;
     }
     result.push({date:dateStr, km, planned, day:d.getDate()});
+  }
+  return result;
+}
+function computeWeeklyTrend(weeksCount){
+  // Kilómetros REALMENTE corridos (no planeados) por semana calendario (lunes a
+  // domingo), para las últimas `weeksCount` semanas incluyendo la actual (que va a
+  // estar incompleta si todavía no terminó). Mira directo state.runs por fecha en
+  // vez de depender de planHistory -- así sigue funcionando aunque falte algún
+  // registro de semana cerrada, y es coherente con "corridas reales" en el resto
+  // de Historial.
+  const result = [];
+  const currentMonday = new Date((state.weekStart || getMondayISO(new Date())) + 'T00:00:00');
+  for(let i=weeksCount-1; i>=0; i--){
+    const start = new Date(currentMonday); start.setDate(start.getDate() - i*7);
+    const startIso = start.toISOString().slice(0,10);
+    const end = new Date(start); end.setDate(end.getDate()+7);
+    const endIso = end.toISOString().slice(0,10);
+    const km = (state.runs||[]).filter(r => { const d=r.date.slice(0,10); return d>=startIso && d<endIso; })
+      .reduce((a,r)=>a+r.distanceKm, 0);
+    result.push({weekStart: startIso, km, day: start.getDate(), isCurrent: i===0});
   }
   return result;
 }
@@ -3254,6 +3420,28 @@ function renderHistory(){
       return `<div class="bar-col"><div class="bar ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*30}ms;"></div><div class="lbl">${x.day}</div></div>`;
     }).join('')}</div>
   </div>`;
+  // Tendencia de forma física a largo plazo: km reales por semana en las últimas 12
+  // semanas -- a diferencia del gráfico diario de arriba (14 días, para ver la semana
+  // actual día a día), esto muestra si el volumen viene subiendo, estable o bajando
+  // en el tiempo, algo que ni el gráfico diario ni ninguna otra vista mostraban antes.
+  const weeklyTrend = computeWeeklyTrend(12);
+  const maxWeekKm = Math.max(...weeklyTrend.map(w=>w.km), 1);
+  const weeksWithRuns = weeklyTrend.filter(w=>w.km>0);
+  const avgWeekKm = weeksWithRuns.length ? weeksWithRuns.reduce((a,w)=>a+w.km,0)/weeksWithRuns.length : 0;
+  const bestWeekKm = Math.max(...weeklyTrend.map(w=>w.km), 0);
+  const longTrendCard = `<div class="card">
+    <h3 style="margin-bottom:2px;">${t('hist_long_trend_title')}</h3>
+    <p class="muted" style="margin:0 0 10px; font-size:12px;">${t('hist_long_trend_subtitle')}</p>
+    <div class="stat-row">
+      <div class="stat-box"><div class="n mono">${fmtDist(avgWeekKm,1)}</div><div class="l">${t('hist_long_trend_avg')} (${distUnit()})</div></div>
+      <div class="stat-box"><div class="n mono">${fmtDist(bestWeekKm,1)}</div><div class="l">${t('hist_long_trend_best')} (${distUnit()})</div></div>
+    </div>
+    <div class="week-bars" id="hist-longtrend-bars" style="margin-top:14px; gap:4px;">${weeklyTrend.map((w,i)=>{
+      const h = w.km>0 ? Math.max(6, Math.round((w.km/maxWeekKm)*70)) : 2;
+      const cls = w.km>0 ? 'hivis' : 'rest-day';
+      return `<div class="bar-col"><div class="bar ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*25}ms;"></div><div class="lbl">${w.day}</div></div>`;
+    }).join('')}</div>
+  </div>`;
   const qualityCounts = getQualitySessionBreakdown(30);
   const qualityEntries = Object.entries(qualityCounts).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]);
   const maxQualityCount = qualityEntries.length ? qualityEntries[0][1] : 0;
@@ -3279,7 +3467,7 @@ function renderHistory(){
       return `<div class="pr-medal"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${t('pr_label_'+b.key)}</span><span class="pr-medal-locked">${t('pr_medal_locked')}</span></div>`;
     }).join('')}</div>
   </div>`;
-  if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
+  if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
   // Buscador simple + encabezados de mes -- con varios meses de historial cargado, una
   // lista plana se vuelve incómoda de recorrer. El buscador filtra por lo que se ve en
   // cada tarjeta (fecha, zapatilla, "manual"/Strava); los encabezados de mes se insertan
@@ -3294,12 +3482,12 @@ function renderHistory(){
     return haystack.includes(query);
   });
   if(query && !filteredRuns.length){
-    el.innerHTML = trendsCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><p class="muted" style="margin:0;">${t('hist_search_empty')}</p></div>`;
+    el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><p class="muted" style="margin:0;">${t('hist_search_empty')}</p></div>`;
     animateHistTrendBars();
     return;
   }
   let lastMonthKey = null;
-  el.innerHTML = trendsCard + mixCard + prCard + filteredRuns.map(r=>{
+  el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + filteredRuns.map(r=>{
     const shoe = state.shoes.find(s=>String(s.id)===String(r.shoeId));
     const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
@@ -3345,11 +3533,13 @@ function renderHistory(){
   animateHistTrendBars();
 }
 function animateHistTrendBars(){
-  const barsEl = document.getElementById('hist-trend-bars');
-  if(!barsEl) return;
-  requestAnimationFrame(()=>{
+  ['hist-trend-bars','hist-longtrend-bars'].forEach(id=>{
+    const barsEl = document.getElementById(id);
+    if(!barsEl) return;
     requestAnimationFrame(()=>{
-      barsEl.querySelectorAll('.bar[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
+      requestAnimationFrame(()=>{
+        barsEl.querySelectorAll('.bar[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
+      });
     });
   });
 }

@@ -72,21 +72,25 @@ try{
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
   }
   :root[data-theme="light"]{
-    --asphalt:#F7F6F2; --asphalt-2:#FFFFFF; --asphalt-3:#F0EEE6; --asphalt-4:#E2DFD3;
-    --chalk:#20231F; --mist:#7A7A6E; --mist-dim:#ABA99A;
+    /* Estos valores fueron ajustados (más oscuros/saturados que la primera versión)
+       para cumplir el contraste mínimo WCAG AA en modo claro -- la versión anterior
+       de --mist, --mist-dim, --asphalt-4 y los --zoneN se veían "lavados" y costaba
+       leer texto secundario, badges de zona y bordes de botones sobre fondos claros. */
+    --asphalt:#F7F6F2; --asphalt-2:#FFFFFF; --asphalt-3:#F0EEE6; --asphalt-4:#B7AF91;
+    --chalk:#20231F; --mist:#63675C; --mist-dim:#747362;
     --hivis:#8FA820; --hivis-dim:#EEF3D2; --hivis-text:#5C6B14; --ink:#1B1E20;
     --clay:#B0631F; --clay-dim:rgba(176,99,31,.14);
     --danger:#D6402F; --danger-dim:rgba(214,64,47,.12);
-    --press:rgba(0,0,0,.035); --overlay-hairline:rgba(0,0,0,.06);
+    --press:rgba(0,0,0,.035); --overlay-hairline:rgba(0,0,0,.14);
     --tabbar-bg:rgba(255,255,255,.86);
     --toast-error-bg:#FBE3DE; --toast-error-fg:#B23A28;
     --shadow-card:0 10px 26px rgba(60,58,40,.10); --shadow-lg:0 20px 50px rgba(60,58,40,.18);
     --hivis-glow:rgba(143,168,32,.28);
-    --zone1:#2C6FDE; --zone1-bg:rgba(44,111,222,.14); --zone1-bg-live:rgba(44,111,222,.11);
-    --zone2:#2F9E52; --zone2-bg:rgba(47,158,82,.14); --zone2-bg-live:rgba(47,158,82,.11);
-    --zone3:#A8790A; --zone3-bg:rgba(168,121,10,.16); --zone3-bg-live:rgba(168,121,10,.12);
-    --zone4:#C15A16; --zone4-bg:rgba(193,90,22,.15); --zone4-bg-live:rgba(193,90,22,.12);
-    --zone5:#C43324; --zone5-bg:rgba(196,51,36,.14); --zone5-bg-live:rgba(196,51,36,.11);
+    --zone1:#2062CF; --zone1-bg:rgba(44,111,222,.14); --zone1-bg-live:rgba(44,111,222,.11);
+    --zone2:#23773E; --zone2-bg:rgba(47,158,82,.14); --zone2-bg-live:rgba(47,158,82,.11);
+    --zone3:#866108; --zone3-bg:rgba(168,121,10,.16); --zone3-bg-live:rgba(168,121,10,.12);
+    --zone4:#A44C13; --zone4-bg:rgba(193,90,22,.15); --zone4-bg-live:rgba(193,90,22,.12);
+    --zone5:#BA3022; --zone5-bg:rgba(196,51,36,.14); --zone5-bg-live:rgba(196,51,36,.11);
     --cs:light;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -248,10 +252,21 @@ try{
      incluso en reposo. El highlight de "elevada" se logra solo con el inset,
      que no afecta la opacidad del fondo. */
   :root:not([data-theme="light"]) .card{background:var(--asphalt-2); box-shadow:var(--shadow-card), inset 0 1px 0 rgba(255,255,255,.03);}
+  /* En modo claro el track del switch (asphalt-4) queda bastante cerca del blanco de
+     la tarjeta -- un borde chico ayuda a que se note el "apagado" como un control,
+     no solo como un rectángulo de fondo. */
+  :root[data-theme="light"] .switch-slider{border:1px solid rgba(0,0,0,.10);}
+  /* Mismo motivo: el borde "hairline" casi no se ve en claro sobre una tarjeta
+     blanca, y btn-outline necesita leerse como botón tocable, no como una tarjeta
+     más. Le damos un borde más marcado (asphalt-4) solo en modo claro. */
+  :root[data-theme="light"] .btn-outline{border-color:var(--asphalt-4);}
   .card[onclick]{cursor:pointer; transition:transform .12s ease;}
   .card[onclick]:active{transform:scale(.98);}
   .card h3{font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--mist); font-weight:700; margin-bottom:12px;}
   .muted{color:var(--mist); font-size:13.5px; line-height:1.5; white-space:pre-line;}
+
+  .streak-badge{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:800; padding:6px 12px; border-radius:999px;
+    background:var(--hivis-dim); color:var(--hivis-text); white-space:nowrap; flex-shrink:0;}
 
   .tag{display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:5px 10px; border-radius:999px;}
   .tag-asfalto{background:var(--asphalt-4); color:var(--chalk);}
@@ -698,7 +713,10 @@ try{
   </div>
 
   <section class="view" id="view-inicio">
-    <p class="greeting"><span data-i18n="home_hi"></span> <span class="display" id="home-name">—</span> 👋</p>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:14px 0 4px;">
+      <p class="greeting" style="margin:0;"><span data-i18n="home_hi"></span> <span class="display" id="home-name">—</span> 👋</p>
+      <div class="streak-badge" id="home-streak-badge" style="display:none;"></div>
+    </div>
 
     <div class="card" id="install-banner" style="display:none; align-items:center; gap:12px;">
       <span class="icon-sq" style="width:22px; height:22px; color:var(--hivis-text); flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
@@ -848,6 +866,30 @@ try{
       <div class="track-stats stat-row">
         <div class="stat-box"><div class="n mono" id="track-dist">0.00</div><div class="l" id="track-dist-label" data-i18n="run_km"></div></div>
         <div class="stat-box"><div class="n mono" id="track-pace">—</div><div class="l" id="track-pace-label" data-i18n="run_pace"></div></div>
+      </div>
+
+      <!-- Guía en vivo para series/subidas -- solo aparece cuando el entrenamiento de hoy
+           tiene repeticiones (intervals/hills). Arranca en "pending" (el corredor todavía
+           está calentando) y pasa a "active" recién cuando toca el botón, porque no hay
+           forma automática de saber cuándo terminó de calentar. -->
+      <div class="card" id="workout-guide-card" style="display:none; margin-top:14px; text-align:center;">
+        <div id="workout-guide-pending">
+          <p class="muted" id="workout-guide-desc" style="margin:0 0 12px; font-size:13px; line-height:1.5;"></p>
+          <button class="btn btn-primary btn-sm" id="workout-guide-start-btn" onclick="beginWorkoutReps()"></button>
+        </div>
+        <div id="workout-guide-active" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="tag" id="workout-guide-phase-tag"></span>
+            <span class="mono" id="workout-guide-rep-count" style="font-weight:800; font-size:16px;"></span>
+          </div>
+          <div style="height:8px; background:var(--asphalt-3); border-radius:4px; overflow:hidden; margin-top:12px;">
+            <div id="workout-guide-progress-bar" style="height:100%; background:var(--hivis); width:0%; transition:width .25s linear;"></div>
+          </div>
+        </div>
+        <div id="workout-guide-done" style="display:none;">
+          <span class="icon-sq" style="width:20px; height:20px; color:var(--hivis-text); margin-bottom:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6.5 9 17.5l-5-5"/></svg></span>
+          <p class="muted" id="workout-guide-done-text" style="margin:0; font-size:13px; line-height:1.5;"></p>
+        </div>
       </div>
 
       <div class="run-controls">
