@@ -410,7 +410,18 @@ try{
   .hist-hrlist{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
 
   .profile-head{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
-  .avatar-big{width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; flex-shrink:0;}
+  .avatar-big{width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; flex-shrink:0; position:relative; overflow:hidden; cursor:pointer;}
+  .avatar-big img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .avatar-edit-badge{position:absolute; bottom:-2px; right:-2px; width:20px; height:20px; border-radius:50%; background:var(--hivis); color:var(--ink); display:flex; align-items:center; justify-content:center; border:2px solid var(--asphalt); pointer-events:none;}
+  .pr-medal-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:4px;}
+  .pr-medal{display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 6px; border-radius:var(--radius-sm); background:var(--asphalt-3); text-align:center; transition:background .15s ease;}
+  .pr-medal.achieved{background:var(--hivis-dim);}
+  .pr-medal .icon-sq{width:24px; height:24px; color:var(--mist-dim);}
+  .pr-medal.achieved .icon-sq{color:var(--hivis-text);}
+  .pr-medal-label{font-size:11.5px; font-weight:800; color:var(--mist);}
+  .pr-medal.achieved .pr-medal-label{color:var(--chalk);}
+  .pr-medal-time{font-size:12px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--hivis-text);}
+  .pr-medal-locked{font-size:11px; color:var(--mist-dim);}
   .shoe-item{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--asphalt-3); transition:background .12s ease;}
   .shoe-item:active{background:var(--press);}
   .shoe-icon{width:36px; height:36px; border-radius:11px; background:var(--asphalt-3); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--mist);}
@@ -697,10 +708,21 @@ try{
     </div>
 
     <div class="card">
-      <h3 data-i18n="home_next"></h3>
-      <div class="next-session">
+      <h3 id="home-next-card-title" data-i18n="home_next"></h3>
+      <div class="next-session" id="home-next-session">
         <div><div class="big display" id="home-next-title">—</div><p class="muted" id="home-next-desc"></p></div>
         <div style="text-align:right;"><div class="day-dist" id="home-next-dist" style="font-size:20px;"></div><div id="home-next-zone" style="margin-top:6px;"></div></div>
+      </div>
+      <div id="home-session-done-block" style="display:none;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <span class="icon-sq" style="width:18px; height:18px; color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6.5 9 17.5l-5-5"/></svg></span>
+          <span class="muted" id="home-session-done-sub" style="font-size:13px;"></span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="n mono" id="home-done-dist">0</div><div class="l" id="home-done-dist-label"></div></div>
+          <div class="stat-box"><div class="n mono" id="home-done-time">0</div><div class="l" data-i18n="run_time"></div></div>
+          <div class="stat-box"><div class="n mono" id="home-done-pace">0</div><div class="l" id="home-done-pace-label"></div></div>
+        </div>
       </div>
     </div>
 
@@ -746,9 +768,9 @@ try{
       </div>
     </div>
 
-    <div class="card coach-snippet">
-      <div class="coach-avatar" style="color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:19px; height:19px;"><path d="M4 5.5h16v11H8l-4 4v-4H4z"/></svg></div>
-      <div><p class="muted" id="home-coach-msg"></p><button class="small-link" style="margin-top:8px;" onclick="showView('coach')" data-i18n="home_coach_cta"></button></div>
+    <div class="card" style="display:flex; gap:12px; align-items:flex-start;">
+      <span class="icon-sq" style="width:20px; height:20px; color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg></span>
+      <p id="race-tip-text" style="margin:0; font-size:14.5px; line-height:1.5; color:var(--mist);"></p>
     </div>
 
     <div class="card" id="install-help-card">
@@ -774,6 +796,7 @@ try{
     </div>
     <p class="muted" style="margin-bottom:14px;" data-i18n="plan_lead"></p>
     <p class="muted" id="plan-taper-note" style="display:none; color:var(--hivis-text); margin-bottom:14px;"></p>
+    <p class="muted" id="plan-recovery-note" style="display:none; color:var(--hivis-text); margin-bottom:14px;"></p>
     <div class="card" id="plan-list"></div>
     <button class="btn btn-outline" style="margin-bottom:10px;" onclick="exportWeekToCalendar()" data-i18n="plan_export_ics"></button>
     <button class="btn btn-outline" data-i18n="plan_adjust" onclick="goCoachWithPrompt('')"></button>
@@ -786,6 +809,17 @@ try{
   <section class="view" id="view-correr">
     <h2 class="display" style="font-size:25px;" data-i18n="run_title"></h2>
     <div id="runIdle">
+      <div class="card" id="run-done-today-card" style="display:none; text-align:left; margin-top:10px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+          <span class="icon-sq" style="width:18px; height:18px; color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6.5 9 17.5l-5-5"/></svg></span>
+          <h3 style="margin:0;" data-i18n="run_done_today_title"></h3>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="n mono" id="run-done-dist">0</div><div class="l" id="run-done-dist-label"></div></div>
+          <div class="stat-box"><div class="n mono" id="run-done-time">0</div><div class="l" data-i18n="run_time"></div></div>
+          <div class="stat-box"><div class="n mono" id="run-done-pace">0</div><div class="l" id="run-done-pace-label"></div></div>
+        </div>
+      </div>
       <div class="card" id="run-today-card" style="display:none; text-align:left; margin-top:10px;">
         <h3 id="run-today-title" style="margin:0;"></h3>
         <p class="muted" id="run-today-desc" style="margin:4px 0 0;"></p>
@@ -968,8 +1002,17 @@ try{
 
   <section class="view" id="view-perfil">
     <div class="profile-head">
-      <div class="avatar-big" id="perfil-initial">?</div>
-      <div><input type="text" id="perfil-name" class="display" style="background:none; border:none; color:var(--chalk); font-size:21px; padding:0; outline:none; width:100%;"><p class="muted" id="perfil-sub">—</p></div>
+      <div class="avatar-big" id="perfil-avatar" role="button" tabindex="0" aria-label="Cambiar foto de perfil" onclick="document.getElementById('perfil-photo-input').click()">
+        <span id="perfil-initial">?</span>
+        <img id="perfil-avatar-img" alt="" style="display:none;">
+        <div class="avatar-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      </div>
+      <input type="file" id="perfil-photo-input" accept="image/*" style="display:none;" onchange="handleAvatarPhotoChange(event)">
+      <div>
+        <input type="text" id="perfil-name" class="display" style="background:none; border:none; color:var(--chalk); font-size:21px; padding:0; outline:none; width:100%;">
+        <p class="muted" id="perfil-sub">—</p>
+        <p class="muted" id="perfil-remove-photo" style="display:none; font-size:12px; margin-top:2px; text-decoration:underline; cursor:pointer;" onclick="removeAvatarPhoto(event)" data-i18n="perfil_remove_photo"></p>
+      </div>
     </div>
 
     <div class="card">
@@ -1080,6 +1123,11 @@ try{
         </select>
       </div>
       <button class="btn btn-outline btn-sm" style="margin-top:10px; width:100%;" data-i18n="perfil_ev_save" onclick="setEvent()"></button>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="perfil_pr_title"></h3>
+      <div class="pr-medal-grid" id="perfil-pr-medals"></div>
     </div>
 
     <div class="card">

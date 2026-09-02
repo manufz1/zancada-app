@@ -94,7 +94,8 @@ const ICONS = {
   stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
-  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+  medal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5 10.5 8M15.5 2.5 13.5 8"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.2l1.1 2.2 2.4.35-1.75 1.7.4 2.4-2.15-1.15-2.15 1.15.4-2.4-1.75-1.7 2.4-.35z" fill="currentColor" stroke="none"/></svg>'
 };
 
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
@@ -1181,6 +1182,29 @@ function taperMultiplier(p, weekStartDate){
   });
   return mult;
 }
+function isRecoveryWeek(weekStartDate){
+  // La semana de recuperación es la que arranca el lunes siguiente a una carrera cargada
+  // en "Próximos eventos", pero SOLO cuando esa carrera cayó en domingo -- así nos
+  // aseguramos de que sea de verdad "la semana entera después de correrla" (lunes a
+  // domingo) y no una carrera entre semana, donde "la semana que sigue" ya arranca con
+  // días de por medio y el criterio sería más ambiguo. Usamos state.lastEventDate además
+  // de state.event.date porque autoClearPastEvent() borra state.event apenas pasó la
+  // fecha -- sin este respaldo, perderíamos el dato justo cuando más lo necesitamos (el
+  // lunes después de la carrera, la propia recarga de la app dispara ese borrado antes
+  // de que el resto de la semana pueda seguir mostrando la recuperación).
+  if(!weekStartDate) return false;
+  const eventDateStr = (state.event && state.event.date) || state.lastEventDate;
+  if(!eventDateStr) return false;
+  const start = new Date(weekStartDate+'T00:00:00');
+  const raceDate = new Date(eventDateStr+'T00:00:00');
+  if(isNaN(start.getTime()) || isNaN(raceDate.getTime())) return false;
+  if(raceDate.getDay() !== 0) return false; // 0 = domingo
+  const daysSinceRace = Math.round((start - raceDate) / 86400000);
+  return daysSinceRace === 1;
+}
+function recoveryMultiplier(weekStartDate){
+  return isRecoveryWeek(weekStartDate) ? 0.6 : 1;
+}
 function eventTerrainOverride(weekStartDate){
   // El "Tipo" de carrera cargado en Próximos eventos (ruta/trail/obstáculos) no cambiaba
   // nada del plan -- era un dato puramente decorativo (solo se mostraba como tag y se
@@ -1226,6 +1250,9 @@ function autoClearPastEvent(){
   const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
   const eventDate = new Date(state.event.date+'T00:00:00');
   if(!isNaN(eventDate.getTime()) && eventDate.getTime() < todayMidnight.getTime()){
+    // Guardamos la fecha antes de borrar el evento -- isRecoveryWeek() la sigue
+    // necesitando toda la semana de recuperación, después de que esta limpieza ya corrió.
+    state.lastEventDate = state.event.date;
     state.event = null;
     persist();
   }
@@ -1583,7 +1610,8 @@ function generatePlan(p, weekNumber, weekStartDate){
   weekNumber = weekNumber || 1;
   weekStartDate = weekStartDate || state.weekStart;
   const caution = trainingCaution(p);
-  const mult = weekMultiplier(weekNumber, caution) * taperMultiplier(p, weekStartDate);
+  const isRecovery = isRecoveryWeek(weekStartDate);
+  const mult = weekMultiplier(weekNumber, caution) * taperMultiplier(p, weekStartDate) * recoveryMultiplier(weekStartDate);
   const beginner = p.weeklyKm === 0 || p.goal === 'start' || p.runnerType === 'new';
   // si el corredor puso una meta semanal propia, la usamos como referencia de volumen en vez
   // del cálculo genérico -- pero acotada para no saltar de golpe a algo que podría lesionarlo
@@ -1600,6 +1628,14 @@ function generatePlan(p, weekNumber, weekStartDate){
   const defaultDays = beginner ? ['tue','thu','sun'] : ['tue','wed','fri','sun'];
   const trainingDays = DAY_KEYS.filter(d => (p.trainingDays && p.trainingDays.length ? p.trainingDays : defaultDays).includes(d));
   const sessionMap = distributeSessionTypes(trainingDays, beginner, weekNumber, caution, isCutbackWeek(weekNumber), p.goal);
+  if(isRecovery){
+    // En la semana de recuperación evitamos series/tempo/cuestas/fartlek/progresivo/rodaje
+    // largo -- todo eso suma carga justo cuando el cuerpo todavía está absorbiendo el
+    // esfuerzo de la carrera. Se reemplaza por rodaje suave (o descanso, si ese día ya
+    // no tenía sesión) hasta la semana siguiente, que retoma el plan normal.
+    const heavyTypes = ['intervals','tempo','fartlek','hills','progression','long'];
+    Object.keys(sessionMap).forEach(day=>{ if(heavyTypes.includes(sessionMap[day])) sessionMap[day] = 'easy'; });
+  }
   const raceDayIdx = eventDayIndexInWeek(weekStartDate);
   const raceTerrain = eventTerrainOverride(weekStartDate);
   return DAY_KEYS.map((day,i)=>{
@@ -1713,8 +1749,33 @@ function renderDailyTip(){
   const el = document.getElementById('daily-tip-text');
   if(el) el.textContent = pool[state.dailyTipIndex % pool.length];
 }
+// Tips específicos del día de carrera (estrategia, nutrición, logística) -- a propósito
+// separados de DAILY_TIPS (que son de entrenamiento en general), en la card que antes
+// tenía el mensaje fijo de "hablar con tu coach".
+const RACE_TIPS = {
+  es: ["Probá la ropa y las zapatillas que vas a usar el día de la carrera en algún entrenamiento antes — nunca estrenes nada el día de la carrera.","Los 2-3 días previos a la carrera, bajá el volumen y priorizá dormir bien en vez de meter kilómetros de más.","Definí tu estrategia de ritmo antes de largar: es más fácil acelerar al final que recuperarte de haber salido demasiado rápido.","Si la carrera es de 10K o más, sumá un poco más de carbohidratos los dos días previos.","Hidratate bien los días antes de la carrera, no solo la mañana de la prueba.","En la salida, dejá que el grupo se vaya si arranca más rápido de lo que planeaste — el ritmo lo elegís vos, no la euforia del pelotón.","Practicá en los entrenamientos largos lo que vas a comer o tomar durante la carrera — el día de la prueba no es momento para probar algo nuevo.","Llegá con tiempo de sobra al lugar de largada — el apuro de último momento suma un estrés que no hace falta.","En las bajadas, aflojá el paso y dejate llevar — frenar de más cansa más que bajarlas relajado.","Guardate algo de energía para el último tramo: es mejor terminar acelerando que quedarte sin nada a dos kilómetros del final."],
+  en: ["Try out the clothes and shoes you'll wear on race day during a training run first — never wear anything new on race day.","In the 2-3 days before the race, cut back on volume and prioritize sleep instead of squeezing in extra kilometers.","Decide your pacing strategy before the start — it's easier to speed up at the end than to recover from starting too fast.","If the race is 10K or longer, add a bit more carbs in the two days before it.","Stay well hydrated in the days before the race, not just the morning of.","At the start, let the pack go if it takes off faster than you planned — you choose the pace, not the crowd's excitement.","Practice during your long runs whatever you'll eat or drink during the race — race day is not the time to try something new.","Get to the start line with plenty of time to spare — last-minute rushing adds stress you don't need.","On downhills, relax your stride and let gravity help — braking too much tires you out more than running them loose.","Save some energy for the final stretch — it's better to finish accelerating than to run out of gas two kilometers from the end."],
+  pt: ["Experimente a roupa e o tênis que vai usar no dia da prova em algum treino antes — nunca estreie nada no dia da corrida.","Nos 2-3 dias antes da prova, reduza o volume e priorize dormir bem em vez de acrescentar mais quilômetros.","Defina sua estratégia de ritmo antes da largada — é mais fácil acelerar no final do que se recuperar de ter saído rápido demais.","Se a prova for de 10K ou mais, aumente um pouco os carboidratos nos dois dias anteriores.","Hidrate-se bem nos dias antes da prova, não só na manhã da corrida.","Na largada, deixe o pelotão ir se sair mais rápido do que o planejado — o ritmo é seu, não da euforia do grupo.","Treine nos rodagens longos o que vai comer ou beber durante a prova — o dia da corrida não é hora de testar algo novo.","Chegue com tempo de sobra no local de largada — a pressa de última hora só soma um estresse desnecessário.","Nas descidas, relaxe a passada e deixe o corpo levar — frear demais cansa mais do que descer solto.","Guarde energia para o trecho final: é melhor terminar acelerando do que ficar sem nada a dois quilômetros do fim."],
+  fr: ["Essaie pendant un entraînement les vêtements et les chaussures que tu porteras le jour de la course — ne porte jamais rien de neuf le jour J.","Les 2-3 jours avant la course, réduis le volume et privilégie le sommeil plutôt que d'ajouter des kilomètres.","Définis ta stratégie d'allure avant le départ — il est plus facile d'accélérer à la fin que de récupérer d'un départ trop rapide.","Si la course fait 10 km ou plus, augmente un peu les glucides les deux jours précédents.","Hydrate-toi bien dans les jours qui précèdent la course, pas seulement le matin même.","Au départ, laisse le peloton partir s'il va plus vite que prévu — c'est toi qui choisis l'allure, pas l'euphorie du groupe.","Entraîne-toi pendant tes sorties longues à manger ou boire ce que tu prendras pendant la course — le jour J n'est pas le moment d'essayer quelque chose de nouveau.","Arrive avec de la marge au point de départ — se précipiter au dernier moment ajoute un stress inutile.","Dans les descentes, détends ta foulée et laisse-toi porter — trop freiner fatigue plus que descendre relâché.","Garde de l'énergie pour la dernière ligne droite : mieux vaut finir en accélérant que se retrouver sans jus à deux kilomètres de l'arrivée."],
+  it: ["Prova durante un allenamento i vestiti e le scarpe che userai il giorno della gara — non indossare mai nulla di nuovo il giorno della corsa.","Nei 2-3 giorni prima della gara, riduci il volume e dai priorità al sonno invece di aggiungere altri chilometri.","Definisci la tua strategia di ritmo prima della partenza — è più facile accelerare alla fine che recuperare da una partenza troppo veloce.","Se la gara è di 10K o più, aumenta leggermente i carboidrati nei due giorni precedenti.","Idratati bene nei giorni prima della gara, non solo la mattina stessa.","Alla partenza, lascia andare il gruppo se parte più veloce del previsto — il ritmo lo scegli tu, non l'euforia del gruppo.","Allenati nelle uscite lunghe a mangiare o bere quello che userai durante la gara — il giorno della corsa non è il momento di provare qualcosa di nuovo.","Arriva con largo anticipo al punto di partenza — la fretta dell'ultimo minuto aggiunge uno stress inutile.","In discesa, rilassa la falcata e lasciati andare — frenare troppo stanca più che scendere sciolti.","Conserva un po' di energia per il tratto finale: è meglio finire accelerando che restare senza forze a due chilometri dal traguardo."],
+  de: ["Probiere die Kleidung und Schuhe, die du am Renntag tragen willst, vorher bei einem Training aus — trag am Renntag nie etwas Neues.","In den 2-3 Tagen vor dem Rennen: Volumen runterfahren und Schlaf priorisieren, statt noch mehr Kilometer reinzuquetschen.","Leg deine Pace-Strategie vor dem Start fest — am Ende schneller zu werden ist leichter, als sich von einem zu schnellen Start zu erholen.","Bei einem Rennen ab 10 km: in den zwei Tagen davor etwas mehr Kohlenhydrate essen.","Trink in den Tagen vor dem Rennen ausreichend, nicht nur am Morgen selbst.","Lass beim Start das Feld ziehen, wenn es schneller startet als geplant — du bestimmst dein Tempo, nicht die Euphorie der Gruppe.","Übe bei deinen langen Läufen, was du während des Rennens essen oder trinken wirst — der Renntag ist nicht der Moment, um etwas Neues auszuprobieren.","Komm mit reichlich Zeitpuffer zum Startbereich — Last-Minute-Hektik bringt unnötigen Stress.","Lauf Abfahrten locker und lass dich tragen — zu viel Bremsen ermüdet mehr als eine entspannte Abfahrt.","Heb dir Energie für die Schlussphase auf: lieber beschleunigend ins Ziel als zwei Kilometer vorher ohne Kraft dazustehen."]
+};
+function renderRaceTip(){
+  const today = new Date().toISOString().slice(0,10);
+  const pool = RACE_TIPS[lang] || RACE_TIPS.es;
+  // Índice propio (raceTipDate/raceTipIndex), separado del de DAILY_TIPS, para que las
+  // dos cards no muestren "el tip número 3 de cada pool" siempre en simultáneo -- se ven
+  // como dos fuentes independientes de consejos aunque roten el mismo día.
+  if(state.raceTipDate !== today || typeof state.raceTipIndex !== 'number'){
+    state.raceTipDate = today;
+    state.raceTipIndex = Math.floor(Math.random()*pool.length);
+  }
+  const el = document.getElementById('race-tip-text');
+  if(el) el.textContent = pool[state.raceTipIndex % pool.length];
+}
 function renderHome(){
   renderDailyTip();
+  renderRaceTip();
   document.getElementById('home-name').textContent = state.profile.name;
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString(LOCALE_MAP[lang],{weekday:'short',day:'numeric',month:'short'});
   const idx = (new Date().getDay()+6)%7;
@@ -1724,6 +1785,29 @@ function renderHome(){
   document.getElementById('home-next-desc').textContent = lbl.desc;
   document.getElementById('home-next-dist').textContent = today.dist>0 ? fmtDist(today.dist,1)+' '+distUnit() : '';
   document.getElementById('home-next-zone').innerHTML = (today.dist>0 && today.zone) ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
+
+  // Si ya corrimos hoy, mostramos el resumen de esa sesión en lugar del cartel de
+  // "próxima sesión" -- ver getTodayRun().
+  const todayRun = getTodayRun();
+  const doneBlock = document.getElementById('home-session-done-block');
+  const nextSessionBlock = document.getElementById('home-next-session');
+  const cardTitleEl = document.getElementById('home-next-card-title');
+  if(todayRun){
+    cardTitleEl.textContent = t('home_session_done_title');
+    nextSessionBlock.style.display = 'none';
+    doneBlock.style.display = 'block';
+    const paceMin = todayRun.distanceKm>0.02 ? (todayRun.durationSec/60)/todayRun.distanceKm : 0;
+    document.getElementById('home-session-done-sub').textContent = t('home_session_done_sub');
+    document.getElementById('home-done-dist').textContent = fmtDist(todayRun.distanceKm);
+    document.getElementById('home-done-dist-label').textContent = distUnit();
+    document.getElementById('home-done-time').textContent = fmtTime(todayRun.durationSec);
+    document.getElementById('home-done-pace').textContent = fmtPace(paceMin);
+    document.getElementById('home-done-pace-label').textContent = t('run_pace');
+  } else {
+    cardTitleEl.textContent = t('home_next');
+    nextSessionBlock.style.display = '';
+    doneBlock.style.display = 'none';
+  }
 
   const weekRuns = (state.runs||[]).filter(r => getMondayISO(new Date(r.date)) === state.weekStart);
   const doneKm = weekRuns.reduce((a,r)=>a+r.distanceKm, 0);
@@ -1765,8 +1849,6 @@ function renderHome(){
     });
   });
 
-  const msgs = [t('home_msg_new'), t('home_msg_going'), t('home_msg_pain')];
-  document.getElementById('home-coach-msg').textContent = msgs[state.runs.length % msgs.length];
 
   renderReadinessCard();
 
@@ -1784,10 +1866,31 @@ function renderHome(){
   }
   updateSyncBadge();
 }
+// Busca la carrera más reciente registrada HOY -- se usa para mostrar el resumen de
+// "sesión completada" tanto en Inicio como en la pestaña Correr, en vez del cartel de
+// "próxima sesión"/círculo de arrancar como si no hubiésemos corrido nada todavía.
+function getTodayRun(){
+  const todays = (state.runs||[]).filter(r => r.date && r.date.slice(0,10) === todayISO());
+  if(!todays.length) return null;
+  return todays.reduce((a,b) => (a.id > b.id ? a : b));
+}
 function renderRunTodayCard(){
   const idx = (new Date().getDay()+6)%7;
   const today = state.plan[idx];
   const card = document.getElementById('run-today-card');
+  const doneCard = document.getElementById('run-done-today-card');
+  const todayRun = getTodayRun();
+  if(todayRun){
+    const paceMin = todayRun.distanceKm>0.02 ? (todayRun.durationSec/60)/todayRun.distanceKm : 0;
+    document.getElementById('run-done-dist').textContent = fmtDist(todayRun.distanceKm);
+    document.getElementById('run-done-dist-label').textContent = distUnit();
+    document.getElementById('run-done-time').textContent = fmtTime(todayRun.durationSec);
+    document.getElementById('run-done-pace').textContent = fmtPace(paceMin);
+    document.getElementById('run-done-pace-label').textContent = t('run_pace');
+    doneCard.style.display = 'block';
+  } else {
+    doneCard.style.display = 'none';
+  }
   if(!today){ card.style.display = 'none'; return; }
   const lbl = planLabel(today);
   document.getElementById('run-today-title').textContent = lbl.type;
@@ -1882,6 +1985,12 @@ function renderPlan(){
   // como "acá empieza tu puesta a punto" sobre una proyección que todavía puede cambiar entera
   const showTaperUi = isTapering && wd.mode!=='future';
   if(showTaperUi) label += ` · <span class="tag tag-mixto">${t('plan_taper_tag')}</span>`;
+  // La semana de recuperación se recalcula siempre en base a wd.weekStart -- no depende de
+  // que state.event siga cargado (isRecoveryWeek() ya contempla que se haya limpiado solo
+  // al pasar la fecha, ver autoClearPastEvent()), así que se puede mostrar toda la semana,
+  // no solo el día del rollover.
+  const showRecoveryUi = wd.exists && wd.mode!=='past' && wd.mode!=='future' && wd.weekStart && isRecoveryWeek(wd.weekStart);
+  if(showRecoveryUi) label += ` · <span class="tag tag-mixto">${t('plan_recovery_tag')}</span>`;
   document.getElementById('plan-week-info').innerHTML = label;
   const taperNote = document.getElementById('plan-taper-note');
   if(showTaperUi){
@@ -1889,6 +1998,13 @@ function renderPlan(){
     taperNote.textContent = taperMult <= 0.55 ? t('plan_taper_note_final') : t('plan_taper_note_early');
   } else {
     taperNote.style.display='none';
+  }
+  const recoveryNote = document.getElementById('plan-recovery-note');
+  if(showRecoveryUi){
+    recoveryNote.style.display='block';
+    recoveryNote.textContent = t('plan_recovery_note');
+  } else {
+    recoveryNote.style.display='none';
   }
 
   if(!wd.exists){
@@ -2174,6 +2290,20 @@ function renderPerfil(){
   const p = state.profile;
   document.getElementById('perfil-initial').textContent = (p.name[0]||'?').toUpperCase();
   document.getElementById('perfil-sub').textContent = `${p.weeklyKm}km/sem · ${t('ob_goal_'+p.goal)}`;
+  const avatarImg = document.getElementById('perfil-avatar-img');
+  const avatarInitial = document.getElementById('perfil-initial');
+  const removeBtn = document.getElementById('perfil-remove-photo');
+  if(p.avatarPhoto){
+    avatarImg.src = p.avatarPhoto;
+    avatarImg.style.display = 'block';
+    avatarInitial.style.display = 'none';
+    removeBtn.style.display = 'block';
+  }else{
+    avatarImg.style.display = 'none';
+    avatarImg.removeAttribute('src');
+    avatarInitial.style.display = '';
+    removeBtn.style.display = 'none';
+  }
   renderPainLog();
 
   const editingPersonal = ['perfil-weight','perfil-height','perfil-racedate'].includes(document.activeElement && document.activeElement.id);
@@ -2252,7 +2382,57 @@ function renderPerfil(){
     document.getElementById('ev-type').value = state.event.type;
   } else { evBox.innerHTML = `<div style="text-align:center; padding:10px 0;"><div class="icon-sq" style="width:24px; height:24px; margin:0 auto 8px; color:var(--mist-dim);">${ICONS.flag}</div><p class="muted" style="margin:0; font-size:13px;">${t('perfil_no_event')}</p></div>`; }
 
+  renderPrMedals();
   updateCredits();
+}
+// ---- Medallas de récords personales -----
+// Una medalla por distancia estándar (5k/10k/15k/21k/42k): iluminada con el tiempo
+// si ya hay una marca registrada para esa distancia, apagada/con candado si todavía no.
+function renderPrMedals(){
+  const wrap = document.getElementById('perfil-pr-medals');
+  if(!wrap) return;
+  const records = getPersonalRecords();
+  wrap.innerHTML = PR_DISTANCES.map(b=>{
+    const rec = records[b.key];
+    if(rec){
+      return `<div class="pr-medal achieved"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${t('pr_label_'+b.key)}</span><span class="pr-medal-time">${fmtTime(rec.durationSec)}</span></div>`;
+    }
+    return `<div class="pr-medal"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${t('pr_label_'+b.key)}</span><span class="pr-medal-locked">${t('pr_medal_locked')}</span></div>`;
+  }).join('');
+}
+// ---- Foto de perfil -----
+// Se guarda como JPEG chico (200x200, recorte centrado tipo "cover") codificado en
+// base64 dentro de state.profile.avatarPhoto -- así no hace falta un bucket de
+// almacenamiento nuevo en Supabase, viaja con el resto del estado en app_state.
+function handleAvatarPhotoChange(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file || !file.type || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const size = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size/img.width, size/img.height);
+      const w = img.width*scale, h = img.height*scale;
+      ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+      state.profile.avatarPhoto = canvas.toDataURL('image/jpeg', 0.6);
+      renderPerfil();
+      persist();
+    };
+    img.onerror = function(){ showToast(t('perfil_photo_error'), 'error'); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function removeAvatarPhoto(e){
+  if(e) e.stopPropagation();
+  delete state.profile.avatarPhoto;
+  renderPerfil();
+  persist();
 }
 function updateCredits(){
   document.getElementById('credits-text').textContent = t('perfil_credits');
@@ -2871,9 +3051,11 @@ async function closeSummary(){
   clearRunProgress();
   document.getElementById('runSummary').style.display='none';
   document.getElementById('runIdle').style.display='block';
-  renderAll(); renderHistory();
+  renderAll(); renderHistory(); renderRunTodayCard();
   await persist();
   showView('inicio');
+  showToast(t('run_completed_toast'), 'success');
+  haptic([15,40,15]);
   setTimeout(checkPendingRating, 500);
 }
 function autoMarkSessionDone(dateIso, runId){
@@ -2988,6 +3170,25 @@ function nearestPRBucket(km){
   });
   return (best && bestDiff <= 0.06) ? best : null;
 }
+// Para la "devolución" que se muestra en cada tarjeta del historial (para qué sirvió esa
+// sesión). Cuando la carrera está vinculada a un día real del plan usamos su tipo real;
+// si no (carga manual, importada de Strava sin vincular, o de una semana ya vieja donde
+// el plan de ese momento no se conserva), la clasificamos por distancia/ritmo relativos
+// al resto del historial -- no es una ciencia exacta, pero da una devolución razonable.
+function runBenefitKey(r){
+  const linkedDay = (state.plan||[]).find(d => d.linkedRunId === r.id);
+  if(linkedDay && linkedDay.typeKey && linkedDay.typeKey !== 'rest') return linkedDay.typeKey;
+  if(nearestPRBucket(r.distanceKm)) return 'race';
+  const others = (state.runs||[]).filter(x => x.id!==r.id && x.distanceKm>0 && x.durationSec>0);
+  if(!others.length) return 'easy';
+  const avgDist = others.reduce((a,x)=>a+x.distanceKm,0)/others.length;
+  const paceOf = x => (x.durationSec/60)/x.distanceKm;
+  const avgPace = others.reduce((a,x)=>a+paceOf(x),0)/others.length;
+  const thisPace = r.distanceKm>0.02 ? paceOf(r) : avgPace;
+  if(r.distanceKm >= avgDist*1.4) return 'long';
+  if(thisPace <= avgPace*0.92) return 'tempo';
+  return 'easy';
+}
 function getPersonalRecords(excludeRunId){
   // Mejor tiempo registrado por distancia estándar. excludeRunId sirve para comparar
   // una carrera recién agregada contra "lo que había antes" y saber si es récord nuevo.
@@ -3014,6 +3215,8 @@ function checkNewPR(run){
   if(prev && prev.durationSec <= run.durationSec) return;
   state.chat.push({role:'coach', text: t('coach_new_pr_'+bucket.key, {time: fmtTime(run.durationSec)}), ts:Date.now()});
   renderChat();
+  showToast(t('pr_toast_new', {label: t('pr_label_'+bucket.key), time: fmtTime(run.durationSec)}), 'success');
+  haptic(40);
 }
 function predictRaceTime(targetKm){
   // Estima el tiempo objetivo para `targetKm` con la fórmula de Riegel (T2 = T1 *
@@ -3117,6 +3320,7 @@ function renderHistory(){
           <div class="stat-box"><div class="n mono">${avgHr||'—'}</div><div class="l">${t('hist_avg_hr')}</div></div>
           <div class="stat-box"><div class="n mono">${cal}</div><div class="l">${t('run_calories')}</div></div>
         </div>
+        <p class="muted" style="margin-top:10px; font-size:12.5px;">${t('hist_benefit_'+runBenefitKey(r))}</p>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
           <p class="muted" style="margin:0;">${t('hist_shoe')}: ${shoe? escapeHtml(shoe.name) : t('hist_no_shoe')}</p>
           <button onclick="event.stopPropagation(); shareRunImage('${r.id}')" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
