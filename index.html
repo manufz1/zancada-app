@@ -13,7 +13,19 @@ try{
   if(localStorage.getItem('zancada_theme') === 'light') document.documentElement.setAttribute('data-theme','light');
 }catch(e){}
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content">
+<!-- interactive-widget=resizes-content (como estaba antes) le pide a iOS que
+     encoja el VIEWPORT DE LAYOUT entero cuando se abre el teclado, y lo vuelva a
+     agrandar solo al cerrarlo. Todo este tiempo el bug de "la tabbar queda más
+     arriba, con un hueco vacío debajo, después de cerrar el teclado" probablemente
+     era justo esto: WebKit no siempre restaura ese viewport encogido a tiempo (o
+     del todo), y como nav.tabbar es position:fixed con bottom:var(--safe-bottom)
+     puro CSS (sin ningún cálculo propio en JS), queda anclada al fondo de un
+     viewport que todavía cree que es más chico de lo que en realidad es -- de ahí
+     el hueco. Con resizes-visual, el viewport de LAYOUT nunca se toca (siempre mide
+     lo mismo); es el VISUAL viewport (window.visualViewport) el que se encoge con
+     el teclado, y eso ya lo veníamos leyendo bien en syncCoachChatLayout(). Con este
+     cambio, la tabbar deja de depender de que iOS "se acuerde" de restaurar nada. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no, interactive-widget=resizes-visual">
 <title>Zancada</title>
 <meta name="description" content="Zancada es tu coach de running: planes de entrenamiento personalizados, seguimiento de carreras y un coach con IA, todo en una sola app.">
 <meta property="og:title" content="Zancada — Tu coach de running">
@@ -1298,6 +1310,7 @@ try{
     <div class="card">
       <h3 data-i18n="perfil_about"></h3>
       <p class="muted" id="credits-text"></p>
+      <p class="muted mono" id="app-version-text" style="margin-top:6px; font-size:10.5px; opacity:.55;"></p>
       <p class="muted" style="margin-top:8px;" data-i18n="perfil_data_note"></p>
       <div style="display:flex; gap:16px; margin-top:12px; flex-wrap:wrap;">
         <a class="small-link" href="/privacy.html" target="_blank" rel="noopener" data-i18n="legal_privacy_link"></a>

@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T21:15:00Z';
+const APP_VERSION = '2026-09-02T22:05:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2550,6 +2550,12 @@ function removeAvatarPhoto(e){
 }
 function updateCredits(){
   document.getElementById('credits-text').textContent = t('perfil_credits');
+  // Versión visible del build cargado -- sin esto, no había forma de que el usuario
+  // (ni nosotros, por lo que nos cuenta) confirmara si ya estaba probando la versión
+  // nueva o todavía una vieja cacheada, lo que hizo perder tiempo varias veces
+  // diagnosticando bugs ya arreglados en una versión que el celular no había tomado.
+  const versionEl = document.getElementById('app-version-text');
+  if(versionEl) versionEl.textContent = 'v' + APP_VERSION;
 }
 document.getElementById('perfil-name').addEventListener('input', ()=>{ updateCredits(); });
 document.getElementById('perfil-name').addEventListener('change', ()=>{
