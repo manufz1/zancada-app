@@ -430,7 +430,12 @@ try{
      solución es un wrapper aparte SIN overflow:hidden que sostiene los dos: la foto (que
      sí recorta) y la insignia (que ahora puede sobresalir del círculo sin que nada la corte). */
   .avatar-big-wrap{position:relative; flex-shrink:0; cursor:pointer;}
-  .avatar-big{width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; overflow:hidden;}
+  /* position:relative es necesario acá -- si no, el <img> de adentro (que es
+     position:absolute) se posiciona relativo a .avatar-big-wrap (el próximo ancestro
+     posicionado) en vez de a este elemento, se sale de esta caja con overflow:hidden y
+     border-radius, y termina mostrándose sin recortar (foto cuadrada, sin bordes
+     redondeados) -- exactamente el bug que quedó al separar el badge de la cámara. */
+  .avatar-big{position:relative; width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; overflow:hidden;}
   .avatar-big img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
   .avatar-edit-badge{position:absolute; bottom:-4px; right:-4px; width:22px; height:22px; border-radius:50%; background:var(--hivis); color:var(--ink); display:flex; align-items:center; justify-content:center; border:2.5px solid var(--asphalt); pointer-events:none;}
   .pr-medal-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:4px;}
@@ -488,9 +493,14 @@ try{
   .add-row{display:flex; gap:8px; margin-top:12px;}
   .add-row input,.add-row select{flex:1; background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:11px; border-radius:var(--radius-sm); font-size:14px;}
 
-  nav.tabbar{position:fixed; bottom:14px; left:14px; right:14px; max-width:452px; margin:0 auto; background:var(--tabbar-bg);
+  /* bottom:0 (antes 14px) -- flotaba 14px de más por encima del borde real de la
+     pantalla, sumado al padding inferior (que ya de por sí es más grande que el
+     superior por el safe-bottom del home indicator). Con bottom:0 el padding queda
+     simétrico de verdad: 9px arriba y 9px + safe-bottom abajo (el extra de abajo es
+     solo lo que hace falta para no tapar el home indicator, no una asimetría de más). */
+  nav.tabbar{position:fixed; bottom:0; left:14px; right:14px; max-width:452px; margin:0 auto; background:var(--tabbar-bg);
     backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:flex; padding:9px 6px calc(9px + var(--safe-bottom));
-    border-radius:26px; border:1px solid var(--overlay-hairline); box-shadow:var(--shadow-lg); z-index:20;}
+    border-radius:26px 26px 0 0; border:1px solid var(--overlay-hairline); border-bottom:none; box-shadow:var(--shadow-lg); z-index:20;}
   nav.tabbar button{flex:1; background:none; border:none; color:var(--mist-dim); display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10.5px; font-weight:600; cursor:pointer; padding:4px 2px; transition:transform .12s ease, color .12s ease;}
   .nav-icon-wrap{position:relative; display:inline-flex;}
   .nav-badge-dot{position:absolute; top:-2px; right:-4px; width:8px; height:8px; border-radius:50%; background:var(--hivis); border:1.5px solid var(--asphalt); display:none;}

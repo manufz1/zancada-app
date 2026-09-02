@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:10:00Z';
+const APP_VERSION = '2026-09-02T18:22:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2667,11 +2667,11 @@ function syncCoachChatLayout(){
   // baja pegado directamente al borde del teclado, sin hueco.
   const tabbarVisible = !kbOpen && tabbar && tabbar.style.display !== 'none';
   const tabbarH = tabbarVisible ? tabbar.offsetHeight : 0;
-  // la tabbar ahora "flota" separada del borde inferior (nav.tabbar tiene
-  // bottom:14px en vez de bottom:0) -- ese hueco no forma parte de su
-  // offsetHeight, así que hay que sumarlo aparte para que el chat no quede
-  // metido debajo de la pill flotante.
-  const tabbarFloatGap = tabbarVisible ? 14 : 0;
+  // nav.tabbar ahora vive pegada a bottom:0 (antes flotaba con bottom:14px, y este
+  // valor compensaba ese hueco extra que no formaba parte de su offsetHeight). Ya no
+  // hace falta compensar nada -- se deja la variable en 0 en vez de borrarla para que
+  // quede claro, si algún día vuelve a flotar, dónde hay que sumarlo de nuevo.
+  const tabbarFloatGap = 0;
   const bottomGap = kbOpen ? 0 : 8;
   const top = Math.round(viewportOffsetTop + headerH);
   const height = Math.max(0, Math.round(viewportH - headerH - tabbarH - tabbarFloatGap - bottomGap));
@@ -2749,7 +2749,31 @@ if(window.visualViewport){
     if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
     document.body.classList.remove('chat-kb-open');
     reapplyDuringAnimation();
+    forceFixedLayoutReflow();
   });
+  // Tercera causa posible del mismo síntoma: en iOS hay un bug de WebKit bastante
+  // conocido donde, después de que el teclado se abre y se cierra, los elementos
+  // position:fixed (como la tabbar) se quedan "congelados" en la posición vieja a
+  // nivel del motor de renderizado -- no es que el CSS o el JS estén mal, es que
+  // WebKit directamente no vuelve a calcular dónde va el elemento fijo hasta que
+  // pasa OTRA cosa que fuerce ese recálculo. El truco estándar para forzar ese
+  // recálculo (usado en un montón de apps con este mismo problema) es scrollear la
+  // página 1px y volver a 0 -- ese movimiento real (no un no-op de "ya estás en 0")
+  // hace que WebKit vuelva a ubicar todo lo que es position:fixed correctamente.
+  function forceFixedLayoutReflow(){
+    const scroller = document.scrollingElement || document.documentElement;
+    const original = scroller.scrollTop;
+    window.scrollTo(0, original + 1);
+    requestAnimationFrame(()=>{
+      window.scrollTo(0, original);
+      // Lo repetimos una vez más un toque más tarde por si el teclado todavía
+      // estaba a mitad de animación de cierre cuando hicimos el primer intento.
+      setTimeout(()=>{
+        window.scrollTo(0, original + 1);
+        requestAnimationFrame(()=> window.scrollTo(0, original));
+      }, 350);
+    });
+  }
 })();
 /* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
 let appUpdateChecking = false;
