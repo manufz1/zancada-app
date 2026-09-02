@@ -762,6 +762,20 @@ try{
       </div>
     </div>
 
+    <div class="card" id="home-race-card" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="min-width:0;">
+          <h3 style="margin:0 0 6px;" data-i18n="home_race_card_title"></h3>
+          <p style="margin:0; font-size:14.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="home-race-name">—</p>
+          <span class="tag" id="home-race-type-tag" style="margin-top:6px; display:inline-block;"></span>
+        </div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div class="display" id="home-race-days" style="font-size:32px; color:var(--hivis); line-height:1;">0</div>
+          <div class="muted" style="font-size:11px; margin-top:2px;" data-i18n="perfil_event_days"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h3 data-i18n="home_week"></h3>
       <div class="stat-row">
@@ -1037,6 +1051,15 @@ try{
     <h2 class="display" style="font-size:22px;" data-i18n="pain_info_title"></h2>
     <p class="lead" data-i18n="pain_info_text"></p>
     <button class="btn btn-primary" style="width:100%; margin-top:28px;" onclick="closePainInfo()" data-i18n="hist_info_ok"></button>
+  </div>
+
+  <div class="overlay" id="plan-change-timing-modal" style="display:none; z-index:58;">
+    <h2 class="display" style="font-size:22px;" data-i18n="plan_timing_title"></h2>
+    <p class="lead" data-i18n="plan_timing_subtitle"></p>
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:28px;">
+      <button class="btn btn-primary" style="padding:18px; font-size:16px;" onclick="resolvePlanChangeTiming('now')" data-i18n="plan_timing_now"></button>
+      <button class="btn btn-outline" style="padding:18px; font-size:16px;" onclick="resolvePlanChangeTiming('nextWeek')" data-i18n="plan_timing_next_week"></button>
+    </div>
   </div>
 
   <div class="overlay" id="calendar-modal" style="display:none; z-index:60;">

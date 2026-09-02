@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T19:05:00Z';
+const APP_VERSION = '2026-09-02T20:10:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -804,6 +804,49 @@ function handleGoalChange(newGoal){
     wrap.style.display = 'none';
   }
 }
+/* ---- cuándo aplicar un cambio de perfil/objetivo que afecta el plan ----
+   Editar datos personales o el objetivo semanal puede cambiar el plan de la semana
+   ACTUAL de golpe -- lo cual no siempre es lo que el corredor quiere si, por ejemplo,
+   ya viene cumpliendo los primeros días de esta semana con el plan viejo y prefiere
+   arrancar el ajuste recién el lunes que viene. Por eso, en vez de regenerar el plan
+   directo al guardar, primero preguntamos y dejamos el guardado pendiente de esa
+   respuesta -- cada opción vive en su propia función (aplicar ahora / aplicar desde
+   la semana que viene) en vez de una única función con un if genérico adentro. */
+let pendingPlanChangeContext = null; // 'personal' | 'goals'
+function openPlanChangeTimingModal(ctx){
+  pendingPlanChangeContext = ctx;
+  document.getElementById('plan-change-timing-modal').style.display = 'block';
+}
+function resolvePlanChangeTiming(choice){
+  document.getElementById('plan-change-timing-modal').style.display = 'none';
+  const ctx = pendingPlanChangeContext;
+  pendingPlanChangeContext = null;
+  if(ctx === 'personal'){
+    if(choice === 'now') applyPersonalDataChangeNow(); else applyPersonalDataChangeNextWeek();
+    finishPersonalDataSave();
+  } else if(ctx === 'goals'){
+    if(choice === 'now') applyGoalsChangeNow(); else applyGoalsChangeNextWeek();
+    finishGoalsSave();
+  }
+}
+// --- Datos personales: apartado "a partir de ahora" ---
+function applyPersonalDataChangeNow(){
+  state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
+  state.nextWeekOverrides = {}; // el perfil cambió de base -> los cambios puntuales que hubiera para la semana que viene ya no aplican sobre el plan nuevo
+}
+// --- Datos personales: apartado "desde la semana que viene" ---
+function applyPersonalDataChangeNextWeek(){
+  // No tocamos state.plan: el plan de ESTA semana queda exactamente como estaba. Las
+  // semanas futuras (getNextWeekPlan()/getWeekData() para offset>=1) ya se calculan
+  // en el momento a partir de state.profile -- como el perfil ya quedó actualizado
+  // arriba, esas semanas van a reflejar el cambio solas a partir del lunes que viene,
+  // sin necesidad de guardar nada "pendiente" aparte.
+  state.nextWeekOverrides = {}; // esos ajustes puntuales se calcularon sobre el perfil viejo -> ya no aplican
+}
+function finishPersonalDataSave(){
+  renderAll(); renderPerfil(); persist();
+  flashSaved('save-personal-btn');
+}
 function savePersonalData(){
   const weight = parseFloat(document.getElementById('perfil-weight').value);
   const height = parseFloat(document.getElementById('perfil-height').value);
@@ -822,11 +865,32 @@ function savePersonalData(){
     state.profile.runnerType = 'active';
   }
   state.profile.weeklyKm = calcWeeklyKm(state.profile);
-  state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
-  state.nextWeekOverrides = {}; // el perfil cambió de base -> los cambios puntuales que hubiera para la semana que viene ya no aplican sobre el plan nuevo
   kmCheckWrap.style.display = 'none';
-  renderAll(); renderPerfil(); persist();
-  flashSaved('save-personal-btn');
+  openPlanChangeTimingModal('personal');
+}
+// --- Objetivo/meta semanal: apartado "a partir de ahora" ---
+function applyGoalsChangeNow(){
+  // la meta semanal ahora es un input real del plan (acotado por seguridad en generatePlan),
+  // no solo un número decorativo para la barra de progreso -- así que hay que regenerar
+  // el plan de la semana y avisarle al coach para que quede todo conectado
+  state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
+  if(state.profile.weeklyGoalKm > 0){
+    state.chat.push({role:'coach', text: t('coach_weekly_goal_updated', {km: state.profile.weeklyGoalKm}), ts:Date.now()});
+    renderChat();
+  }
+}
+// --- Objetivo/meta semanal: apartado "desde la semana que viene" ---
+function applyGoalsChangeNextWeek(){
+  // Igual que en datos personales: no tocamos el plan de esta semana, la que viene ya
+  // se calcula sola con el perfil actualizado.
+  if(state.profile.weeklyGoalKm > 0){
+    state.chat.push({role:'coach', text: t('coach_weekly_goal_updated_next_week', {km: state.profile.weeklyGoalKm}), ts:Date.now()});
+    renderChat();
+  }
+}
+function finishGoalsSave(){
+  renderAll(); persist();
+  flashSaved('save-goals-btn');
 }
 function saveGoals(){
   const weeklyGoal = parseFloat(document.getElementById('perfil-weekly-goal').value) || 0;
@@ -835,17 +899,12 @@ function saveGoals(){
   state.profile.weeklyGoalKm = weeklyGoal;
   state.profile.goalNote = goalNote;
   if(goalChanged){
-    // la meta semanal ahora es un input real del plan (acotado por seguridad en generatePlan),
-    // no solo un número decorativo para la barra de progreso -- así que hay que regenerar
-    // el plan de la semana y avisarle al coach para que quede todo conectado
-    state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
-    if(weeklyGoal > 0){
-      state.chat.push({role:'coach', text: t('coach_weekly_goal_updated', {km: weeklyGoal}), ts:Date.now()});
-      renderChat();
-    }
+    openPlanChangeTimingModal('goals');
+  } else {
+    // la meta no cambió de verdad (guardaron solo la nota, por ejemplo) -- no hay nada
+    // que el timing pueda afectar, así que no tiene sentido preguntar
+    finishGoalsSave();
   }
-  renderAll(); persist();
-  flashSaved('save-goals-btn');
 }
 document.getElementById('perfil-terrain-choice').addEventListener('click', e=>{
   const c=e.target.closest('.choice'); if(!c) return;
@@ -1790,6 +1849,26 @@ function renderHome(){
   renderRaceTip();
   document.getElementById('home-name').textContent = state.profile.name;
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString(LOCALE_MAP[lang],{weekday:'short',day:'numeric',month:'short'});
+
+  // Carrera cargada en "Próximos eventos" (Perfil) -- se muestra también acá en Inicio
+  // (no solo en Perfil) porque es justo el tipo de dato que el corredor quiere ver de
+  // entrada al abrir la app, no algo que tenga que ir a buscar. Se recalcula entera en
+  // cada render a partir de state.event, así que sigue apareciendo sin importar qué
+  // otra cosa se haya editado (datos personales, objetivo, etc.) -- ninguno de esos
+  // guardados toca state.event.
+  const raceCard = document.getElementById('home-race-card');
+  if(state.event){
+    raceCard.style.display = 'block';
+    document.getElementById('home-race-name').textContent = state.event.name;
+    const raceTag = document.getElementById('home-race-type-tag');
+    raceTag.className = 'tag tag-' + (state.event.type==='ruta' ? 'asfalto' : state.event.type==='trail' ? 'trail' : 'mixto');
+    raceTag.textContent = t('ev_type_'+state.event.type);
+    const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+    const daysToRace = Math.round((new Date(state.event.date+'T00:00:00') - todayMidnight) / 86400000);
+    document.getElementById('home-race-days').textContent = Math.max(0, daysToRace);
+  } else {
+    raceCard.style.display = 'none';
+  }
 
   // Racha de semanas seguidas cumpliendo el plan (≥70%) -- ver buildWeeklyRecapMessage().
   // La mostramos acá recién a partir de la 2da semana seguida, igual que en el chat del
