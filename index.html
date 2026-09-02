@@ -72,16 +72,20 @@ try{
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
   }
   :root[data-theme="light"]{
-    /* Estos valores fueron ajustados (más oscuros/saturados que la primera versión)
-       para cumplir el contraste mínimo WCAG AA en modo claro -- la versión anterior
-       de --mist, --mist-dim, --asphalt-4 y los --zoneN se veían "lavados" y costaba
-       leer texto secundario, badges de zona y bordes de botones sobre fondos claros. */
-    --asphalt:#F7F6F2; --asphalt-2:#FFFFFF; --asphalt-3:#F0EEE6; --asphalt-4:#B7AF91;
+    /* --mist, --mist-dim y los --zoneN quedaron más oscuros/saturados que la primera
+       versión para cumplir el contraste mínimo WCAG AA (texto secundario y badges de
+       zona que antes casi no se leían). --asphalt-4 y --overlay-hairline en cambio
+       volvieron a su valor original de siempre: subirles el contraste para que los
+       bordes de botones/inputs se notaran más terminó tiñendo TODA la interfaz de un
+       marrón/caqui sucio (asphalt-4 se usa como borde en inputs, pills, botones outline
+       y como fondo de tags/skeleton por igual) -- el usuario lo reportó como "feo" y
+       tenía razón: ese borde apenas visible era una decisión de diseño, no un bug. */
+    --asphalt:#F7F6F2; --asphalt-2:#FFFFFF; --asphalt-3:#F0EEE6; --asphalt-4:#E2DFD3;
     --chalk:#20231F; --mist:#63675C; --mist-dim:#747362;
     --hivis:#8FA820; --hivis-dim:#EEF3D2; --hivis-text:#5C6B14; --ink:#1B1E20;
     --clay:#B0631F; --clay-dim:rgba(176,99,31,.14);
     --danger:#D6402F; --danger-dim:rgba(214,64,47,.12);
-    --press:rgba(0,0,0,.035); --overlay-hairline:rgba(0,0,0,.14);
+    --press:rgba(0,0,0,.035); --overlay-hairline:rgba(0,0,0,.06);
     --tabbar-bg:rgba(255,255,255,.86);
     --toast-error-bg:#FBE3DE; --toast-error-fg:#B23A28;
     --shadow-card:0 10px 26px rgba(60,58,40,.10); --shadow-lg:0 20px 50px rgba(60,58,40,.18);
@@ -252,14 +256,10 @@ try{
      incluso en reposo. El highlight de "elevada" se logra solo con el inset,
      que no afecta la opacidad del fondo. */
   :root:not([data-theme="light"]) .card{background:var(--asphalt-2); box-shadow:var(--shadow-card), inset 0 1px 0 rgba(255,255,255,.03);}
-  /* En modo claro el track del switch (asphalt-4) queda bastante cerca del blanco de
-     la tarjeta -- un borde chico ayuda a que se note el "apagado" como un control,
-     no solo como un rectángulo de fondo. */
+  /* En modo claro el track "apagado" del switch queda bastante cerca del blanco de
+     la tarjeta -- un borde chico y neutro (no ligado a asphalt-4) ayuda a que se
+     note como control sin teñir nada de color. */
   :root[data-theme="light"] .switch-slider{border:1px solid rgba(0,0,0,.10);}
-  /* Mismo motivo: el borde "hairline" casi no se ve en claro sobre una tarjeta
-     blanca, y btn-outline necesita leerse como botón tocable, no como una tarjeta
-     más. Le damos un borde más marcado (asphalt-4) solo en modo claro. */
-  :root[data-theme="light"] .btn-outline{border-color:var(--asphalt-4);}
   .card[onclick]{cursor:pointer; transition:transform .12s ease;}
   .card[onclick]:active{transform:scale(.98);}
   .card h3{font-size:11.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--mist); font-weight:700; margin-bottom:12px;}
