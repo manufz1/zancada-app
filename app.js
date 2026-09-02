@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:22:00Z';
+const APP_VERSION = '2026-09-02T18:36:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2640,6 +2640,9 @@ document.addEventListener('touchend', e=>{
    del chat (ese scroll queda contenido en #chatLog, no en la página ni en el
    visualViewport). Solo se vuelve a medir cuando el teclado realmente abre/cierra
    (evento resize) o cuando la ventana cambia de tamaño -- nunca durante el scroll. */
+// Alto del teclado nativo en píxeles, reportado por el plugin Keyboard de Capacitor
+// (ver el IIFE más abajo) -- 0 cuando está cerrado. Solo tiene sentido en la app nativa.
+let nativeKeyboardHeightPx = 0;
 function syncCoachChatLayout(){
   const wrap = document.getElementById('coachChatWrap');
   const header = document.getElementById('mainHeader');
@@ -2648,33 +2651,44 @@ function syncCoachChatLayout(){
   const scrollBtnWrap = document.getElementById('chatScrollBtnWrap');
   if(!wrap) return;
   const kbOpen = document.body.classList.contains('chat-kb-open');
-  // OJO: visualViewport solo es confiable MIENTRAS el teclado está realmente abierto.
-  // En la app instalada como ícono (modo standalone/PWA), hay un bug conocido de iOS
-  // donde visualViewport.height/offsetTop se quedan "pegados" en el valor que tenían
-  // con el teclado abierto y NUNCA vuelven a su valor real después de cerrarlo -- ni
-  // aunque se vuelva a medir más tarde (por eso insistir con más reintentos, como se
-  // hacía antes acá, no arreglaba nada: el dato que se estaba releyendo ya era el
-  // equivocado desde el principio). Con el teclado cerrado (blur ya disparado),
-  // usamos directamente window.innerHeight con offset 0 -- ese valor SÍ es estable en
-  // standalone y no se ve afectado por este bug, así que listo, sin depender de que
-  // el sistema "se acuerde solo" de volver a su tamaño real.
-  const vv = window.visualViewport;
-  const viewportH = (kbOpen && vv) ? vv.height : window.innerHeight;
-  const viewportOffsetTop = (kbOpen && vv) ? vv.offsetTop : 0;
+  const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  let viewportH, viewportOffsetTop;
+  if(isNativeApp){
+    // App nativa (Capacitor/WKWebView): NO usamos window.visualViewport acá. Dentro del
+    // WKWebView de Capacitor, visualViewport es conocido por comportarse de forma poco
+    // confiable (a veces no dispara resize al abrir/cerrar el teclado, a veces se queda
+    // con un valor viejo pegado) -- exactamente los síntomas que veníamos persiguiendo
+    // sin poder resolver del todo. En su lugar, el plugin nativo Keyboard nos avisa con
+    // eventos reales (keyboardWillShow/Hide) y nos da el alto exacto del teclado, que
+    // guardamos en nativeKeyboardHeightPx -- restamos eso de window.innerHeight, que en
+    // la app nativa SÍ es estable y no se ve afectado por el teclado.
+    viewportH = window.innerHeight - (kbOpen ? nativeKeyboardHeightPx : 0);
+    viewportOffsetTop = 0;
+  } else {
+    // Versión web (Safari / PWA agregada a inicio): acá visualViewport sí es la fuente
+    // correcta mientras el teclado está realmente abierto. Con el teclado cerrado (blur
+    // ya disparado) usamos window.innerHeight -- en iOS standalone, visualViewport puede
+    // quedar "pegado" en el valor con teclado abierto y no volver solo a su tamaño real.
+    const vv = window.visualViewport;
+    viewportH = (kbOpen && vv) ? vv.height : window.innerHeight;
+    viewportOffsetTop = (kbOpen && vv) ? vv.offsetTop : 0;
+  }
   const headerH = (header && header.style.display !== 'none') ? header.offsetHeight : 0;
-  // con el teclado cerrado, el chat termina justo arriba de la tabbar (con un
-  // pequeño margen); con el teclado abierto, la tabbar ya está oculta y el chat
-  // baja pegado directamente al borde del teclado, sin hueco.
-  const tabbarVisible = !kbOpen && tabbar && tabbar.style.display !== 'none';
-  const tabbarH = tabbarVisible ? tabbar.offsetHeight : 0;
-  // nav.tabbar ahora vive pegada a bottom:0 (antes flotaba con bottom:14px, y este
-  // valor compensaba ese hueco extra que no formaba parte de su offsetHeight). Ya no
-  // hace falta compensar nada -- se deja la variable en 0 en vez de borrarla para que
-  // quede claro, si algún día vuelve a flotar, dónde hay que sumarlo de nuevo.
-  const tabbarFloatGap = 0;
   const bottomGap = kbOpen ? 0 : 8;
   const top = Math.round(viewportOffsetTop + headerH);
-  const height = Math.max(0, Math.round(viewportH - headerH - tabbarH - tabbarFloatGap - bottomGap));
+  // con el teclado cerrado, el chat termina justo arriba de la tabbar (con un pequeño
+  // margen); con el teclado abierto, la tabbar ya está oculta y el chat baja pegado
+  // directamente al borde del teclado, sin hueco. En vez de RECONSTRUIR a mano dónde
+  // termina la tabbar (sumando alto + padding + el hueco que deja flotando, como se
+  // hacía antes) medimos su posición real en pantalla con getBoundingClientRect() --
+  // así, si el día de mañana cambia el CSS de la tabbar (padding, si vuelve a flotar,
+  // etc.), esto se sigue ajustando solo, sin volver a romperse por quedar desincronizado
+  // con constantes escritas a mano (que es justo lo que pasó más de una vez acá).
+  const tabbarVisible = !kbOpen && tabbar && tabbar.style.display !== 'none';
+  const bottomLimit = tabbarVisible
+    ? Math.round(tabbar.getBoundingClientRect().top) - bottomGap
+    : Math.round(viewportOffsetTop + viewportH) - bottomGap;
+  const height = Math.max(0, bottomLimit - top);
   wrap.style.top = top + 'px';
   wrap.style.height = height + 'px';
   if(scrollBtnWrap && chatBar) scrollBtnWrap.style.bottom = (chatBar.offsetHeight + 14) + 'px';
@@ -2697,6 +2711,55 @@ if(window.visualViewport){
   const chatInputEl = document.getElementById('chatInput');
   const tabbarEl = document.getElementById('tabbar');
   if(!chatInputEl) return;
+  const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const nativeKeyboard = isNativeApp && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard;
+  function openKeyboardUI(){
+    if(tabbarEl) tabbarEl.style.display = 'none';
+    document.body.classList.add('chat-kb-open');
+  }
+  function closeKeyboardUI(){
+    if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
+    document.body.classList.remove('chat-kb-open');
+  }
+  if(nativeKeyboard){
+    // App nativa (Capacitor): acá sí tenemos una fuente confiable para saber cuándo
+    // aparece y desaparece el teclado -- el plugin oficial @capacitor/keyboard, que
+    // manda estos eventos directo desde el sistema operativo, con el alto exacto del
+    // teclado en píxeles. Esto reemplaza por completo la vieja estrategia de "adivinar"
+    // con window.visualViewport + reintentos, que dentro del WKWebView de Capacitor
+    // resultó no ser confiable (de ahí que el hueco vacío pasara siempre, no a veces).
+    //
+    // IMPORTANTE: esto requiere que la app nativa tenga instalado @capacitor/keyboard
+    // (ver mobile/package.json) y se haya vuelto a compilar con Xcode -- actualizar
+    // solo estos archivos JS no alcanza para que este plugin exista en la app.
+    nativeKeyboard.addListener('keyboardWillShow', (info) => {
+      nativeKeyboardHeightPx = (info && typeof info.keyboardHeight === 'number') ? info.keyboardHeight : 0;
+      openKeyboardUI();
+      syncCoachChatLayout();
+    });
+    nativeKeyboard.addListener('keyboardDidShow', (info) => {
+      nativeKeyboardHeightPx = (info && typeof info.keyboardHeight === 'number') ? info.keyboardHeight : nativeKeyboardHeightPx;
+      syncCoachChatLayout();
+    });
+    nativeKeyboard.addListener('keyboardWillHide', () => {
+      closeKeyboardUI();
+      nativeKeyboardHeightPx = 0;
+      syncCoachChatLayout();
+    });
+    nativeKeyboard.addListener('keyboardDidHide', () => {
+      nativeKeyboardHeightPx = 0;
+      syncCoachChatLayout();
+      // WKWebView es motor WebKit igual que Safari, así que el mismo bug de "elementos
+      // position:fixed que quedan congelados tras el teclado" podría darse acá también
+      // -- este empujoncito de scroll es barato y no rompe nada, así que lo dejamos
+      // como red de seguridad aunque ahora el tamaño/posición ya se calculen bien.
+      forceFixedLayoutReflow();
+    });
+    return; // no hace falta nada de lo que sigue -- eso es solo para la versión web
+  }
+  // A partir de acá, todo lo que sigue es la estrategia para la versión WEB (Safari /
+  // PWA agregada a inicio), donde sí corresponde usar window.visualViewport.
+  //
   // El teclado de iOS tarda unos cientos de ms en aparecer/desaparecer y el evento
   // visualViewport.resize llega de forma asincrónica durante esa animación -- volvemos a
   // medir varias veces mientras se mueve, en vez de confiar en una sola lectura inmediata
