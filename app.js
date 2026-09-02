@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:01:00Z';
+const APP_VERSION = '2026-09-02T18:10:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2647,11 +2647,21 @@ function syncCoachChatLayout(){
   const chatBar = document.getElementById('chatBar');
   const scrollBtnWrap = document.getElementById('chatScrollBtnWrap');
   if(!wrap) return;
-  const vv = window.visualViewport;
-  const viewportH = vv ? vv.height : window.innerHeight;
-  const viewportOffsetTop = vv ? vv.offsetTop : 0;
-  const headerH = (header && header.style.display !== 'none') ? header.offsetHeight : 0;
   const kbOpen = document.body.classList.contains('chat-kb-open');
+  // OJO: visualViewport solo es confiable MIENTRAS el teclado está realmente abierto.
+  // En la app instalada como ícono (modo standalone/PWA), hay un bug conocido de iOS
+  // donde visualViewport.height/offsetTop se quedan "pegados" en el valor que tenían
+  // con el teclado abierto y NUNCA vuelven a su valor real después de cerrarlo -- ni
+  // aunque se vuelva a medir más tarde (por eso insistir con más reintentos, como se
+  // hacía antes acá, no arreglaba nada: el dato que se estaba releyendo ya era el
+  // equivocado desde el principio). Con el teclado cerrado (blur ya disparado),
+  // usamos directamente window.innerHeight con offset 0 -- ese valor SÍ es estable en
+  // standalone y no se ve afectado por este bug, así que listo, sin depender de que
+  // el sistema "se acuerde solo" de volver a su tamaño real.
+  const vv = window.visualViewport;
+  const viewportH = (kbOpen && vv) ? vv.height : window.innerHeight;
+  const viewportOffsetTop = (kbOpen && vv) ? vv.offsetTop : 0;
+  const headerH = (header && header.style.display !== 'none') ? header.offsetHeight : 0;
   // con el teclado cerrado, el chat termina justo arriba de la tabbar (con un
   // pequeño margen); con el teclado abierto, la tabbar ya está oculta y el chat
   // baja pegado directamente al borde del teclado, sin hueco.
