@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:36:00Z';
+const APP_VERSION = '2026-09-02T18:40:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1912,9 +1912,14 @@ function renderRunTodayCard(){
     document.getElementById('run-done-pace').textContent = fmtPace(paceMin);
     document.getElementById('run-done-pace-label').textContent = t('run_pace');
     doneCard.style.display = 'block';
-  } else {
-    doneCard.style.display = 'none';
+    // El cartel de "sesión completada" reemplaza al de "tu sesión de hoy" (no tiene
+    // sentido mostrar los dos juntos, uno diciendo lo que tocaba y otro confirmando que
+    // ya se hizo) -- antes esto solo se decía en el comentario de arriba, pero el código
+    // nunca llegaba a ocultar `card`, así que quedaban las dos tarjetas apiladas.
+    card.style.display = 'none';
+    return;
   }
+  doneCard.style.display = 'none';
   if(!today){ card.style.display = 'none'; return; }
   const lbl = planLabel(today);
   document.getElementById('run-today-title').textContent = lbl.type;
