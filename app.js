@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T18:43:00Z';
+const APP_VERSION = '2026-09-02T19:05:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2797,26 +2797,37 @@ if(window.visualViewport){
     if(scroller.scrollTop !== 0) scroller.scrollTop = 0;
     if(window.scrollY) window.scrollTo(0, 0);
   }
-  function reapplyDuringAnimation(){
+  // resetScroll=true SOLO tiene que pasarse al cerrar el teclado (blur). Un video real
+  // que mandó el usuario mostró un glitch nuevo, distinto al que esto venía resolviendo:
+  // JUSTO AL ABRIRSE el teclado, toda la pantalla (encabezado incluido, no solo el
+  // chat) se corre hacia abajo un instante dejando un hueco negro arriba, y se
+  // acomoda sola en menos de medio segundo. Eso es exactamente la marca de dos cosas
+  // peleándose por el scroll al mismo tiempo: iOS anima su propio scroll para
+  // asegurarse de que el input quede visible arriba del teclado, y ACÁ, cada 80ms
+  // durante esa misma animación, forzábamos el scroll de vuelta a 0 -- interrumpiendo
+  // esa animación nativa a mitad de camino y produciendo el salto visible. Por eso
+  // ahora resetDocumentScroll() solo se llama al CERRAR el teclado (que es cuando de
+  // verdad puede quedar un scroll viejo pegado), nunca mientras se abre.
+  function reapplyDuringAnimation(resetScroll){
     if(animationPollId) clearInterval(animationPollId);
     syncCoachChatLayout();
-    resetDocumentScroll();
+    if(resetScroll) resetDocumentScroll();
     const deadline = Date.now() + 2000;
     animationPollId = setInterval(()=>{
       syncCoachChatLayout();
-      resetDocumentScroll();
+      if(resetScroll) resetDocumentScroll();
       if(Date.now() >= deadline){ clearInterval(animationPollId); animationPollId = null; }
     }, 80);
   }
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';
     document.body.classList.add('chat-kb-open');
-    reapplyDuringAnimation();
+    reapplyDuringAnimation(false);
   });
   chatInputEl.addEventListener('blur', ()=>{
     if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
     document.body.classList.remove('chat-kb-open');
-    reapplyDuringAnimation();
+    reapplyDuringAnimation(true);
     forceFixedLayoutReflow();
   });
   // Tercera causa posible del mismo síntoma: en iOS hay un bug de WebKit bastante
