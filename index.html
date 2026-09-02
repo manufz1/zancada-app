@@ -768,9 +768,15 @@ try{
       </div>
     </div>
 
-    <div class="card" style="display:flex; gap:12px; align-items:flex-start;">
-      <span class="icon-sq" style="width:20px; height:20px; color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg></span>
-      <p id="race-tip-text" style="margin:0; font-size:14.5px; line-height:1.5; color:var(--mist);"></p>
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="openRaceTipsInfo()">
+        <h3 style="margin:0;" data-i18n="home_race_tips_title"></h3>
+        <span class="icon-sq" style="width:16px; height:16px; color:var(--mist); flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg></span>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start; margin-top:10px;">
+        <span class="icon-sq" style="width:20px; height:20px; color:var(--hivis-text); flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg></span>
+        <p id="race-tip-text" style="margin:0; font-size:14.5px; line-height:1.5; color:var(--mist);"></p>
+      </div>
     </div>
 
     <div class="card" id="install-help-card">
@@ -927,6 +933,13 @@ try{
     <h2 class="display" style="font-size:22px; text-align:center;" data-i18n="perfil_zones_title"></h2>
     <div id="zones-info-body" style="margin-top:18px; display:flex; flex-direction:column; gap:14px;"></div>
     <button class="btn btn-primary" style="width:100%; margin-top:24px;" onclick="closeZonesInfo()" data-i18n="hist_info_ok"></button>
+  </div>
+
+  <div class="overlay" id="race-tips-info-modal" style="display:none; z-index:59;">
+    <div class="icon-sq" style="width:38px; height:38px; margin:0 auto 8px; color:var(--hivis-text);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg></div>
+    <h2 class="display" style="font-size:22px; text-align:center;" data-i18n="home_race_tips_title"></h2>
+    <div id="race-tips-info-body" style="margin-top:18px; display:flex; flex-direction:column; gap:16px;"></div>
+    <button class="btn btn-primary" style="width:100%; margin-top:24px;" onclick="closeRaceTipsInfo()" data-i18n="hist_info_ok"></button>
   </div>
 
   <div class="overlay" id="rating-modal" style="display:none; z-index:58;">
@@ -1123,11 +1136,6 @@ try{
         </select>
       </div>
       <button class="btn btn-outline btn-sm" style="margin-top:10px; width:100%;" data-i18n="perfil_ev_save" onclick="setEvent()"></button>
-    </div>
-
-    <div class="card">
-      <h3 data-i18n="perfil_pr_title"></h3>
-      <div class="pr-medal-grid" id="perfil-pr-medals"></div>
     </div>
 
     <div class="card">
