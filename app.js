@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T15:50:00Z';
+const APP_VERSION = '2026-09-02T16:10:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2691,9 +2691,27 @@ if(window.visualViewport){
   // visualViewport.resize llega de forma asincrónica durante esa animación -- volvemos a
   // medir varias veces mientras se mueve, en vez de confiar en una sola lectura inmediata
   // que probablemente todavía esté midiendo el estado anterior (sin teclado).
+  //
+  // Antes esto era una lista fija de reintentos (50/120/220/350/500ms) que asumía que la
+  // animación siempre dura menos de medio segundo. En un teléfono real, con el sistema
+  // ocupado o la animación de cierre del teclado más lenta, el último reintento podía
+  // disparar ANTES de que visualViewport.height terminara de volver a su tamaño real --
+  // y como nada vuelve a medir después de eso, la barra de escribir quedaba con el alto
+  // calculado para el teclado (ya cerrado), es decir "flotando" arriba, con un hueco
+  // vacío debajo hasta la tabbar. Por eso ahora remedimos sin condición cada 80ms durante
+  // una ventana de 2 segundos completos después de cada foco/blur -- no tratamos de
+  // "detectar" cuándo terminó la animación (eso puede fallar si el navegador no dispara
+  // ningún evento intermedio), simplemente insistimos el tiempo suficiente como para
+  // cubrir cualquier animación real, por lenta que sea.
+  let animationPollId = null;
   function reapplyDuringAnimation(){
+    if(animationPollId) clearInterval(animationPollId);
     syncCoachChatLayout();
-    [50, 120, 220, 350, 500].forEach(ms => setTimeout(syncCoachChatLayout, ms));
+    const deadline = Date.now() + 2000;
+    animationPollId = setInterval(()=>{
+      syncCoachChatLayout();
+      if(Date.now() >= deadline){ clearInterval(animationPollId); animationPollId = null; }
+    }, 80);
   }
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';

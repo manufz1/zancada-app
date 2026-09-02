@@ -366,7 +366,7 @@ try{
   .typing span{display:inline-block; width:6px; height:6px; background:var(--mist); border-radius:50%; margin-right:3px; animation:blink 1s infinite;}
   .typing span:nth-child(2){animation-delay:.15s;} .typing span:nth-child(3){animation-delay:.3s;}
   .chat-input-bar{flex-shrink:0; background:var(--asphalt);
-    padding:10px 16px; display:none; align-items:center; gap:8px; border-top:1px solid var(--asphalt-3);}
+    padding:10px 20px; display:none; align-items:center; gap:8px; border-top:1px solid var(--asphalt-3);}
   .chat-input-bar.active{display:flex;}
   .chat-input-bar input{flex:1; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:13px 16px; border-radius:999px; font-size:15px; outline:none;}
   .chat-input-bar input:focus{border-color:var(--hivis);}
@@ -381,7 +381,7 @@ try{
   /* position:absolute relativo a #coachChatWrap (que es el positioning context) --
      JS ajusta "bottom" según el alto real de la barra de escribir. */
   .chat-scroll-btn-wrap{position:absolute; left:0; right:0; bottom:86px; pointer-events:none; z-index:2;}
-  .chat-scroll-btn{position:absolute; right:16px; bottom:0; width:38px; height:38px; border-radius:50%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; cursor:pointer; pointer-events:auto; box-shadow:0 3px 12px rgba(0,0,0,.35); transition:transform .12s ease;}
+  .chat-scroll-btn{position:absolute; right:20px; bottom:0; width:38px; height:38px; border-radius:50%; background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; cursor:pointer; pointer-events:auto; box-shadow:0 3px 12px rgba(0,0,0,.35); transition:transform .12s ease;}
   .chat-scroll-btn:active{transform:scale(.9);}
 
   .day-picker{display:flex; flex-wrap:wrap; gap:8px;}
@@ -425,9 +425,15 @@ try{
   .hist-hrlist{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
 
   .profile-head{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
-  .avatar-big{width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; flex-shrink:0; position:relative; overflow:hidden; cursor:pointer;}
+  /* El círculo/cuadrado de la foto necesita overflow:hidden para recortar la imagen a su
+     forma -- pero eso mismo recortaba el emoji de la cámara si vivía adentro, dejándolo
+     "pegado" en el borde interno en vez de asomar hacia afuera como en Instagram. La
+     solución es un wrapper aparte SIN overflow:hidden que sostiene los dos: la foto (que
+     sí recorta) y la insignia (que ahora puede sobresalir del círculo sin que nada la corte). */
+  .avatar-big-wrap{position:relative; flex-shrink:0; cursor:pointer;}
+  .avatar-big{width:56px; height:56px; border-radius:18px; background:var(--hivis-dim); color:var(--hivis-text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; overflow:hidden;}
   .avatar-big img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
-  .avatar-edit-badge{position:absolute; bottom:-2px; right:-2px; width:20px; height:20px; border-radius:50%; background:var(--hivis); color:var(--ink); display:flex; align-items:center; justify-content:center; border:2px solid var(--asphalt); pointer-events:none;}
+  .avatar-edit-badge{position:absolute; bottom:-4px; right:-4px; width:22px; height:22px; border-radius:50%; background:var(--hivis); color:var(--ink); display:flex; align-items:center; justify-content:center; border:2.5px solid var(--asphalt); pointer-events:none;}
   .pr-medal-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:4px;}
   .pr-medal{display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 6px; border-radius:var(--radius-sm); background:var(--asphalt-3); text-align:center; transition:background .15s ease;}
   .pr-medal.achieved{background:var(--hivis-dim);}
@@ -1057,10 +1063,12 @@ try{
 
   <section class="view" id="view-perfil">
     <div class="profile-head">
-      <div class="avatar-big" id="perfil-avatar" role="button" tabindex="0" aria-label="Cambiar foto de perfil" onclick="document.getElementById('perfil-photo-input').click()">
-        <span id="perfil-initial">?</span>
-        <img id="perfil-avatar-img" alt="" style="display:none;">
-        <div class="avatar-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <div class="avatar-big-wrap" id="perfil-avatar" role="button" tabindex="0" aria-label="Cambiar foto de perfil" onclick="document.getElementById('perfil-photo-input').click()">
+        <div class="avatar-big">
+          <span id="perfil-initial">?</span>
+          <img id="perfil-avatar-img" alt="" style="display:none;">
+        </div>
+        <div class="avatar-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
       </div>
       <input type="file" id="perfil-photo-input" accept="image/*" style="display:none;" onchange="handleAvatarPhotoChange(event)">
       <div>
