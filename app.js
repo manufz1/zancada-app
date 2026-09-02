@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T20:10:00Z';
+const APP_VERSION = '2026-09-02T21:15:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -756,8 +756,30 @@ function preserveLivedDays(oldPlan, newPlan){
   // colgado en un día de descanso. Ahora solo preservamos los días que de
   // verdad se marcaron como hechos o salteados; el resto toma el plan
   // nuevo, que es el que refleja el cambio que acaba de hacer el usuario.
-  return newPlan.map((newDay,i)=>
-    (i<=todayIdx && oldPlan[i] && (oldPlan[i].status==='done'||oldPlan[i].status==='skipped')) ? oldPlan[i] : newDay);
+  return newPlan.map((newDay,i)=>{
+    const old = oldPlan[i];
+    if(i<=todayIdx && old && (old.status==='done'||old.status==='skipped')) return old;
+    // Un día que ya pasó (antes de hoy) y que NO se vivió (ni se hizo ni se marcó
+    // salteado todavía) no puede recibir, encima, un entrenamiento nuevo del plan
+    // recién generado -- sería asignarle retroactivamente un ejercicio a un día
+    // de la semana que ya terminó, lo cual no tiene sentido (reportado por el
+    // usuario: "hoy miércoles, no me puede aparecer un ejercicio el martes").
+    // Lo dejamos como descanso, que es lo que de hecho pasó ese día.
+    if(i<todayIdx) return {day:newDay.day, typeKey:'rest', dist:0, terrain:null, zone:null, beginner:newDay.beginner};
+    return newDay;
+  });
+}
+// Un día queda "cerrado" (no editable, ni por el usuario ni por el coach en el chat)
+// apenas ya pasó cronológicamente dentro de la semana actual, o ya se vivió (hecho o
+// salteado) -- no tiene sentido que se le asigne ahora, retroactivamente, un
+// entrenamiento distinto a un día de esta semana que ya terminó.
+function isDayLocked(dayKey){
+  const idx = DAY_KEYS.indexOf(dayKey);
+  if(idx === -1) return false;
+  const todayIdx = (new Date().getDay()+6)%7;
+  if(idx < todayIdx) return true;
+  const d = state.plan.find(x=>x.day===dayKey);
+  return !!(d && (d.status==='done' || d.status==='skipped'));
 }
 function relinkTodayRun(){
   const todayIdx = (new Date().getDay()+6)%7;
@@ -4354,7 +4376,7 @@ function buildContext(){
 const TOOLS = [
   {
     name:"modificar_sesion",
-    description:"Modifica UNA sesión puntual del plan semanal: tipo, distancia, zona de frecuencia cardíaca objetivo, terreno y descripción. Usala cuando el corredor pida un cambio en un día específico, de esta semana o de la que sigue.",
+    description:"Modifica UNA sesión puntual del plan semanal: tipo, distancia, zona de frecuencia cardíaca objetivo, terreno y descripción. Usala cuando el corredor pida un cambio en un día específico, de esta semana o de la que sigue. Si semana es 'actual' y el día pedido ya pasó (o ya se corrió/salteó), la herramienta va a rechazar el cambio -- avisale al corredor que ese día ya cerró y ofrecele ajustar desde hoy en adelante, o la semana que viene.",
     input_schema:{type:"object", properties:{
       semana:{type:"string", enum:["actual","siguiente"], description:"Si el cambio es para la semana en curso o para la que sigue. Por defecto 'actual'. Ya tenés el plan de ambas semanas en el contexto."},
       dia:{type:"string", enum:DAY_KEYS, description:"Código del día: mon,tue,wed,thu,fri,sat,sun (siempre en estos códigos, sin importar el idioma de la charla)"},
@@ -4397,6 +4419,8 @@ function applyPlanChange(input){
     // la semana que sigue no es un array persistido como state.plan, así que el cambio puntual
     // se guarda como "override" y se aplica encima de lo que genere getNextWeekPlan() cada vez
     // (que sigue reaccionando a cómo termine esta semana) hasta que se promueva a semana actual
+    const nextDay = getNextWeekPlan().plan.find(x=>x.day===input.dia);
+    if(nextDay && nextDay.raceDay) return `${input.dia} de la semana que viene es el día de tu carrera (cargada en Próximos Eventos) -- no le puedo asignar otra sesión encima.`;
     if(!state.nextWeekOverrides) state.nextWeekOverrides = {};
     const override = { type: input.tipo, desc: input.descripcion };
     if(typeof input.distancia_km==='number') override.dist = input.distancia_km;
@@ -4409,6 +4433,15 @@ function applyPlanChange(input){
   }
   const d = state.plan.find(x=>x.day===input.dia);
   if(!d) return "Día no encontrado.";
+  // El día ya pasó (o ya se corrió/salteó) -- no tiene sentido asignarle ahora un
+  // entrenamiento distinto de forma retroactiva. Se lo explicamos al modelo para
+  // que se lo cuente al corredor en vez de aplicar el cambio silenciosamente.
+  if(isDayLocked(input.dia)) return `No puedo modificar ${input.dia}: ya pasó (o ya se corrió/salteó) esta semana. Puedo ajustar desde hoy en adelante, o la semana que viene.`;
+  // Ese día es el día de la carrera cargada en Próximos Eventos -- no le pisamos
+  // encima otra sesión (el usuario pidió explícitamente que la carrera se siga
+  // viendo siempre como el "ejercicio" de ese día, pase lo que pase con el resto
+  // del plan). Para cambiar la carrera en sí hay que editarla en Perfil.
+  if(d.raceDay) return `${input.dia} es el día de tu carrera (cargada en Próximos Eventos) -- no le puedo asignar otra sesión encima. Si querés cambiar la carrera, se edita desde Perfil.`;
   d.custom = true;
   d.type = input.tipo; d.desc = input.descripcion;
   if(typeof input.distancia_km==='number') d.dist = input.distancia_km;
@@ -4435,7 +4468,10 @@ function applyVolumeAdjust(input){
     state.chat.push({role:'system', text:sysMsgWithIcon(ICONS.edit, t('coach_plan_updated')), ts:Date.now()});
     return `OK, ajusté el volumen de la semana que viene ${pct>0?'+':''}${pct}%.`;
   }
-  state.plan.forEach(d=>{ if(d.dist>0){ d.dist = Math.max(1, Math.round(d.dist*factor)); d.custom = true; } });
+  // Los días que ya pasaron (o que ya se corrieron/saltearon) quedan afuera del ajuste --
+  // no tiene sentido subir o bajar retroactivamente el volumen de un día de esta semana
+  // que ya terminó.
+  state.plan.forEach(d=>{ if(d.dist>0 && !isDayLocked(d.day)){ d.dist = Math.max(1, Math.round(d.dist*factor)); d.custom = true; } });
   renderPlan(); renderHome(); persist();
   state.chat.push({role:'system', text:sysMsgWithIcon(ICONS.edit, t('coach_plan_updated')), ts:Date.now()});
   return `OK, ajusté el volumen de esta semana ${pct>0?'+':''}${pct}%.`;
