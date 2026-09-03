@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T09:00:00Z';
+const APP_VERSION = '2026-09-03T10:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1164,11 +1164,44 @@ window.addEventListener('resize', syncTabbarHeight);
 // verdad el chrome del navegador (nunca vuelve el hueco/barra gris). Se guarda en la
 // variable CSS --app-min-h; #app la usa como min-height, con 100svh de respaldo por
 // si este script todavía no corrió (ver el CSS de #app en index.html).
+//
+// SEGUNDA VUELTA de este mismo bug, encontrada con una captura real: el fix de arriba
+// (medir con JS) no alcanzaba solo -- seguía apareciendo la barra gris, pero SOLO en
+// la pantalla del chat con el coach, nunca en las demás. La razón: window.innerHeight,
+// leído acá UNA sola vez ni bien corre el script (primerísimo tick), puede todavía no
+// reflejar la altura FINAL de verdad -- en iOS, sobre todo en modo standalone, la
+// altura utilizable puede "asentarse" un instante después del primer pintado (mismo
+// fenómeno ya documentado junto a #splash), sin que eso dispare ningún evento
+// "resize" que nos avise para volver a medir. Si esa primera lectura queda un poco
+// corta, --app-min-h se congela en ese valor de menos para siempre (nada más lo
+// vuelve a tocar salvo un resize real) -- y #app termina más bajo que la pantalla.
+// En la mayoría de las pantallas esto no se nota, porque su CONTENIDO real (tarjetas,
+// listas) ya es más alto que esa altura de menos y estira #app de todos modos. Pero
+// #view-coach es distinta: su único contenido de verdad, #coachChatWrap, es
+// position:fixed y por lo tanto no aporta NADA de alto real al flujo (ver el
+// comentario junto a flex:1 1 auto en index.html) -- ahí #app queda pegado
+// exactamente al valor (corto) de --app-min-h, sin nada de contenido real que lo
+// fuerce más alto, y aparece el hueco/barra gris justo debajo de la tabbar. Por eso
+// es un bug que se ve SOLO en el chat del coach: no es que esa pantalla tenga algo mal
+// puntual, es la única lo bastante "vacía" en el flujo como para exponer el problema
+// de fondo. Arreglo en dos partes: (1) re-medir varias veces después de cargar (no
+// solo una vez), para agarrar el valor ya asentado aunque no dispare resize, y (2)
+// nunca DEJAR CHICA la variable una vez medida más grande (Math.max) -- así una
+// medición vieja y corta nunca puede pisar a una más nueva y más alta.
 function syncAppMinHeight(){
-  document.documentElement.style.setProperty('--app-min-h', window.innerHeight + 'px');
+  const h = window.innerHeight;
+  const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-min-h')) || 0;
+  document.documentElement.style.setProperty('--app-min-h', Math.max(h, current) + 'px');
 }
 syncAppMinHeight();
+// Reintentos cortos después de la carga inicial, para agarrar el "asentamiento" tardío
+// de window.innerHeight en iOS standalone sin depender de que dispare un resize.
+[150, 400, 900, 1800].forEach(ms => setTimeout(syncAppMinHeight, ms));
 window.addEventListener('resize', syncAppMinHeight);
+// Al volver de segundo plano (el usuario cambió de app y volvió) iOS puede haber
+// recalculado el chrome disponible sin que haya un resize real que avisarnos.
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncAppMinHeight(); });
+window.addEventListener('pageshow', syncAppMinHeight);
 function enterApp(){
   applyTheme(state.profile.theme === 'light' ? 'light' : 'dark');
   document.getElementById('splash').style.display='none';
@@ -3236,7 +3269,12 @@ async function showView(v){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   document.getElementById('chatBar').classList.toggle('active', v==='coach');
   (document.scrollingElement || document.documentElement).scrollTop = 0;
-  if(v==='coach'){ syncCoachChatLayout(); scrollChatToBottom(); state.lastSeenChatTs = Date.now(); persist(); updateChatBadge(); } else { updateChatScrollBtn(); }
+  // syncAppMinHeight() acá también: #view-coach es la única vista sin contenido real
+  // en el flujo (ver el comentario largo junto a syncAppMinHeight) -- si --app-min-h
+  // quedó corta por cualquier motivo, es justo ENTRAR a esta vista el momento en que
+  // eso se nota (barra gris debajo de la tabbar). Volver a medir acá autocorrige el
+  // caso aunque los reintentos de la carga inicial no hayan alcanzado.
+  if(v==='coach'){ syncAppMinHeight(); syncCoachChatLayout(); scrollChatToBottom(); state.lastSeenChatTs = Date.now(); persist(); updateChatBadge(); } else { updateChatScrollBtn(); }
   if(v==='inicio'){ await refreshStateFromServer(); renderHome(); renderPlan(); }
   if(v==='history'){ await refreshStateFromServer(); renderHistory(); }
   if(v==='plan'){ await refreshStateFromServer(); viewingWeekOffset = 0; renderPlan(); }
