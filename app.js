@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T19:30:00Z';
+const APP_VERSION = '2026-09-03T19:58:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -5091,7 +5091,8 @@ async function startDynamicVideo(runId){
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
 
-  const routeData = computeVideoRouteData(r, 34, 176, W-68, 640, 24);
+  const mapX=34, mapY=176, mapW=W-68, mapH=640;
+  const routeData = computeVideoRouteData(r, mapX, mapY, mapW, mapH, 26);
   if(!routeData || routeData.totalDist<=0){ showToast(t('rd_video_error'), 'error'); return; }
 
   video.style.display='none'; video.removeAttribute('src');
@@ -5115,8 +5116,118 @@ async function startDynamicVideo(runId){
   const bg1 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt-2')||'#1c2126').trim() || '#1c2126';
   const bg2 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt')||'#14181b').trim() || '#14181b';
 
+  // Tarjeta del mapa: fondo bien visible (antes casi transparente, por eso no se
+  // veía) + borde sutil, dibujados con fill/stroke normales, SIN ctx.clip(). En
+  // algunos WebView de iOS (donde corre la app empaquetada) combinar ctx.clip()
+  // con canvas.captureStream() puede hacer que esa región no quede grabada --
+  // así que la ruta se mantiene dentro del recuadro por la propia proyección
+  // (computeVideoRouteData ya la acota con padding) en vez de recortarla a mano.
+  function drawFrame(p, virtualDist, cursor){
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
+    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#D6FF3F';
+    ctx.font = '400 54px "Bebas Neue", Arial, sans-serif';
+    ctx.fillText('ZANCADA', 40, 78);
+    ctx.fillStyle = 'rgba(237,239,239,0.6)';
+    ctx.font = '500 22px "Inter", Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(dateStr, W-40, 68);
+    ctx.textAlign = 'left';
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 22;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+    ctx.stroke();
+    ctx.restore();
+
+    // Halo oscuro debajo de la línea de la ruta, para que se lea bien apenas
+    // arranca el trazado (cuando todavía hay muy poco recorrido dibujado).
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    [{w:12, color:'rgba(0,0,0,0.35)'}, {w:7, color:null}].forEach(pass=>{
+      ctx.lineWidth = pass.w;
+      for(let i=0;i<cursor;i++){
+        ctx.strokeStyle = pass.color || routeData.colors[i+1] || routeData.colors[i];
+        ctx.beginPath();
+        ctx.moveTo(routeData.proj[i].x, routeData.proj[i].y);
+        ctx.lineTo(routeData.proj[i+1].x, routeData.proj[i+1].y);
+        ctx.stroke();
+      }
+    });
+    let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
+    if(cursor < routeData.proj.length-1){
+      const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
+      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+      curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
+      curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
+      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
+      ctx.lineWidth = 7; ctx.strokeStyle = routeData.colors[cursor+1]||routeData.colors[cursor];
+      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.lineWidth=3; ctx.strokeStyle = routeData.colors[cursor]||'#D6FF3F'; ctx.stroke();
+
+    let currentTimeSec;
+    if(routeData.hasRealTime){
+      const nextIdx = Math.min(cursor+1, routeData.times.length-1);
+      const dA=routeData.cum[cursor], dB=routeData.cum[nextIdx];
+      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+      currentTimeSec = routeData.times[cursor] + (routeData.times[nextIdx]-routeData.times[cursor])*frac;
+    } else {
+      currentTimeSec = totalDist>0 ? (virtualDist/totalDist)*r.durationSec : 0;
+    }
+    const currentPace = virtualDist>0.05 ? (currentTimeSec/60)/virtualDist : null;
+
+    // Estadísticas más abajo (antes quedaban pegadas al borde del mapa).
+    const statsY = mapY+mapH+130;
+    ctx.textAlign='center';
+    ctx.fillStyle = '#EDEFEF';
+    ctx.font = '700 88px "JetBrains Mono", monospace';
+    ctx.fillText(fmtDist(virtualDist), W/2, statsY);
+    ctx.fillStyle = 'rgba(237,239,239,0.55)';
+    ctx.font = '700 24px "Inter", Arial, sans-serif';
+    ctx.fillText(distUnit().toUpperCase(), W/2, statsY+38);
+
+    const rowY = statsY+118;
+    const colW = (W-80)/2;
+    ctx.font = '700 46px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#EDEFEF';
+    ctx.fillText(fmtTime(Math.round(currentTimeSec)), 40+colW/2, rowY);
+    ctx.fillText(currentPace!=null ? (fmtPace(currentPace)+'/'+distUnit()) : '--:--', 40+colW+colW/2, rowY);
+    ctx.font = '700 20px "Inter", Arial, sans-serif';
+    ctx.fillStyle = 'rgba(237,239,239,0.55)';
+    ctx.fillText(t('run_time').toUpperCase(), 40+colW/2, rowY+34);
+    ctx.fillText(t('run_pace_word').toUpperCase(), 40+colW+colW/2, rowY+34);
+
+    const barY = H-56, barW = W-80, barH=6;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    rdRoundRectPath(ctx, 40, barY, barW, barH, 3); ctx.fill();
+    ctx.fillStyle = '#D6FF3F';
+    rdRoundRectPath(ctx, 40, barY, Math.max(barH, barW*p), barH, 3); ctx.fill();
+    ctx.textAlign='left';
+  }
+
+  // Pintamos el primer cuadro ANTES de pedir captureStream(): en algunos
+  // WebView (iOS) si el canvas todavía está en blanco cuando se llama a
+  // captureStream(), el video queda grabado en negro/vacío de principio a
+  // fin, aunque el canvas se siga dibujando bien después.
+  drawFrame(0, 0, 0);
+
   let mimeType = '';
-  ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].forEach(c=>{
+  ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'].forEach(c=>{
     if(!mimeType && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) mimeType=c;
   });
 
@@ -5147,89 +5258,6 @@ async function startDynamicVideo(runId){
     progressEl.textContent='';
     actions.style.display='flex';
   };
-
-  function drawFrame(p, virtualDist, cursor){
-    const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
-    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#D6FF3F';
-    ctx.font = '400 54px "Bebas Neue", Arial, sans-serif';
-    ctx.fillText('ZANCADA', 40, 78);
-    ctx.fillStyle = 'rgba(237,239,239,0.6)';
-    ctx.font = '500 22px "Inter", Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(dateStr, W-40, 68);
-    ctx.textAlign = 'left';
-
-    const mapX=34, mapY=176, mapW=W-68, mapH=640;
-    ctx.save();
-    rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
-    ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,0.035)';
-    ctx.fillRect(mapX, mapY, mapW, mapH);
-
-    ctx.lineWidth = 8; ctx.lineCap='round'; ctx.lineJoin='round';
-    for(let i=0;i<cursor;i++){
-      ctx.strokeStyle = routeData.colors[i+1]||routeData.colors[i];
-      ctx.beginPath();
-      ctx.moveTo(routeData.proj[i].x, routeData.proj[i].y);
-      ctx.lineTo(routeData.proj[i+1].x, routeData.proj[i+1].y);
-      ctx.stroke();
-    }
-    let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
-    if(cursor < routeData.proj.length-1){
-      const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
-      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
-      curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
-      curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
-      ctx.strokeStyle = routeData.colors[cursor+1]||routeData.colors[cursor];
-      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
-    }
-    ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle = routeData.colors[cursor]||'#D6FF3F'; ctx.stroke();
-    ctx.restore();
-
-    let currentTimeSec;
-    if(routeData.hasRealTime){
-      const nextIdx = Math.min(cursor+1, routeData.times.length-1);
-      const dA=routeData.cum[cursor], dB=routeData.cum[nextIdx];
-      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
-      currentTimeSec = routeData.times[cursor] + (routeData.times[nextIdx]-routeData.times[cursor])*frac;
-    } else {
-      currentTimeSec = totalDist>0 ? (virtualDist/totalDist)*r.durationSec : 0;
-    }
-    const currentPace = virtualDist>0.05 ? (currentTimeSec/60)/virtualDist : null;
-
-    const statsY = mapY+mapH+70;
-    ctx.textAlign='center';
-    ctx.fillStyle = '#EDEFEF';
-    ctx.font = '700 88px "JetBrains Mono", monospace';
-    ctx.fillText(fmtDist(virtualDist), W/2, statsY);
-    ctx.fillStyle = 'rgba(237,239,239,0.55)';
-    ctx.font = '700 24px "Inter", Arial, sans-serif';
-    ctx.fillText(distUnit().toUpperCase(), W/2, statsY+38);
-
-    const rowY = statsY+118;
-    const colW = (W-80)/2;
-    ctx.font = '700 46px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#EDEFEF';
-    ctx.fillText(fmtTime(Math.round(currentTimeSec)), 40+colW/2, rowY);
-    ctx.fillText(currentPace!=null ? (fmtPace(currentPace)+'/'+distUnit()) : '--:--', 40+colW+colW/2, rowY);
-    ctx.font = '700 20px "Inter", Arial, sans-serif';
-    ctx.fillStyle = 'rgba(237,239,239,0.55)';
-    ctx.fillText(t('run_time').toUpperCase(), 40+colW/2, rowY+34);
-    ctx.fillText(t('run_pace_word').toUpperCase(), 40+colW+colW/2, rowY+34);
-
-    const barY = H-56, barW = W-80, barH=6;
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    rdRoundRectPath(ctx, 40, barY, barW, barH, 3); ctx.fill();
-    ctx.fillStyle = '#D6FF3F';
-    rdRoundRectPath(ctx, 40, barY, Math.max(barH, barW*p), barH, 3); ctx.fill();
-    ctx.textAlign='left';
-  }
 
   recorder.start();
   let cursor = 0;
