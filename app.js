@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T00:15:00Z';
+const APP_VERSION = '2026-09-03T01:20:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2915,13 +2915,33 @@ if(window.visualViewport){
   // esa animación nativa a mitad de camino y produciendo el salto visible. Por eso
   // ahora resetDocumentScroll() solo se llama al CERRAR el teclado (que es cuando de
   // verdad puede quedar un scroll viejo pegado), nunca mientras se abre.
-  function reapplyDuringAnimation(resetScroll){
+  // pinChatBottom=true (solo al ABRIR) además re-clava el scroll del #chatLog al
+  // fondo en cada re-medición. Bug real encontrado repasando el código de nuevo:
+  // #coachChatWrap es flex-column con #chatLog como único hijo flex:1 -- cuando el
+  // teclado se abre, wrap.style.height se achica (ver syncCoachChatLayout) y por lo
+  // tanto #chatLog TAMBIÉN se achica, pero su scrollTop (un valor absoluto en px) se
+  // queda como estaba. Si justo antes el chat estaba scrolleado hasta el fondo (el
+  // caso normal: leíste el último mensaje y tocás para escribir), ese mismo scrollTop
+  // ya NO llega al fondo del #chatLog más chico -- queda un colchón vacío abajo y el
+  // último mensaje visualmente "para arriba", justo el síntoma reportado ("el chat no
+  // sube, queda abajo, tengo que bajar yo para ver lo último"). No es un bug de iOS,
+  // es nuestro: nunca reacomodábamos el scroll interno del chat cuando el contenedor
+  // cambiaba de tamaño. scrollChatToBottom() ya existe (se usa después de cada mensaje
+  // nuevo); acá la reusamos en cada tick de la apertura para que seguir pegado al
+  // fondo mientras el contenedor se va achicando.
+  function reapplyDuringAnimation(resetScroll, pinChatBottom){
     if(animationPollId) clearInterval(animationPollId);
     syncCoachChatLayout();
+    if(pinChatBottom) scrollChatToBottom();
     if(resetScroll) resetDocumentScroll();
-    const deadline = Date.now() + 2000;
+    // 900ms alcanza de sobra -- la animación real del teclado en iOS dura unos
+    // 250-300ms incluso en un teléfono cargado -- y así hay bastante menos trabajo de
+    // layout compitiendo por frames con esa animación (antes eran 2000ms completos,
+    // parte de por qué "bajaba trabado").
+    const deadline = Date.now() + 900;
     animationPollId = setInterval(()=>{
       syncCoachChatLayout();
+      if(pinChatBottom) scrollChatToBottom();
       if(resetScroll) resetDocumentScroll();
       if(Date.now() >= deadline){ clearInterval(animationPollId); animationPollId = null; }
     }, 80);
@@ -2929,12 +2949,12 @@ if(window.visualViewport){
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';
     document.body.classList.add('chat-kb-open');
-    reapplyDuringAnimation(false);
+    reapplyDuringAnimation(false, true);
   });
   chatInputEl.addEventListener('blur', ()=>{
     if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
     document.body.classList.remove('chat-kb-open');
-    reapplyDuringAnimation(true);
+    reapplyDuringAnimation(true, false);
     forceFixedLayoutReflow();
   });
   // Tercera causa posible del mismo síntoma: en iOS hay un bug de WebKit bastante
@@ -2999,7 +3019,10 @@ if(window.visualViewport){
   // función ya se sale sola si el elemento no existe).
   document.addEventListener('focusout', (e)=>{
     const t = e.target;
-    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')){
+    // chatInputEl ya tiene su propio manejo completo arriba (con reapplyDuringAnimation
+    // y su propio forceFixedLayoutReflow a los 400ms) -- sumar esto de nuevo acá sería
+    // trabajo repetido justo durante la misma ventana de animación, aportando al jank.
+    if(t && t !== chatInputEl && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')){
       forceFixedLayoutReflow();
       setTimeout(forceFixedLayoutReflow, 400);
     }
