@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T23:40:00Z';
+const APP_VERSION = '2026-09-03T00:15:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2985,6 +2985,25 @@ if(window.visualViewport){
   // "varios intentos" para que alguno caiga en el momento justo: alcanza con no
   // dispararlo demasiado pronto.
   chatInputEl.addEventListener('blur', ()=> setTimeout(forceFixedLayoutReflow, 400));
+  // Este bug de WebKit no es exclusivo del chat: CUALQUIER campo de texto de la app
+  // (login, onboarding, Perfil -- peso, altura, fecha de nacimiento, km semanales,
+  // nota del objetivo, etc.) abre el mismo teclado de iOS, y al cerrarse puede dejar
+  // el mismo rastro en CUALQUIER elemento position:fixed que esté en pantalla en ese
+  // momento -- no solo la tabbar. Por ejemplo, el botón "Comenzar" de la pantalla de
+  // bienvenida vive dentro de #splash, que es position:fixed; inset:0; el modal de
+  // "ahora vs. semana que viene" y el resto de los overlays (login, onboarding) son
+  // igual de position:fixed. En vez de repetir el arreglo campo por campo, escuchamos
+  // el cierre de teclado de forma genérica en toda la app: cualquier <input>/<textarea>
+  // que pierde el foco dispara el mismo scroll de 1px real (foco genérico, no fixed a
+  // #coachChatWrap, así que llamar a syncCoachChatLayout() de más acá no molesta -- esa
+  // función ya se sale sola si el elemento no existe).
+  document.addEventListener('focusout', (e)=>{
+    const t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')){
+      forceFixedLayoutReflow();
+      setTimeout(forceFixedLayoutReflow, 400);
+    }
+  });
 })();
 /* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
 let appUpdateChecking = false;
