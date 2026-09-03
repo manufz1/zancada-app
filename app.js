@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T02:10:00Z';
+const APP_VERSION = '2026-09-03T03:05:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1821,7 +1821,7 @@ const DAILY_TIPS = {
   de: ["Jeder Kilometer zählt, auch ein langsamer.","Erholung ist auch Teil des Trainings.","Harte Tage machen starke Läufer.","Heute locker laufen heißt morgen besser laufen.","Hör auf deinen Körper — Schmerz ist nicht dasselbe wie Unbehagen.","Beständigkeit schlägt fast immer Intensität.","Das beste Tempo ist das, was du durchhalten und genießen kannst.","Ein gutes Aufwärmen verhindert eine schlechte Verletzung.","Schlaf gut: das ist das unsichtbare Training.","Motivation lässt dich anfangen, Gewohnheit lässt dich fertig werden.","Vergleiche deinen Fortschritt nicht mit dem anderer Läufer.","Dein schlechtester Lauftag schlägt immer noch einen Tag auf dem Sofa.","Du brauchst nicht jeden Tag Motivation, du brauchst eine Gewohnheit.","Der Körper passt sich an das an, was du von ihm verlangst — gib ihm Zeit.","Laufen im Regen zählt auch — und du wirst dich an diesen Tag erinnern.","Jeder Lauf, den du beendest, macht dich ein bisschen stärker als gestern.","Der schnellste Schuh ist der, den du schon anhast.","Du musst nicht jeden Tag schnell laufen, du musst regelmäßig laufen.","Der erste Kilometer fühlt sich immer schwerer an als der letzte.","Fortschritt verläuft nicht geradlinig: es gibt Wochen bergauf und Wochen auf der Stelle.","Niemand ist einen Marathon gelaufen, ohne vorher einen Meter gelaufen zu sein.","Disziplin bringt dich dorthin, wo Motivation allein nicht hinreicht.","Ein schlechtes Training löscht nicht zehn gute aus.","Laufen ist der einzige Wettkampf, bei dem du schon durchs Ankommen gewinnst.","Dein heutiges Tempo muss nicht das von gestern oder morgen sein.","Kalte Morgenluft ist gratis und wirkt besser als jeder Kaffee.","Manchmal ist der größte Erfolg des Tages einfach, rausgegangen zu sein.","Jeder Schweißtropfen ist eine Entscheidung, die du für dich selbst getroffen hast.","Laufen verändert nicht zuerst den Körper, es verändert zuerst den Kopf.","Niemand wird dich bei Kilometer 3 an einem x-beliebigen Dienstag anfeuern, und das ist okay: der gehört dir.","Die Erholung von heute ist die Geschwindigkeit von morgen.","Du läufst gegen niemanden, du läufst gegen dein früheres Ich.","Die langsamen Kilometer von heute tragen dich bei Kilometer 30.","Die Laufschuhe anzuziehen ist schon 50 % des Trainings.","Nicht das Wetter entscheidet, ob du läufst, sondern du.","Jede Woche, in der du Kilometer sammelst, ist eine Investition in dein zukünftiges Ich.","Das ist keine Magie, das ist Beständigkeit, verkleidet als Kilometer.","Wenn du zweifelst, ob du es schaffst, erinnere dich an jedes Mal, als du es schon geschafft hast.","Laufen verzeiht keine Ungeduld, belohnt aber immer Geduld.","Deine schlechteste Ausrede heute ist schwächer als dein schlechtestes Training.","Ein gut gelaufener lockerer Lauf ist mehr wert als ein schlecht gelaufener schneller.","Laufen lehrt dich, unangenehme Situationen ohne Panik auszuhalten — das hilft auch bei allem anderen.","Es gibt keine Abkürzung zur Ausdauer, nur angesammelte Kilometer.","Jeder Lauf beginnt mit der Entscheidung, aus der Tür zu gehen.","Der heutige Läufer ist dem Läufer dankbar, der sich entschieden hat anzufangen.","Das Ziel ist nicht, nie mit dem Laufen aufzuhören, sondern nie aufzuhören, es zu versuchen.","Die Tage, an denen du am wenigsten Lust hast, lehren dich am meisten.","Du wirst schlechte Trainings haben — sie sind nicht das Ende, sie gehören zum Weg dazu.","Dich heute um deinen Körper zu kümmern bedeutet, morgen weiterlaufen zu können.","Jeder Läufer, den du auf der Straße siehst, hatte auch einen schweren ersten Tag."]
 };
 function renderDailyTip(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateISO();
   const pool = DAILY_TIPS[lang] || DAILY_TIPS.es;
   if(state.dailyTipDate !== today || typeof state.dailyTipIndex !== 'number'){
     state.dailyTipDate = today;
@@ -1842,7 +1842,7 @@ const RACE_TIPS = {
   de: ["Probiere die Kleidung und Schuhe, die du am Renntag tragen willst, vorher bei einem Training aus — trag am Renntag nie etwas Neues.","In den 2-3 Tagen vor dem Rennen: Volumen runterfahren und Schlaf priorisieren, statt noch mehr Kilometer reinzuquetschen.","Leg deine Pace-Strategie vor dem Start fest — am Ende schneller zu werden ist leichter, als sich von einem zu schnellen Start zu erholen.","Bei einem Rennen ab 10 km: in den zwei Tagen davor etwas mehr Kohlenhydrate essen.","Trink in den Tagen vor dem Rennen ausreichend, nicht nur am Morgen selbst.","Lass beim Start das Feld ziehen, wenn es schneller startet als geplant — du bestimmst dein Tempo, nicht die Euphorie der Gruppe.","Übe bei deinen langen Läufen, was du während des Rennens essen oder trinken wirst — der Renntag ist nicht der Moment, um etwas Neues auszuprobieren.","Komm mit reichlich Zeitpuffer zum Startbereich — Last-Minute-Hektik bringt unnötigen Stress.","Lauf Abfahrten locker und lass dich tragen — zu viel Bremsen ermüdet mehr als eine entspannte Abfahrt.","Heb dir Energie für die Schlussphase auf: lieber beschleunigend ins Ziel als zwei Kilometer vorher ohne Kraft dazustehen."]
 };
 function renderRaceTip(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateISO();
   const pool = RACE_TIPS[lang] || RACE_TIPS.es;
   // Índice propio (raceTipDate/raceTipIndex), separado del de DAILY_TIPS, para que las
   // dos cards no muestren "el tip número 3 de cada pool" siempre en simultáneo -- se ven
@@ -1995,7 +1995,11 @@ function renderHome(){
 // "sesión completada" tanto en Inicio como en la pestaña Correr, en vez del cartel de
 // "próxima sesión"/círculo de arrancar como si no hubiésemos corrido nada todavía.
 function getTodayRun(){
-  const todays = (state.runs||[]).filter(r => r.date && r.date.slice(0,10) === todayISO());
+  // r.date es un timestamp completo en UTC (new Date().toISOString(), con hora) -- cortar
+  // los primeros 10 caracteres a mano daba la fecha calendario en UTC, no la fecha LOCAL
+  // en la que el corredor realmente corrió (ver el comentario largo junto a localDateISO).
+  const today = todayISO();
+  const todays = (state.runs||[]).filter(r => r.date && localDateISO(r.date) === today);
   if(!todays.length) return null;
   return todays.reduce((a,b) => (a.id > b.id ? a : b));
 }
@@ -2290,7 +2294,7 @@ async function savePainLog(){
   const bodyPart = chosen.dataset.v;
   const note = document.getElementById('pain-note').value.trim().slice(0,200);
   if(!state.painLog) state.painLog = [];
-  state.painLog.push({id:Date.now(), date:new Date().toISOString().slice(0,10), bodyPart, note, active:true, checkinSent:false});
+  state.painLog.push({id:Date.now(), date:localDateISO(), bodyPart, note, active:true, checkinSent:false});
   closePainModal();
   renderPainLog();
   await persist();
@@ -2310,7 +2314,7 @@ function resolvePainLog(id){
   const entry = (state.painLog||[]).find(p=>String(p.id)===String(id));
   if(!entry) return;
   entry.active = false;
-  entry.resolvedDate = new Date().toISOString().slice(0,10);
+  entry.resolvedDate = localDateISO();
   renderPainLog(); persist();
 }
 async function deletePainLog(id){
@@ -2374,7 +2378,26 @@ function renderPainLog(){
    coach en cada mensaje, y si la noche fue mala se le ofrece al corredor bajar un poco
    la sesión de HOY puntual (no toda la semana, que sería una sobrecorrección por una
    sola mala noche). */
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+// BUG REAL encontrado a partir de un reporte del usuario ("ya corrí hoy y la tarjeta de
+// inicio sigue mostrando la próxima sesión, no lo que ya corrí"): todayISO() usaba
+// new Date().toISOString().slice(0,10) -- eso da la fecha calendario en UTC, NO la
+// fecha calendario local del corredor. Para un huso horario negativo como el de
+// Argentina (UTC-3), el calendario en UTC ya pasó a "mañana" durante las últimas 3
+// horas de cada día local (entre las 21:00 y las 23:59) -- si el corredor corre a la
+// tarde/noche y después mira la app pasadas las 21:00, todayISO() devuelve la fecha de
+// MAÑANA mientras que la carrera se guardó con la fecha (en UTC) de HOY, así que dejan
+// de coincidir y la tarjeta "ya corriste hoy" nunca se activa. localDateISO() arma la
+// fecha a mano con los componentes LOCALES de la fecha (año/mes/día), nunca se va para
+// el otro lado del huso horario. todayISO() ahora es un caso particular de esto (hoy
+// = "la fecha local de este instante").
+function localDateISO(d){
+  const dt = d ? new Date(d) : new Date();
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,'0');
+  const day = String(dt.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayISO(){ return localDateISO(); }
 function todayReadinessEntry(){
   return (state.readinessLog||[]).find(r=>r.date === todayISO());
 }
@@ -3537,7 +3560,7 @@ function toggleManualForm(){
   const show = el.style.display==='none';
   el.style.display = show?'block':'none';
   if(show){
-    document.getElementById('man-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('man-date').value = localDateISO();
     dateBoxUpdaters['man-date'] && dateBoxUpdaters['man-date']();
     const sel = document.getElementById('man-shoe');
     sel.innerHTML = state.shoes.length ? state.shoes.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('') : `<option value="">${t('no_shoes')}</option>`;
@@ -3571,7 +3594,10 @@ function computeDailyTrend(days){
   for(let i=days-1; i>=0; i--){
     const d = new Date(today); d.setDate(d.getDate()-i);
     const dateStr = d.toISOString().slice(0,10);
-    const km = state.runs.filter(r => r.date.slice(0,10) === dateStr).reduce((a,r)=>a+r.distanceKm,0);
+    // localDateISO(r.date), no r.date.slice(0,10): r.date es un timestamp UTC completo,
+    // cortarlo a mano daba el día calendario en UTC en vez del día LOCAL real de la
+    // carrera (ver el comentario junto a localDateISO/getTodayRun).
+    const km = state.runs.filter(r => localDateISO(r.date) === dateStr).reduce((a,r)=>a+r.distanceKm,0);
     let planned = false;
     if(state.weekStart && dateStr >= state.weekStart){
       const planDay = state.plan.find(p=>p.day===weekDayKeys[d.getDay()]);
@@ -3595,7 +3621,7 @@ function computeWeeklyTrend(weeksCount){
     const startIso = start.toISOString().slice(0,10);
     const end = new Date(start); end.setDate(end.getDate()+7);
     const endIso = end.toISOString().slice(0,10);
-    const km = (state.runs||[]).filter(r => { const d=r.date.slice(0,10); return d>=startIso && d<endIso; })
+    const km = (state.runs||[]).filter(r => { const d=localDateISO(r.date); return d>=startIso && d<endIso; })
       .reduce((a,r)=>a+r.distanceKm, 0);
     result.push({weekStart: startIso, km, day: start.getDate(), isCurrent: i===0});
   }
@@ -4260,7 +4286,10 @@ function openEditRun(runId){
   const r = state.runs.find(x => String(x.id) === String(runId));
   if(!r) return;
   editingRunId = runId;
-  document.getElementById('edit-run-date').value = new Date(r.date).toISOString().slice(0,10);
+  // localDateISO, no toISOString().slice(0,10): esto último muestra el día en UTC, que
+  // para una carrera cargada a última hora de la noche puede ser el día SIGUIENTE al
+  // real (ver el comentario junto a localDateISO/getTodayRun).
+  document.getElementById('edit-run-date').value = localDateISO(r.date);
   dateBoxUpdaters['edit-run-date'] && dateBoxUpdaters['edit-run-date']();
   document.getElementById('edit-run-dist').value = r.distanceKm;
   document.getElementById('edit-run-dur').value = Math.round((r.durationSec/60)*10)/10;
@@ -4422,7 +4451,7 @@ function buildContext(){
     // Así puede responder con criterio si le preguntan "¿cómo vengo?" o "¿mejoré el ritmo?",
     // en vez de solo reaccionar a lo último que pasó.
     const recent = state.runs.slice(-5);
-    const runsSummary = recent.map(r=>`${new Date(r.date).toISOString().slice(0,10)}: ${r.distanceKm.toFixed(2)}km en ${fmtTime(r.durationSec)} (ritmo ${paceMinPerKmOf(r)}/km)`).join('; ');
+    const runsSummary = recent.map(r=>`${localDateISO(r.date)}: ${r.distanceKm.toFixed(2)}km en ${fmtTime(r.durationSec)} (ritmo ${paceMinPerKmOf(r)}/km)`).join('; ');
     const cutoff = Date.now() - 28*86400000;
     const last4wKm = state.runs.filter(r=>new Date(r.date).getTime() >= cutoff).reduce((s,r)=>s+r.distanceKm,0);
     ctx += ` Últimas carreras registradas (de más vieja a más nueva): ${runsSummary}. Total corrido en los últimos 28 días: ${last4wKm.toFixed(1)}km.`;
