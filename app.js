@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T07:00:00Z';
+const APP_VERSION = '2026-09-03T08:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1149,6 +1149,26 @@ function syncTabbarHeight(){
   if(h>0) document.documentElement.style.setProperty('--tabbar-h', h+'px');
 }
 window.addEventListener('resize', syncTabbarHeight);
+// BUG NUEVO encontrado por el usuario apenas se probó el cambio anterior: #app usaba
+// min-height:100dvh -- eso hacía que la tabbar bajara "escalonado" siguiendo la
+// animación del teclado (arreglado pasando a 100svh, un valor FIJO que no se anima).
+// Pero svh asume el PEOR caso (todo el chrome del navegador ya expandido) -- así que
+// cuando ese chrome está minimizado, o en standalone donde la pantalla real es más
+// alta que ese peor caso, #app queda MÁS CHICO que la pantalla real de verdad. Ahí no
+// hay nada nuestro pintado -- se ve la barra gris que pinta el propio navegador/
+// WebView por fuera del documento (reportada en captura real). Ni dvh (sigue de más,
+// vuelve el escalonado) ni svh (se queda corto, vuelve la barra gris) alcanzan solos.
+// La solución es la misma que ya usamos para el chat (syncCoachChatLayout): medir
+// nosotros mismos window.innerHeight, que en iOS NO se mueve con el teclado (nunca
+// vuelve el escalonado) pero SÍ refleja la altura real disponible cuando cambia de
+// verdad el chrome del navegador (nunca vuelve el hueco/barra gris). Se guarda en la
+// variable CSS --app-min-h; #app la usa como min-height, con 100svh de respaldo por
+// si este script todavía no corrió (ver el CSS de #app en index.html).
+function syncAppMinHeight(){
+  document.documentElement.style.setProperty('--app-min-h', window.innerHeight + 'px');
+}
+syncAppMinHeight();
+window.addEventListener('resize', syncAppMinHeight);
 function enterApp(){
   applyTheme(state.profile.theme === 'light' ? 'light' : 'dark');
   document.getElementById('splash').style.display='none';

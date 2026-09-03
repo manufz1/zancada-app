@@ -120,28 +120,28 @@ try{
   button,input,select{font-family:inherit;}
   ::selection{background:var(--hivis); color:var(--ink);}
 
-  /* min-height con SVH, no DVH -- BUG REAL encontrado con un video: al cerrar el
-     teclado del chat, la barra de escribir queda bien (usa syncCoachChatLayout, alto
-     fijado a mano contra window.innerHeight, que en iOS NO se mueve con el teclado)
-     pero la tabbar (sticky, viven en flujo normal DENTRO de #app) el usuario la vio
-     bajar "escalonado y de forma suave" -- ninguno de los intentos anteriores
-     (sticky, evitar recálculos de más, sincronizar con el repintado) cambió nada,
-     lo cual tiene sentido: NINGUNO de esos tocaba esto. dvh ("dynamic viewport
-     height") está DEFINIDO por spec para seguir en tiempo real cualquier cambio del
-     área visible -- incluido el teclado en versiones nuevas de Safari, a diferencia
-     de window.innerHeight de toda la vida, que sí se mantiene fijo -- así que
-     #app (y por lo tanto dónde descansa la tabbar sticky) se iba agrandando cuadro a
-     cuadro DE VERDAD mientras el teclado se cerraba, siguiendo la curva de esa
-     animación nativa -- prolijo pero exactamente lo contrario de "lo más rápido
-     posible" que pidió el usuario. svh ("small viewport height") en cambio es un
-     valor FIJO -- el del peor caso, con todo el chrome del navegador/teclado ya
-     expandido -- así que no se anima ni seguiría al teclado: #app queda con una
-     altura constante, y la tabbar sticky se asienta de una sola vez, sin transición
-     de por medio (no hace falta -- nunca se movió nada de a poco). Se deja min-height
-     con 100vh y 100dvh como fallback en cascada antes de 100svh para navegadores
-     viejos que no entienden esta unidad (una declaración con un valor no soportado
-     se ignora, así que la anterior queda en pie). */
-  #app{max-width:480px; margin:0 auto; min-height:100vh; min-height:100dvh; min-height:100svh; position:relative;
+  /* min-height: TERCER intento, ninguna unidad CSS fija alcanza sola. Primero era
+     100dvh -- eso hacía que la tabbar (sticky, en flujo normal DENTRO de #app)
+     bajara "escalonado y de forma suave" siguiendo la animación del teclado (dvh
+     sigue en tiempo real cualquier cambio del área visible, INCLUIDO el teclado en
+     Safari nuevo). Pasarlo a 100svh (peor caso, valor fijo, inmune al teclado)
+     arregló eso -- pero rompió otra cosa: svh asume SIEMPRE el peor caso (todo el
+     chrome del navegador expandido), así que apenas ese chrome está minimizado (o en
+     standalone, si la pantalla real es más alta que ese peor caso) #app queda MÁS
+     CHICO que la pantalla real -- y en ese hueco no hay nada nuestro pintado, así que
+     se ve la barra gris que pinta el propio navegador/WebView por fuera del
+     documento (reportada en una captura real). Ni dvh (sigue de más) ni svh (se
+     queda corto) alcanzan solos -- la solución real es la misma que ya usamos para
+     el chat (syncCoachChatLayout): medir NOSOTROS window.innerHeight por JS (ver
+     syncAppMinHeight() en app.js), que en iOS no se mueve con el teclado (no vuelve
+     el escalonado) pero sí refleja la altura real cuando cambia de verdad el chrome
+     del navegador (no vuelve la barra gris). --app-min-h es esa medición; se deja
+     min-height con 100vh/100dvh/100svh en cascada ANTES como respaldo -- por si el
+     JS todavía no corrió en el primer pintado, o en un navegador que no entienda
+     variables CSS -- y recién la última declaración (con la variable) manda una vez
+     que app.js corrió. */
+  #app{max-width:480px; margin:0 auto; min-height:100vh; min-height:100dvh; min-height:100svh;
+    min-height:var(--app-min-h, 100svh); position:relative;
     background:radial-gradient(60% 40% at 50% 0%, rgba(214,255,63,.07), transparent 60%),
       radial-gradient(55% 35% at 100% 12%, rgba(192,106,46,.05), transparent 62%), var(--asphalt);
     display:flex; flex-direction:column;}
