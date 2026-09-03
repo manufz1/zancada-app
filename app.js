@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T05:00:00Z';
+const APP_VERSION = '2026-09-03T06:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2957,6 +2957,47 @@ if(window.visualViewport){
   // scrolleado deja ver, debajo de la tabbar, el fondo vacío que hay más allá del final
   // de #app -- exactamente el hueco vacío "de más" que se ve en capturas reales. Por eso,
   // en cada re-medición forzamos también el scroll del documento de vuelta a 0.
+  // BUG NUEVO encontrado con un video real: al TOCAR para escribir, la barra de
+  // escribir (con el cursor titilando) queda flotando en el aire, con un hueco negro
+  // vacío entre ella y el teclado -- y ese hueco NO se corrige solo, se queda así
+  // mientras el teclado sigue abierto (se confirmó viendo el video cuadro por cuadro:
+  // sigue exactamente igual varios segundos después, mucho más de lo que dura la
+  // animación). No es que nuestra medición (syncCoachChatLayout, basada en
+  // visualViewport) esté mal en sí -- es que iOS Safari, al enfocar un <input>, hace
+  // POR SU CUENTA un scroll del documento para "asegurarse" de que el campo quede
+  // visible arriba del teclado (el mismo mecanismo de scroll-into-view automático de
+  // siempre) -- pero como acá el layout entero es a medida (elementos position:fixed
+  // + altura calculada por JS, no scroll normal de página), ese scroll automático no
+  // solo es innecesario, sino que directamente desalinea nuestros elementos fijos del
+  // viewport visual real, dejando ese hueco fantasma.
+  // Ya habíamos probado (más abajo, resetDocumentScroll) forzar el scroll de vuelta a
+  // 0 en cada re-medición mientras se abre -- pero eso peleaba con la animación
+  // PROPIA de iOS a mitad de camino y producía otro glitch distinto (un salto con
+  // hueco negro ARRIBA). La diferencia acá es de raíz, no de timing: en vez de dejar
+  // que el documento scrollee y despues tratar de corregirlo, le sacamos a iOS la
+  // posibilidad de scrollear el documento EN ABSOLUTO mientras el teclado del chat
+  // está abierto -- el truco estándar de "bloqueo de scroll del body" que usan la
+  // mayoría de las apps web mobile para este mismo problema: durante el foco, <body>
+  // pasa a position:fixed anclado exactamente en el scroll actual (visualmente nada
+  // se mueve), así que no queda nada que el scroll-into-view de iOS pueda mover. Al
+  // cerrar el teclado, se restaura tal cual estaba.
+  let lockedScrollY = 0;
+  function lockBodyScroll(){
+    lockedScrollY = window.scrollY || (document.scrollingElement || document.documentElement).scrollTop || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = (-lockedScrollY) + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+  function unlockBodyScroll(){
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    (document.scrollingElement || document.documentElement).scrollTop = lockedScrollY;
+  }
   let animationPollId = null;
   function resetDocumentScroll(){
     const scroller = document.scrollingElement || document.documentElement;
@@ -3016,11 +3057,16 @@ if(window.visualViewport){
   }
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';
+    // lockBodyScroll() ANTES que nada más, en el mismo tick síncrono del foco --
+    // así, para cuando iOS decide hacer su scroll-into-view automático (que dispara
+    // a partir de este mismo evento), el documento ya no tiene nada que mover.
+    lockBodyScroll();
     document.body.classList.add('chat-kb-open');
     reapplyDuringAnimation(false, true);
   });
   chatInputEl.addEventListener('blur', ()=>{
     if(tabbarEl && document.getElementById('view-coach').classList.contains('active')) tabbarEl.style.display = 'flex';
+    unlockBodyScroll();
     document.body.classList.remove('chat-kb-open');
     reapplyDuringAnimation(true, false);
     forceFixedLayoutReflow();
