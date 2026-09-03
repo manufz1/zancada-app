@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T10:00:00Z';
+const APP_VERSION = '2026-09-03T11:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -89,6 +89,9 @@ const ICONS = {
   chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5 4.5 6.3V11c0 5 3.2 8.6 7.5 10.2 4.3-1.6 7.5-5.2 7.5-10.2V6.3L12 3.5z"/></svg>',
   flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4.5s2-1.3 4.5-1.3 3.5 1.5 6 1.5 3.5-1 3.5-1v9s-1.5 1-3.5 1-3.5-1.5-6-1.5-4.5 1.3-4.5 1.3z"/></svg>',
+  // Mismo ícono que usa el tab "Plan" de la tabbar (index.html) -- lo reusamos acá para
+  // que "agregar al calendario" se lea visualmente como la misma acción en toda la app.
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg>',
   cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
   stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
@@ -2605,7 +2608,10 @@ function renderPerfil(){
     </div>` : '';
     evBox.innerHTML = `<p style="font-size:14.5px; font-weight:700;">${escapeHtml(state.event.name)} <span class="tag tag-${state.event.type==='ruta'?'asfalto':state.event.type==='trail'?'trail':'mixto'}">${t('ev_type_'+state.event.type)}</span></p>
       <p class="display" style="font-size:34px; color:var(--hivis); margin-top:4px;">${Math.max(0,days)} <span style="font-size:13px; font-family:Inter; color:var(--mist);">${t('perfil_event_days')}</span></p>
-      <button class="small-link" style="color:var(--danger); margin-top:6px;" onclick="deleteEvent()">${t('delete_event')}</button>
+      <div style="display:flex; align-items:center; gap:14px; margin-top:6px; flex-wrap:wrap;">
+        <button class="small-link" style="display:flex; align-items:center; gap:5px;" onclick="downloadEventIcs()"><span class="icon-sq" style="width:14px; height:14px;">${ICONS.calendar}</span>${t('add_to_calendar')}</button>
+        <button class="small-link" style="color:var(--danger);" onclick="deleteEvent()">${t('delete_event')}</button>
+      </div>
       ${paceBlock}`;
     document.getElementById('ev-name').value = state.event.name;
     document.getElementById('ev-distance').value = state.event.distanceKm || '';
@@ -3373,6 +3379,72 @@ async function deleteEvent(){
   dateBoxUpdaters['ev-date'] && dateBoxUpdaters['ev-date']();
   state.plan = preserveLivedDays(state.plan, generatePlan(state.profile, state.weekNumber||1));
   renderAll(); persist();
+}
+/* ---- agregar la carrera de "Próximos eventos" al calendario del celular (.ics) ----
+   Un evento de calendario ICS estándar (RFC 5545) que cualquier app de calendario sabe
+   abrir (Calendario de iOS/macOS, Google Calendar, Outlook, etc.) -- no depende de
+   ningún permiso especial ni de una integración puntual con un calendario en particular.
+   Se arma como evento DE TODO EL DÍA (VALUE=DATE, sin hora) a propósito: acá solo
+   tenemos la FECHA de la carrera, nunca una hora de largada, así que un evento con hora
+   (DTSTART/DTEND con TZID) obligaría a inventar una hora que probablemente esté mal --
+   mejor un evento de todo el día, sin ambigüedad de huso horario posible (a diferencia
+   de los recordatorios del coach, esto no depende para nada de detectDeviceTz()). */
+function escapeIcsText(s){
+  // Caracteres que el RFC 5545 pide escapar en valores de texto (SUMMARY, DESCRIPTION).
+  return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function buildEventIcs(ev){
+  // YYYYMMDD sin separadores, como pide VALUE=DATE -- ev.date ya viene en formato
+  // YYYY-MM-DD (mismo string que usa el resto de la app, ver setEvent()).
+  const dtStart = ev.date.replace(/-/g,'');
+  // DTEND en un evento de todo el día es EXCLUSIVO (el día siguiente), tal cual pide el
+  // estándar -- si no, algunas apps de calendario (Outlook en particular) lo muestran
+  // como si durara dos días.
+  const endDate = new Date(ev.date+'T00:00:00'); endDate.setDate(endDate.getDate()+1);
+  const dtEnd = endDate.toISOString().slice(0,10).replace(/-/g,'');
+  const now = new Date();
+  const dtStamp = now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+  const typeLabel = t('ev_type_'+ev.type);
+  const descParts = [typeLabel];
+  if(ev.distanceKm>0) descParts.push(fmtDist(ev.distanceKm,1)+' '+distUnit());
+  descParts.push('Zancada');
+  const uid = 'evt-'+dtStart+'-'+Math.random().toString(36).slice(2,10)+'@zancada.org';
+  // CRLF (\r\n): el RFC 5545 pide ese fin de línea puntual, no alcanza con \n solo --
+  // algunos lectores de calendario más estrictos (Outlook) lo rechazan sin esto.
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Zancada//Coach de running//ES',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    'UID:'+uid,
+    'DTSTAMP:'+dtStamp,
+    'DTSTART;VALUE=DATE:'+dtStart,
+    'DTEND;VALUE=DATE:'+dtEnd,
+    'SUMMARY:'+escapeIcsText(ev.name),
+    'DESCRIPTION:'+escapeIcsText(descParts.join(' · ')),
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')+'\r\n';
+}
+async function downloadEventIcs(){
+  if(!state.event) return;
+  const ics = buildEventIcs(state.event);
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  // Mismo patrón que shareRunImage(): en el celular (donde de verdad importa "agregar al
+  // calendario") preferimos el panel nativo para compartir/abrir archivos -- ahí el
+  // sistema ya sabe ofrecer "Agregar a Calendario" directo, sin pasar por la carpeta de
+  // Descargas. En desktop (sin Web Share API) caemos a la descarga clásica del archivo.
+  const file = new File([blob], 'zancada-carrera.ics', {type:'text/calendar'});
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:state.event.name}); }catch(e){ /* usuario canceló */ }
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'zancada-carrera.ics';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  }
 }
 
 /* ================= LIVE TRACKER + MAP ================= */

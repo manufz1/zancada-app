@@ -873,6 +873,10 @@ try{
           <div class="muted" style="font-size:11px; margin-top:2px;" data-i18n="perfil_event_days"></div>
         </div>
       </div>
+      <!-- Mismo botón que el de Perfil > Próximos Eventos (downloadEventIcs() en app.js) --
+           se repite acá porque esta tarjeta es lo primero que ve el corredor al abrir la
+           app, sin tener que ir a buscar Perfil para agregar la fecha a su calendario. -->
+      <button class="small-link" style="display:flex; align-items:center; gap:5px; margin-top:12px;" onclick="downloadEventIcs()"><span class="icon-sq" style="width:14px; height:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg></span><span data-i18n="add_to_calendar"></span></button>
     </div>
 
     <div class="card">
