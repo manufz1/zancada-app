@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T12:00:00Z';
+const APP_VERSION = '2026-09-03T13:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -1753,15 +1753,20 @@ function buildIntervalStructure(qualityKm, caution, weekNumber){
   return { reps, repMeters, recoveryMin };
 }
 function buildHillStructure(qualityKm, caution){
-  // Repeticiones en subida: esfuerzos más cortos que las series en llano (por el
-  // impacto extra de la pendiente), con el mismo criterio de tope por edad/contextura.
-  let effortSec, baseReps;
-  if(qualityKm <= 4){ effortSec = 45; baseReps = 6; }
-  else if(qualityKm <= 7){ effortSec = 60; baseReps = 8; }
-  else { effortSec = 90; baseReps = 10; }
+  // Repeticiones en subida, en distancia (no en tiempo): antes esta función fijaba
+  // effortSec/baseReps por tiers SIN relación con qualityKm, así que el total
+  // mostrado ("9.0 km") podía quedar totalmente desconectado de la sesión descripta
+  // (ej: "10 subidas de 90 segundos" no suma ningún 9km reconocible). Ahora, igual
+  // que buildIntervalStructure, reps sale de dividir qualityKm por un repMeters fijo
+  // por tier, así el texto y el total siempre son consistentes entre sí.
+  let repMeters;
+  if(qualityKm <= 4) repMeters = 150;
+  else if(qualityKm <= 7) repMeters = 250;
+  else repMeters = 400;
   const maxReps = caution && caution.level>=2 ? 5 : caution && caution.level>=1 ? 7 : 10;
-  const reps = Math.max(4, Math.min(maxReps, baseReps));
-  return { reps, effortSec };
+  const totalMeters = qualityKm * 1000;
+  const reps = Math.max(4, Math.min(maxReps, Math.round(totalMeters / repMeters)));
+  return { reps, repMeters };
 }
 function calcBmi(p){
   if(!p || !p.weight || !p.height) return null;
@@ -1846,7 +1851,7 @@ function planLabel(d){
   if(d.typeKey==='intervals' && d.interval){
     desc = t('desc_intervals_detail', {reps:d.interval.reps, meters:d.interval.repMeters, rest:d.interval.recoveryMin, zone:d.zone});
   } else if(d.typeKey==='hills' && d.interval){
-    desc = t('desc_hills_detail', {reps:d.interval.reps, effort:d.interval.effortSec, zone:d.zone});
+    desc = t('desc_hills_detail', {reps:d.interval.reps, meters:d.interval.repMeters, zone:d.zone});
   } else if(d.typeKey==='progression' && d.dist>0){
     desc = t('desc_progression_detail', {third: Math.max(1, Math.round(d.dist/3))});
   } else if(d.zone && d.dist>0 && d.typeKey!=='intervals' && d.typeKey!=='fartlek'){
@@ -3541,19 +3546,21 @@ function maybeAnnounceKm(){
 
    Las series (intervals) miden el esfuerzo por DISTANCIA (repMeters) porque así están
    pensadas -- "corré 400m fuerte" -- y la recuperación por TIEMPO (recoveryMin), tal
-   cual la arma buildIntervalStructure(). Las subidas (hills) miden el esfuerzo por
-   TIEMPO (effortSec) porque en una pendiente la distancia varía mucho según el
-   terreno; buildHillStructure() no define una duración de recuperación (el texto
-   dice solo "bajá trotando suave"), así que la estimamos como 1.6x el esfuerzo --
-   una bajada trotando suave típicamente lleva más que la subida fuerte, pero no el
-   doble. Es una heurística, no una medición real, y se lo explicamos así al usuario
-   si pregunta por chat. */
+   cual la arma buildIntervalStructure(). Las subidas (hills) ahora también se miden
+   por DISTANCIA (repMeters, ver buildHillStructure()) tanto en el esfuerzo (la
+   subida) como en la recuperación (la bajada trotando suave) -- bajar trotando
+   cubre aproximadamente el mismo tramo que se subió fuerte, así que no hace falta
+   una duración de recuperación aparte como en las series. (Antes se medía todo por
+   TIEMPO -- effortSec -- justamente porque en una pendiente la distancia puede
+   variar según el terreno, pero eso dejaba el total de la sesión mostrado en el
+   plan desconectado de la descripción real del ejercicio; ver buildHillStructure()
+   para el detalle.) */
 function getTodayWorkoutStructure(){
   const idx = (new Date().getDay()+6)%7;
   const today = state.plan[idx];
   if(!today || !today.interval) return null;
   if(today.typeKey==='intervals') return {typeKey:'intervals', reps:today.interval.reps, repMeters:today.interval.repMeters, recoveryMin:today.interval.recoveryMin};
-  if(today.typeKey==='hills') return {typeKey:'hills', reps:today.interval.reps, effortSec:today.interval.effortSec};
+  if(today.typeKey==='hills') return {typeKey:'hills', reps:today.interval.reps, repMeters:today.interval.repMeters};
   return null;
 }
 function setupWorkoutGuide(){
@@ -3591,6 +3598,12 @@ function advanceWorkoutPhase(){
     } else {
       w.phase = 'recovery';
       w.phaseStartElapsedSec = tracker.elapsedSec;
+      // Para cuestas la recuperación (bajada) también se mide por distancia -- ver
+      // tickWorkoutGuide() -- así que hay que reiniciar el punto de partida acá
+      // también, no solo al arrancar el esfuerzo. Para series (intervals) este valor
+      // no se usa durante la recuperación (que es por tiempo), así que actualizarlo
+      // siempre acá no cambia nada para ese caso.
+      w.phaseStartDistanceKm = tracker.distanceKm;
     }
   } else if(w.phase==='recovery'){
     w.currentRep++;
@@ -3610,8 +3623,10 @@ function tickWorkoutGuide(){
     if(w.phase==='effort') complete = (tracker.distanceKm - w.phaseStartDistanceKm)*1000 >= s.repMeters;
     else complete = (tracker.elapsedSec - w.phaseStartElapsedSec) >= s.recoveryMin*60;
   } else {
-    const target = w.phase==='effort' ? s.effortSec : Math.round(s.effortSec*1.6);
-    complete = (tracker.elapsedSec - w.phaseStartElapsedSec) >= target;
+    // hills: tanto la subida (esfuerzo) como la bajada trotando (recuperación) se
+    // miden por la misma distancia repMeters -- ver comentario arriba de
+    // getTodayWorkoutStructure().
+    complete = (tracker.distanceKm - w.phaseStartDistanceKm)*1000 >= s.repMeters;
   }
   if(complete) advanceWorkoutPhase();
   renderWorkoutGuide();
@@ -3646,8 +3661,7 @@ function renderWorkoutGuide(){
         ? ((tracker.distanceKm - w.phaseStartDistanceKm)*1000 / s.repMeters)*100
         : ((tracker.elapsedSec - w.phaseStartElapsedSec) / (s.recoveryMin*60))*100;
     } else {
-      const target = isEffort ? s.effortSec : Math.round(s.effortSec*1.6);
-      pct = ((tracker.elapsedSec - w.phaseStartElapsedSec) / target)*100;
+      pct = ((tracker.distanceKm - w.phaseStartDistanceKm)*1000 / s.repMeters)*100;
     }
     document.getElementById('workout-guide-progress-bar').style.width = Math.max(0,Math.min(100,pct)) + '%';
   } else if(w.phase==='done'){
