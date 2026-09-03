@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T21:30:22Z';
+const APP_VERSION = '2026-09-03T22:02:30Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4994,6 +4994,25 @@ function rdRoundRectPath(ctx, x, y, w, h, r){
 }
 
 const MAP_TILE_SIZE = 256;
+// Cuánto mundo real (en metros) queremos que se vea a lo ancho/alto del
+// recuadro del mapa en el modo "cámara dinámica" (ver más abajo) -- un valor
+// chico da un acercamiento tipo Strava (se ven las calles cercanas mientras
+// la cámara sigue al corredor); uno grande se parecería más al mapa
+// "panorama fijo" que teníamos antes.
+const FOLLOW_TARGET_METERS = 900;
+const FOLLOW_MIN_ZOOM = 12, FOLLOW_MAX_ZOOM = 17;
+// Tope de tiles distintas a pedir para armar el mosaico de la cámara
+// dinámica. Si una carrera muy larga necesitaría más que esto al zoom
+// ideal, vamos bajando el zoom (mapa más "alejado") hasta que entre.
+const FOLLOW_MAX_TILES = 220;
+
+// Plantilla de URL de las tiles, en una variable (no una constante) a
+// propósito: así un test puede redirigirla a un servidor local para poder
+// probar la carga y el armado del mosaico de punta a punta sin depender de
+// la red real (bloqueada en este entorno de pruebas).
+let cartoTileUrl = function(subdomain, zoom, x, y){
+  return `https://${subdomain}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png?key=cb1_2i8k_1_882919874396f1a734cae151`;
+};
 
 // Proyección Web Mercator estándar (la misma matemática que usan los mapas
 // tipo slippy-map / Leaflet / Google Maps), en píxeles de "mundo" a un zoom
@@ -5007,29 +5026,54 @@ function webMercatorProject(lat, lon, zoom){
   return { x, y };
 }
 
-// Elige el zoom más alto (mapa más "acercado", con más detalle de calles)
-// cuyo recuadro de la ruta todavía entra dentro del área disponible del
-// mapa del video. Si la ruta es muy chica (o casi no se movió), esto termina
-// en el zoom máximo permitido -- que es justo lo que queremos: un mapa bien
-// acercado en vez del cálculo de escala artificial que usábamos antes.
-function chooseMapZoom(latMin, latMax, lonMin, lonMax, availW, availH){
-  for(let zoom=17; zoom>=3; zoom--){
-    const p1 = webMercatorProject(latMax, lonMin, zoom);
-    const p2 = webMercatorProject(latMin, lonMax, zoom);
-    const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
-    if(w <= availW*0.9 && h <= availH*0.9) return zoom;
+// Calcula qué tiles hacen falta para que, mientras la cámara recorre TODA la
+// ruta (no solo su encuadre final), el recuadro del mapa esté siempre
+// cubierto -- como el "corredor" de tiles alrededor de todo el trazado, no
+// el rectángulo que contiene a toda la ruta (que para una carrera larga
+// podría ser gigantesco). Si ese corredor no entra en FOLLOW_MAX_TILES al
+// zoom ideal, vamos alejando el mapa (bajando el zoom) hasta que entre.
+function computeFollowCameraPlan(pts, latMid, availW, availH){
+  const halfW = availW/2, halfH = availH/2;
+  const idealMpp = FOLLOW_TARGET_METERS / Math.max(availW, availH);
+  const cosLat = Math.max(0.15, Math.cos(latMid * Math.PI/180));
+  let zoom = Math.round(Math.log2((156543.03392 * cosLat) / idealMpp));
+  zoom = Math.max(FOLLOW_MIN_ZOOM, Math.min(FOLLOW_MAX_ZOOM, zoom));
+
+  // Para rutas con muchísimos puntos GPS no hace falta mirar cada uno para
+  // saber qué tiles hacen falta -- muestreamos, pero nos aseguramos de
+  // incluir siempre el último punto (el muestreo por paso fijo puede
+  // saltearlo).
+  const addTilesForPoint = (tileSet, lat, lon, zoomLevel) => {
+    const wp = webMercatorProject(lat, lon, zoomLevel);
+    const txMin = Math.floor((wp.x-halfW)/MAP_TILE_SIZE)-1, txMax = Math.floor((wp.x+halfW)/MAP_TILE_SIZE)+1;
+    const tyMin = Math.floor((wp.y-halfH)/MAP_TILE_SIZE)-1, tyMax = Math.floor((wp.y+halfH)/MAP_TILE_SIZE)+1;
+    for(let tx=txMin; tx<=txMax; tx++) for(let ty=tyMin; ty<=tyMax; ty++) tileSet.add(tx+'_'+ty);
+  };
+
+  for(; zoom>=FOLLOW_MIN_ZOOM; zoom--){
+    const tileSet = new Set();
+    const step = Math.max(1, Math.floor(pts.length/400));
+    for(let i=0;i<pts.length;i+=step) addTilesForPoint(tileSet, pts[i].lat, pts[i].lon, zoom);
+    addTilesForPoint(tileSet, pts[pts.length-1].lat, pts[pts.length-1].lon, zoom);
+
+    if(tileSet.size <= FOLLOW_MAX_TILES || zoom===FOLLOW_MIN_ZOOM){
+      const tiles = Array.from(tileSet, key=>{ const [tx,ty] = key.split('_').map(Number); return {tx, ty}; });
+      let txMin=Infinity, txMax=-Infinity, tyMin=Infinity, tyMax=-Infinity;
+      tiles.forEach(tl=>{ if(tl.tx<txMin)txMin=tl.tx; if(tl.tx>txMax)txMax=tl.tx; if(tl.ty<tyMin)tyMin=tl.ty; if(tl.ty>tyMax)tyMax=tl.ty; });
+      return { zoom, tiles, txMin, txMax, tyMin, tyMax };
+    }
   }
-  return 3;
+  return null;
 }
 
-// Proyecta los puntos GPS reales de la carrera dentro de un rectángulo del
-// canvas usando Web Mercator (la misma proyección que un mapa real), para
-// que la ruta quede pixel-perfecta sobre las tiles de mapa que se cargan por
-// separado (ver loadMapTilesForVideo, más abajo). El video dibuja la ruta de
-// un solo color parejo (el verde de la marca, ver drawFrame en
-// startDynamicVideo) -- acá armamos las coordenadas de pantalla, la
-// distancia acumulada real de cada punto, y los datos de zoom/centro que
-// necesita el mapa real para alinearse con la ruta.
+// Proyecta los puntos GPS reales de la carrera usando Web Mercator para el
+// modo "cámara dinámica" del video: en vez de encoger toda la ruta para que
+// entre en el recuadro (como hacíamos antes), acá la escala es real (metros
+// por píxel fijo, ver FOLLOW_TARGET_METERS) y en cada cuadro la cámara se
+// centra en la posición actual del corredor -- el mapa y el trazado ya
+// recorrido se mueven por debajo, como en los videos de Strava. También
+// devuelve el plan de tiles (computeFollowCameraPlan) que necesita
+// loadFollowMapForVideo para cargar el mosaico real.
 function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   // Filtramos puntos sin lat/lon numérica (defensivo: un solo punto corrupto
   // en el estado guardado no debería tirar abajo el cálculo de toda la ruta).
@@ -5040,15 +5084,12 @@ function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
     if(p.lat<latMin) latMin=p.lat; if(p.lat>latMax) latMax=p.lat;
     if(p.lon<lonMin) lonMin=p.lon; if(p.lon>lonMax) lonMax=p.lon;
   });
-  const lonMid = (lonMin+lonMax)/2, latMid = (latMin+latMax)/2;
+  const latMid = (latMin+latMax)/2;
   const availW = rectW - pad*2, availH = rectH - pad*2;
-  const zoom = chooseMapZoom(latMin, latMax, lonMin, lonMax, availW, availH);
-  const center = webMercatorProject(latMid, lonMid, zoom);
-  const cx = rectX + pad + availW/2, cy = rectY + pad + availH/2;
-  const proj = pts.map(p=>{
-    const wp = webMercatorProject(p.lat, p.lon, zoom);
-    return { x: cx + (wp.x - center.x), y: cy + (wp.y - center.y) };
-  });
+
+  const followPlan = computeFollowCameraPlan(pts, latMid, availW, availH);
+  const followZoom = followPlan.zoom;
+  const followProj = pts.map(p => webMercatorProject(p.lat, p.lon, followZoom));
 
   const cum=[0];
   for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+haversine(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
@@ -5064,31 +5105,33 @@ function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   const hasRealTime = pts[0].t!=null && pts[pts.length-1].t!=null && pts[pts.length-1].t > pts[0].t;
 
   return {
-    proj, cum, totalDist, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null,
-    zoom, centerWX: center.x, centerWY: center.y, availW, availH
+    followProj, cum, totalDist, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null,
+    followZoom, followPlan, availW, availH
   };
 }
 
-// Carga tiles de mapa real (el mismo servidor CARTO que ya usa el mapa en
-// vivo de la app, pestaña Ruta) y arma un canvas con el mosaico recortado
-// exactamente al área visible del recuadro del mapa del video, en el mismo
-// sistema de coordenadas que computeVideoRouteData -- así la ruta queda
-// alineada con las calles reales.
+// Carga el mosaico de tiles reales (mismo servidor CARTO que ya usa el mapa
+// en vivo de la app) que necesita la cámara dinámica para recorrer TODA la
+// ruta, según el plan que ya calculó computeVideoRouteData -- así no hace
+// falta pedir tiles nuevas cuadro a cuadro mientras se graba, todo el
+// recorrido de cámara se arma sobre este único mosaico offscreen.
 //
 // Devuelve null ante CUALQUIER problema (una tile que falla, timeout, sin
-// conexión, canvas contaminado por CORS, etc.) para garantizar que esto
-// nunca puede producir algo peor que la tarjeta plana de antes -- en el peor
-// caso simplemente no se ve el mapa real y queda el fondo de siempre.
-async function loadMapTilesForVideo(routeData, availW, availH){
-  if(!routeData || routeData.zoom==null) return null;
+// conexión, canvas contaminado por CORS, mosaico demasiado grande, etc.)
+// para garantizar que esto nunca puede producir algo peor que la tarjeta
+// plana de antes -- en el peor caso simplemente no se ve el mapa real y el
+// trazado se sigue dibujando igual (la cámara dinámica no depende de tener
+// mapa real, ver drawFrame en startDynamicVideo).
+async function loadFollowMapForVideo(routeData){
+  if(!routeData || !routeData.followPlan) return null;
   try{
-    const { zoom, centerWX, centerWY } = routeData;
-    const wx0 = centerWX - availW/2, wx1 = centerWX + availW/2;
-    const wy0 = centerWY - availH/2, wy1 = centerWY + availH/2;
-    const txMin = Math.floor(wx0/MAP_TILE_SIZE), txMax = Math.floor(wx1/MAP_TILE_SIZE);
-    const tyMin = Math.floor(wy0/MAP_TILE_SIZE), tyMax = Math.floor(wy1/MAP_TILE_SIZE);
+    const { zoom, tiles, txMin, txMax, tyMin, tyMax } = routeData.followPlan;
     const tileCountX = txMax-txMin+1, tileCountY = tyMax-tyMin+1;
-    if(tileCountX<=0 || tileCountY<=0 || tileCountX*tileCountY>64) return null;
+    // Chequeo extra además del tope de tiles ÚNICAS: para una ruta con forma
+    // rara (ida y vuelta muy separadas, etc.) el rectángulo que ENVUELVE a
+    // todas las tiles necesarias podría ser mucho más grande que la cantidad
+    // de tiles real -- no queremos reservar un canvas gigantesco vacío.
+    if(tileCountX<=0 || tileCountY<=0 || tileCountX*tileCountY > FOLLOW_MAX_TILES*2) return null;
 
     const maxTile = Math.pow(2, zoom);
     const subdomains = ['a','b','c','d'];
@@ -5103,24 +5146,25 @@ async function loadMapTilesForVideo(routeData, availW, availH){
       const timer = setTimeout(()=>finish(null), 6000);
       img.onload = ()=>{ clearTimeout(timer); finish(img); };
       img.onerror = ()=>{ clearTimeout(timer); finish(null); };
-      img.src = `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wrappedX}/${ty}.png?key=cb1_2i8k_1_882919874396f1a734cae151`;
+      img.src = cartoTileUrl(s, zoom, wrappedX, ty);
     });
 
-    const jobs = [];
-    for(let ty=tyMin; ty<=tyMax; ty++){
-      for(let tx=txMin; tx<=txMax; tx++) jobs.push({tx, ty, promise: loadTile(tx, ty)});
-    }
-    const results = await Promise.all(jobs.map(j=>j.promise));
+    const results = await Promise.all(tiles.map(tl => loadTile(tl.tx, tl.ty)));
     if(results.every(img=>!img)) return null;
 
     const off = document.createElement('canvas');
     off.width = tileCountX*MAP_TILE_SIZE;
     off.height = tileCountY*MAP_TILE_SIZE;
     const octx = off.getContext('2d');
-    jobs.forEach((j,i)=>{
+    // Fondo parejo antes de pegar las tiles: si alguna tile puntual falló
+    // (timeout, 404, etc.) el hueco se ve como el resto de la tarjeta en vez
+    // de quedar transparente/negro.
+    octx.fillStyle = '#23282c';
+    octx.fillRect(0, 0, off.width, off.height);
+    tiles.forEach((tl,i)=>{
       const img = results[i];
       if(!img) return;
-      try{ octx.drawImage(img, (j.tx-txMin)*MAP_TILE_SIZE, (j.ty-tyMin)*MAP_TILE_SIZE); }catch(e){}
+      try{ octx.drawImage(img, (tl.tx-txMin)*MAP_TILE_SIZE, (tl.ty-tyMin)*MAP_TILE_SIZE); }catch(e){}
     });
 
     // Chequeo de "taint": si alguna tile contaminó el canvas (cross-origin
@@ -5129,14 +5173,7 @@ async function loadMapTilesForVideo(routeData, availW, availH){
     // rompe captureStream() en silencio (graba cuadros vacíos).
     try{ octx.getImageData(0,0,1,1); }catch(e){ return null; }
 
-    const cropX = wx0 - txMin*MAP_TILE_SIZE, cropY = wy0 - tyMin*MAP_TILE_SIZE;
-    const final = document.createElement('canvas');
-    final.width = Math.max(1, Math.round(availW));
-    final.height = Math.max(1, Math.round(availH));
-    const fctx = final.getContext('2d');
-    fctx.drawImage(off, cropX, cropY, availW, availH, 0, 0, availW, availH);
-    try{ fctx.getImageData(0,0,1,1); }catch(e){ return null; }
-    return final;
+    return { canvas: off, originWX: txMin*MAP_TILE_SIZE, originWY: tyMin*MAP_TILE_SIZE };
   }catch(e){
     return null;
   }
@@ -5185,16 +5222,16 @@ async function startDynamicVideo(runId){
   const routeData = computeVideoRouteData(r, mapX, mapY, mapW, mapH, mapPad);
   if(!routeData || routeData.totalDist<=0){ showToast(t('rd_video_error'), 'error'); return; }
 
-  // Mapa real: intentamos cargar tiles de calles (el mismo servidor CARTO
-  // que ya usa el mapa en vivo de la app, pestaña Ruta) para mostrar detrás
-  // de la ruta, en vez de la tarjeta plana de siempre. Si algo falla -- sin
-  // conexión, CORS, timeout, lo que sea -- mapTilesCanvas queda en null y
-  // drawFrame usa el fondo plano de toda la vida: esto nunca puede dejar el
-  // video peor de lo que ya estaba.
-  let mapTilesCanvas = null;
+  // Mapa real: intentamos cargar el mosaico de tiles que necesita la cámara
+  // dinámica para recorrer toda la ruta (ver loadFollowMapForVideo). Si algo
+  // falla -- sin conexión, CORS, timeout, lo que sea -- followMap queda en
+  // null y drawFrame sigue mostrando la cámara dinámica igual (el trazado
+  // moviéndose bajo el corredor centrado) pero sobre la tarjeta plana de
+  // siempre en vez de calles reales: nunca puede quedar peor que antes.
+  let followMap = null;
   try{
-    mapTilesCanvas = await loadMapTilesForVideo(routeData, routeData.availW, routeData.availH);
-  }catch(e){ mapTilesCanvas = null; }
+    followMap = await loadFollowMapForVideo(routeData);
+  }catch(e){ followMap = null; }
 
   video.style.display='none'; video.removeAttribute('src');
   actions.style.display='none';
@@ -5217,12 +5254,24 @@ async function startDynamicVideo(runId){
   const bg1 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt-2')||'#1c2126').trim() || '#1c2126';
   const bg2 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt')||'#14181b').trim() || '#14181b';
 
+  // Capa auxiliar SOLO para el trazado y el marcador, del tamaño exacto del
+  // interior del recuadro del mapa. En el modo "cámara dinámica" el trazado
+  // ya recorrido puede quedar, en píxeles de mundo, muy lejos del centro de
+  // pantalla (la escala ahora es real, no se encoge para que la ruta entera
+  // entre en el recuadro como antes) -- así que hace falta recortarlo a los
+  // límites de la tarjeta. En vez de ctx.clip() en el canvas principal
+  // (sospechoso de romper canvas.captureStream() en el WebView de iOS, ver
+  // comentario más abajo) dibujamos en este canvas aparte, que recorta solo
+  // por tener ese tamaño fijo, y lo pegamos entero con un drawImage() plano.
+  const routeLayer = document.createElement('canvas');
+  routeLayer.width = Math.max(1, Math.round(routeData.availW));
+  routeLayer.height = Math.max(1, Math.round(routeData.availH));
+  const routeCtx = routeLayer.getContext('2d');
+
   // Tarjeta del mapa: fondo bien visible (antes casi transparente, por eso no se
   // veía) + borde sutil, dibujados con fill/stroke normales, SIN ctx.clip(). En
   // algunos WebView de iOS (donde corre la app empaquetada) combinar ctx.clip()
-  // con canvas.captureStream() puede hacer que esa región no quede grabada --
-  // así que la ruta se mantiene dentro del recuadro por la propia proyección
-  // (computeVideoRouteData ya la acota con padding) en vez de recortarla a mano.
+  // con canvas.captureStream() puede hacer que esa región no quede grabada.
   function drawFrame(p, virtualDist, cursor){
     // Reseteamos sombra explícitamente: en el WebView de la app empaquetada
     // (iOS) usar ctx.shadowBlur en un canvas que se está grabando con
@@ -5249,14 +5298,36 @@ async function startDynamicVideo(runId){
     ctx.fillText(dateStr, W-40, 68);
     ctx.textAlign = 'left';
 
-    if(mapTilesCanvas){
-      // Mapa real: pegamos el mosaico de tiles ya recortado al área interior
-      // del recuadro (sin ctx.clip() a propósito, por la misma razón que el
-      // resto de este video la evita) más un velo oscuro para que la ruta y
-      // el marcador se lean bien encima de calles/edificios claros.
-      ctx.drawImage(mapTilesCanvas, mapX+mapPad, mapY+mapPad);
-      ctx.fillStyle = 'rgba(0,0,0,0.18)';
-      ctx.fillRect(mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
+    // Posición actual de la cámara en píxeles de "mundo" al zoom de
+    // seguimiento (mismo sistema que routeData.followProj) -- interpolada
+    // entre el punto actual y el siguiente para que el paneo sea suave
+    // cuadro a cuadro, igual que antes se interpolaba la posición del
+    // marcador.
+    let camX = routeData.followProj[cursor].x, camY = routeData.followProj[cursor].y;
+    if(cursor < routeData.followProj.length-1){
+      const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
+      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+      camX = routeData.followProj[cursor].x + (routeData.followProj[cursor+1].x-routeData.followProj[cursor].x)*frac;
+      camY = routeData.followProj[cursor].y + (routeData.followProj[cursor+1].y-routeData.followProj[cursor].y)*frac;
+    }
+
+    if(followMap){
+      // Mapa real: recortamos del mosaico precargado la ventana que
+      // corresponde a la posición actual de la cámara (sin ctx.clip() a
+      // propósito -- el recorte lo hace el propio ancho/alto del destino)
+      // más un velo oscuro para que la ruta y el marcador se lean bien
+      // encima de calles/edificios claros.
+      try{
+        const sx = camX - followMap.originWX - routeData.availW/2;
+        const sy = camY - followMap.originWY - routeData.availH/2;
+        ctx.drawImage(followMap.canvas, sx, sy, routeData.availW, routeData.availH, mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
+      }catch(e){
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+        ctx.fill();
+      }
     } else {
       ctx.fillStyle = 'rgba(255,255,255,0.10)';
       rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
@@ -5267,38 +5338,35 @@ async function startDynamicVideo(runId){
     rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
     ctx.stroke();
 
-    // Trazo parejo de un solo color (el verde de la marca). Se arma UNA sola
-    // vez con beginPath()/moveTo/lineTo (no Path2D, por las dudas -- el
-    // camino queda activo en el contexto así que se puede llamar a stroke()
-    // dos veces sin rehacerlo) y se dibuja con dos stroke() nomás (halo
-    // oscuro + línea verde), en vez de un beginPath()/stroke() por cada
-    // segmento como antes (cientos de llamadas por cuadro en una carrera
-    // larga, y el color salía de una variable CSS por punto -- ninguna de
-    // las dos cosas se veía bien en el WebView de la app empaquetada).
+    // Trazo parejo de un solo color (el verde de la marca), dibujado en
+    // coordenadas relativas a la cámara -- el corredor queda siempre fijo en
+    // el centro de la tarjeta (como en los videos de Strava) y el trazado ya
+    // recorrido se desliza por debajo a medida que avanza la carrera. Se
+    // dibuja en routeLayer (ver más arriba) para que quede recortado a los
+    // límites de la tarjeta sin usar ctx.clip() en el canvas que se graba.
     // Envuelto en try/catch a propósito: si algo de esto tira una excepción
     // en el teléfono, preferimos ver el mensaje de error dibujado en rojo
     // (aparece en el video) a que la carátula quede muda sobre qué pasó.
-    let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
+    const centerLocalX = routeData.availW/2, centerLocalY = routeData.availH/2;
     try{
-      if(cursor < routeData.proj.length-1){
-        const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
-        const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
-        curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
-        curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
+      routeCtx.clearRect(0, 0, routeLayer.width, routeLayer.height);
+      routeCtx.beginPath();
+      routeCtx.moveTo(centerLocalX + (routeData.followProj[0].x-camX), centerLocalY + (routeData.followProj[0].y-camY));
+      for(let i=1;i<=cursor;i++){
+        routeCtx.lineTo(centerLocalX + (routeData.followProj[i].x-camX), centerLocalY + (routeData.followProj[i].y-camY));
       }
-      ctx.beginPath();
-      ctx.moveTo(routeData.proj[0].x, routeData.proj[0].y);
-      for(let i=1;i<=cursor;i++) ctx.lineTo(routeData.proj[i].x, routeData.proj[i].y);
-      ctx.lineTo(curX, curY);
-      ctx.lineCap='round'; ctx.lineJoin='round';
-      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-      ctx.stroke();
-      ctx.lineWidth = 7; ctx.strokeStyle = '#D6FF3F';
-      ctx.stroke();
+      routeCtx.lineTo(centerLocalX, centerLocalY);
+      routeCtx.lineCap='round'; routeCtx.lineJoin='round';
+      routeCtx.lineWidth = 12; routeCtx.strokeStyle = 'rgba(0,0,0,0.35)';
+      routeCtx.stroke();
+      routeCtx.lineWidth = 7; routeCtx.strokeStyle = '#D6FF3F';
+      routeCtx.stroke();
 
-      ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-      ctx.lineWidth=3; ctx.strokeStyle = '#D6FF3F'; ctx.stroke();
+      routeCtx.beginPath(); routeCtx.arc(centerLocalX,centerLocalY,17,0,Math.PI*2); routeCtx.fillStyle='rgba(255,255,255,0.22)'; routeCtx.fill();
+      routeCtx.beginPath(); routeCtx.arc(centerLocalX,centerLocalY,8,0,Math.PI*2); routeCtx.fillStyle='#fff'; routeCtx.fill();
+      routeCtx.lineWidth=3; routeCtx.strokeStyle = '#D6FF3F'; routeCtx.stroke();
+
+      ctx.drawImage(routeLayer, mapX+mapPad, mapY+mapPad);
     }catch(drawErr){
       ctx.textAlign='left';
       ctx.font = '700 15px monospace';
@@ -5392,7 +5460,7 @@ async function startDynamicVideo(runId){
     if(!rdVideoState || rdVideoState.cancelled) return;
     const p = Math.min(1, (now-t0)/ANIM_MS);
     const virtualDist = p*totalDist;
-    while(cursor < routeData.proj.length-2 && routeData.cum[cursor+1]<=virtualDist) cursor++;
+    while(cursor < routeData.followProj.length-2 && routeData.cum[cursor+1]<=virtualDist) cursor++;
     drawFrame(p, virtualDist, cursor);
     if(progressEl) progressEl.textContent = Math.round(p*100)+'%';
     if(p<1){
@@ -5409,9 +5477,18 @@ async function downloadDynamicVideo(){
   if(!rdVideoState || !rdVideoState.blob) return;
   const blob = rdVideoState.blob;
   const dateSlug = (rdCurrent && rdCurrent.r && rdCurrent.r.date ? rdCurrent.r.date : new Date().toISOString()).slice(0,10);
-  const fileName = `zancada-${dateSlug}.webm`;
+  // La extensión del archivo tiene que coincidir con el tipo real del video
+  // grabado. Antes el nombre quedaba hardcodeado en ".webm" sin importar qué
+  // formato haya elegido MediaRecorder -- pero Safari/WKWebView (la app
+  // empaquetada de iOS) normalmente NO soporta grabar en webm y termina
+  // grabando en video/mp4. Un archivo "algo.webm" cuyo contenido real es MP4
+  // confunde al share sheet: por eso WhatsApp lo trataba como si "no
+  // existiera" (lo recibía pero no lo reconocía como un video válido).
+  const mime = blob.type || 'video/webm';
+  const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'mp4');
+  const fileName = `zancada-${dateSlug}.${ext}`;
   try{
-    const file = new File([blob], fileName, {type: blob.type||'video/webm'});
+    const file = new File([blob], fileName, {type: mime});
     if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:'Zancada'});
       return;
