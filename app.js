@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T15:40:00Z';
+const APP_VERSION = '2026-09-03T16:15:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -503,7 +503,7 @@ async function handleAppleSignIn(btnId){
 }
 
 /* ---- Strava ---- */
-const STRAVA_CLIENT_ID = '275082';
+const STRAVA_CLIENT_ID = '276715';
 async function connectStrava(){
   // Pedimos un "state" firmado por el backend antes de mandar al usuario a
   // Strava, en vez de mandar el user_id suelto — así el callback puede
