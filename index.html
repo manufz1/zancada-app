@@ -1189,7 +1189,16 @@ try{
         <button class="chat-scroll-btn" id="chat-scroll-bottom-btn" style="display:none;" onclick="scrollChatToBottom()" data-i18n-aria="aria_scroll_bottom"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>
       </div>
       <div class="chat-input-bar" id="chatBar">
-        <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') handleChatSendClick();">
+        <!-- autocomplete/autocorrect/autocapitalize/spellcheck en "off": esto es lo que
+             evita que iOS muestre la barra de sugerencias predictivas (QuickType) pegada
+             arriba del teclado. Esa barra es la sospechosa más probable de la "barra gris
+             abajo del todo" reportada -- solo pasaba en esta pantalla (la única con un
+             <input> real de texto libre) y solo en modo standalone (agregado a inicio),
+             que es justo donde WebKit tiene bugs conocidos de capas del compositor que no
+             se limpian bien al cerrar el teclado en layouts con position:fixed como este
+             (ver el comentario largo en app.js, cerca de forceFixedLayoutReflow). Sacando
+             la barra de sugerencias de raíz, no queda nada que pueda dejar ese resto. -->
+        <input type="text" id="chatInput" data-i18n-ph="coach_ph" onkeydown="if(event.key==='Enter') handleChatSendClick();" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button class="chat-send" id="chat-send-btn" onclick="handleChatSendClick()" data-i18n-aria="aria_send"><span class="icon-sq" style="width:18px; height:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span></button>
       </div>
     </div>

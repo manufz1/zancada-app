@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T08:00:00Z';
+const APP_VERSION = '2026-09-03T09:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -3139,6 +3139,26 @@ if(window.visualViewport){
   // "varios intentos" para que alguno caiga en el momento justo: alcanza con no
   // dispararlo demasiado pronto.
   chatInputEl.addEventListener('blur', ()=> setTimeout(forceFixedLayoutReflow, 400));
+  // Red de seguridad extra para la barra gris reportada en el chat del coach (solo en
+  // modo standalone/agregado a inicio, solo en esta pantalla): ya se sacó de raíz la
+  // causa más probable (la barra de sugerencias predictivas de iOS, ver el atributo
+  // autocorrect="off" etc. en el <input> de index.html), pero por si algún resto de
+  // capa del compositor sobrevive igual en algún iOS puntual, forzamos ACÁ un reflow
+  // más agresivo (esconder y volver a mostrar <body>, que fuerza recomposición de toda
+  // la página) UNA sola vez, bien al final -- recién a los 1000ms, después de que la
+  // ventana de reapplyDuringAnimation (900ms) y el forceFixedLayoutReflow de los 400ms ya
+  // terminaron del todo. Antes se había probado este mismo truco disparándolo VARIAS
+  // veces durante esos primeros 900ms y eso competía con la animación de cierre del
+  // teclado (se sentía "trabado", ver el comentario más arriba) -- disparado una sola
+  // vez y recién cuando ya no hay ninguna animación en curso, el costo no se nota.
+  function forceHardRepaint(){
+    const prevDisplay = document.body.style.display;
+    document.body.style.display = 'none';
+    // eslint-disable-next-line no-unused-expressions
+    document.body.offsetHeight; // fuerza el reflow síncrono antes de volver a mostrar
+    document.body.style.display = prevDisplay;
+  }
+  chatInputEl.addEventListener('blur', ()=> setTimeout(forceHardRepaint, 1000));
   // Este bug de WebKit no es exclusivo del chat: CUALQUIER campo de texto de la app
   // (login, onboarding, Perfil -- peso, altura, fecha de nacimiento, km semanales,
   // nota del objetivo, etc.) abre el mismo teclado de iOS, y al cerrarse puede dejar
