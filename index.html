@@ -248,13 +248,31 @@ try{
   .err-text{color:var(--danger); font-size:12.5px; margin-top:8px; display:none;}
 
   header.top{padding:calc(16px + var(--safe-top)) 20px 14px; display:flex; align-items:center; justify-content:space-between;
-    position:sticky; top:0; z-index:5; background:linear-gradient(180deg, var(--tabbar-bg) 55%, transparent); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);}
+    position:sticky; top:0; z-index:5; background:linear-gradient(180deg, var(--tabbar-bg) 55%, transparent); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    flex-shrink:0;}
   header.top .brand{display:flex; align-items:center; gap:9px;}
   header.top .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--hivis); box-shadow:0 0 10px var(--hivis);}
   header.top .brand span{font-size:15px; font-weight:800; letter-spacing:.02em;}
 
-  .view{display:none; padding:4px 20px 128px;}
-  .view.active{display:block; animation:viewFadeIn .22s ease;}
+  /* Antes 128px para que el contenido no quedara tapado DEBAJO de la tabbar, que era
+     position:fixed (flotaba por fuera del flujo del documento). Ahora que nav.tabbar es
+     position:sticky (ver el comentario largo junto a esa regla) ocupa espacio real en
+     el flujo -- ya no hay nada que tapar, así que esto es solo un margen chico de
+     respiro antes de que aparezca la tabbar al final del scroll. */
+  .view{display:none; padding:4px 20px 20px;}
+  /* flex:1 1 auto es lo que hace que nav.tabbar (sticky, más abajo) termine SIEMPRE
+     pegada al fondo real de la pantalla, no solo en vistas con contenido largo. #app
+     ya es display:flex; flex-direction:column -- pero sin esto, una vista "corta" en
+     contenido de verdad (como #view-coach, cuyo único hijo #coachChatWrap es
+     position:fixed y por lo tanto no suma nada de alto real al flujo) deja a la tabbar
+     parada justo debajo de esa vista casi vacía, MUY arriba de donde tendría que estar
+     -- position:sticky solo puede EVITAR que algo seguía bajando de más al scrollear,
+     nunca puede empujarlo hacia abajo si su posición natural ya está más arriba. Con
+     flex:1 1 auto la vista activa siempre estira para ocupar el espacio que sobra
+     (basado en su contenido real -- si el contenido ya es más alto que la pantalla,
+     esto no lo achica, así que las vistas largas siguen scrolleando igual que
+     siempre). */
+  .view.active{display:block; flex:1 1 auto; animation:viewFadeIn .22s ease;}
   @keyframes viewFadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
   /* #view-coach usa una animación sin transform (solo opacity): un transform en este
      elemento crearía un "containing block" nuevo para su hijo #coachChatWrap
@@ -514,9 +532,33 @@ try{
      abraza su contenido igual de los dos lados) y el hueco que hace falta para no tapar
      el home indicator se resuelve levantando la tarjeta ENTERA con bottom:safe-bottom
      en vez de agrandarla por dentro -- por eso vuelve a tener las 4 esquinas redondeadas
-     (ya no está pegada al borde real, así que redondearlas abajo no se ve "cortado"). */
-  nav.tabbar{position:fixed; bottom:var(--safe-bottom); left:14px; right:14px; max-width:452px; margin:0 auto; background:var(--tabbar-bg);
-    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:flex; padding:9px 6px;
+     (ya no está pegada al borde real, así que redondearlas abajo no se ve "cortado").
+
+     TERCER intento, el más importante -- position:fixed a position:sticky. Después de
+     muchas vueltas tratando de arreglar a los PARCHES el bug de iOS (visualViewport que
+     no vuelve a su tamaño real después de cerrar el teclado, dejando a los elementos
+     position:fixed mal ubicados -- ver los comentarios largos en app.js junto a
+     forceFixedLayoutReflow), la solución de raíz es no depender más de position:fixed
+     para esto. Ese bug de WebKit es específico de cómo el compositor re-ancla los
+     elementos FIXED contra el viewport visual -- position:sticky usa un mecanismo de
+     layout completamente distinto (se recalcula como parte del scroll normal de la
+     página, no como una capa aparte "flotando" sobre el viewport), así que no le pega
+     el mismo bug. Ya sabemos que funciona bien en esta misma app: header.top usa
+     position:sticky hace rato y nunca hubo un reporte de que se quede mal ubicado.
+     Como la tabbar es el último elemento de #app (que mide como mínimo 100dvh),
+     position:sticky con bottom:safe-bottom se comporta IGUAL que fixed en pantallas
+     que entran completas (que es la mayoría acá), y en las pocas vistas con scroll
+     largo (Historial, Plan) se queda pegada abajo mientras se scrollea iqual que antes
+     -- la diferencia solo se nota (para bien) después de cerrar el teclado. Como ya no
+     "flota" por fuera del documento, ahora ocupa espacio real en el flujo -- por eso
+     el padding-bottom de 128px que tenían las .view (pensado para que el contenido no
+     quedara tapado DEBAJO de la tabbar flotante) se achica más abajo a un margen chico,
+     ya no hace falta compensar ningún solapamiento. left/right ya no aplican igual con
+     sticky (esos insets sirven para stickiness horizontal, no para achicar el ancho de
+     la caja como con fixed) -- se reemplazan por width+margin para lograr el mismo
+     ancho y centrado de antes. */
+  nav.tabbar{position:sticky; bottom:var(--safe-bottom); width:calc(100% - 28px); max-width:452px; margin:14px auto 0; background:var(--tabbar-bg);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); display:flex; padding:9px 6px; flex-shrink:0;
     border-radius:26px; border:1px solid var(--overlay-hairline); box-shadow:var(--shadow-lg); z-index:20;}
   nav.tabbar button{flex:1; background:none; border:none; color:var(--mist-dim); display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10.5px; font-weight:600; cursor:pointer; padding:4px 2px; transition:transform .12s ease, color .12s ease;}
   .nav-icon-wrap{position:relative; display:inline-flex;}
