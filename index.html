@@ -136,7 +136,28 @@ try{
     transform:translateY(-100%); transition:transform .25s ease; pointer-events:none;}
   #offline-banner.show{transform:translateY(0); pointer-events:auto;}
 
-  #splash{position:fixed; inset:0; z-index:60; background:var(--asphalt); display:flex; flex-direction:column;
+  /* #splash es un panel fijo a pantalla completa que se ve SOLO en el arranque en frío
+     (antes de iniciar sesión), sin que haya intervenido nunca el teclado -- por eso el
+     bug reportado ("el botón Comenzar se mueve solo al abrir la app de cero") no puede
+     ser el mismo bug de WebKit del teclado (ese necesita que el teclado se haya abierto
+     y cerrado al menos una vez). Con position:fixed + inset:0, la altura real del panel
+     depende de qué "viewport" use el motor para resolver ese 0 de abajo -- y en Safari
+     de iOS, apenas termina de cargar la página, la barra de Safari (o la propia altura
+     utilizable) puede terminar de "asentarse" un instante después del primer pintado
+     (sin que el usuario haya scrolleado ni tocado nada), lo que cambia esa altura y
+     mueve todo lo que esté anclado contra el borde inferior -- en este caso, el botón
+     "Comenzar", que cuelga del fondo del panel via .splash-mid{flex:1}. La solución no
+     es JS (acá no hay ningún reflow que forzar, es la altura de partida la que está mal
+     elegida): usar el viewport CHICO (100svh) en vez de dejar que inset:0 tome el
+     tamaño "grande"/ambiguo -- 100svh es, por definición, la altura ya calculada para
+     cuando la barra del navegador está totalmente expandida (el peor caso, el más
+     chico), así que el panel arranca directamente con esa altura final y no tiene
+     margen para "crecer" (ni por lo tanto mover nada) después del primer pintado. Se
+     deja 100dvh y 100vh como fallback en cascada para navegadores viejos que no
+     entienden la unidad svh (una declaración con un valor no soportado se ignora por
+     completo, así que la anterior queda en pie). */
+  #splash{position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:100svh;
+    z-index:60; background:var(--asphalt); display:flex; flex-direction:column;
     align-items:center; justify-content:flex-start; text-align:center; padding:32px; max-width:480px; margin:0 auto;}
   #splash .splash-mid{flex:1; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:0; padding-bottom:96px;}
   #splash .word{font-size:60px; line-height:.9;}

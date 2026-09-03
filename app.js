@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T03:05:00Z';
+const APP_VERSION = '2026-09-03T04:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2824,9 +2824,19 @@ function syncCoachChatLayout(){
     ? Math.round(tabbar.getBoundingClientRect().top) - bottomGap
     : Math.round(viewportOffsetTop + viewportH) - bottomGap;
   const height = Math.max(0, bottomLimit - top);
+  // OJO con el orden acá: chatBar.offsetHeight se lee ACÁ, ANTES de tocar wrap.style,
+  // a propósito. Leerlo después (como estaba antes) fuerza un reflow síncrono EXTRA --
+  // escribir wrap.style.top/height ensucia el layout, y la siguiente lectura de
+  // offsetHeight obliga al navegador a recalcularlo todo de nuevo ahí mismo, en vez de
+  // dejarlo para el próximo frame de pintado normal. Juntando todas las lecturas antes
+  // que las escrituras evitamos ese "layout thrashing" -- que se nota especialmente
+  // acá porque esta función se llama muchas veces seguidas durante la animación de
+  // apertura/cierre del teclado (ver reapplyDuringAnimation), compitiendo por tiempo
+  // de frame justo cuando más importa que no haya trabajo de más.
+  const chatBarH = (scrollBtnWrap && chatBar) ? chatBar.offsetHeight : 0;
   wrap.style.top = top + 'px';
   wrap.style.height = height + 'px';
-  if(scrollBtnWrap && chatBar) scrollBtnWrap.style.bottom = (chatBar.offsetHeight + 14) + 'px';
+  if(scrollBtnWrap && chatBar) scrollBtnWrap.style.bottom = (chatBarH + 14) + 'px';
 }
 window.addEventListener('resize', syncCoachChatLayout);
 if(window.visualViewport){
@@ -2953,21 +2963,30 @@ if(window.visualViewport){
   // nuevo); acá la reusamos en cada tick de la apertura para que seguir pegado al
   // fondo mientras el contenedor se va achicando.
   function reapplyDuringAnimation(resetScroll, pinChatBottom){
-    if(animationPollId) clearInterval(animationPollId);
-    syncCoachChatLayout();
-    if(pinChatBottom) scrollChatToBottom();
-    if(resetScroll) resetDocumentScroll();
-    // 900ms alcanza de sobra -- la animación real del teclado en iOS dura unos
-    // 250-300ms incluso en un teléfono cargado -- y así hay bastante menos trabajo de
-    // layout compitiendo por frames con esa animación (antes eran 2000ms completos,
-    // parte de por qué "bajaba trabado").
-    const deadline = Date.now() + 900;
-    animationPollId = setInterval(()=>{
+    // Antes esto remedía con setInterval cada 80ms durante 900ms -- un temporizador que
+    // no tiene ninguna relación con el ritmo real al que el navegador pinta frames.
+    // Eso significaba que buena parte de esas ~11 remediciones caían A MtAD DE un frame
+    // que el propio SISTEMA estaba usando para animar el cierre del teclado -- justo el
+    // trabajo de layout de más, en el momento menos oportuno, que se ve como "trabado".
+    // requestAnimationFrame en cambio SIEMPRE corre justo ANTES de que el navegador
+    // pinte el próximo frame, nunca compitiendo a mitad de uno -- así que hacemos la
+    // misma cantidad de remediciones (cubriendo la misma ventana de ~900ms, de sobra
+    // para los 250-300ms que tarda la animación real del teclado en iOS) pero cada una
+    // cae en un momento en el que el navegador de cualquier forma iba a hacer trabajo
+    // de layout/paint, en vez de forzarlo aparte.
+    if(animationPollId) cancelAnimationFrame(animationPollId);
+    const deadline = performance.now() + 900;
+    function tick(){
       syncCoachChatLayout();
       if(pinChatBottom) scrollChatToBottom();
       if(resetScroll) resetDocumentScroll();
-      if(Date.now() >= deadline){ clearInterval(animationPollId); animationPollId = null; }
-    }, 80);
+      if(performance.now() < deadline){
+        animationPollId = requestAnimationFrame(tick);
+      } else {
+        animationPollId = null;
+      }
+    }
+    tick();
   }
   chatInputEl.addEventListener('focus', ()=>{
     if(tabbarEl) tabbarEl.style.display = 'none';
