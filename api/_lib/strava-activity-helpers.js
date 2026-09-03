@@ -162,21 +162,30 @@ async function mergeStravaRuns(base, headers, userId, newRuns, mode) {
 // desconecta desde la app) y strava-webhook.js (cuando Strava avisa que el
 // usuario revocó el acceso desde su propia cuenta) -- en los dos casos hay
 // que dejar de tener datos de Strava que ya no estamos autorizados a
-// conservar. No hace nada si el usuario no tiene carreras de Strava
-// guardadas.
+// conservar. También limpia app_state.data.stravaSync (ver
+// set_strava_sync_status más abajo) -- si no, alguien que desconecta y
+// vuelve a conectar más adelante vería en el Historial el aviso de "la
+// sincronización con Strava falló/está desactualizada" de la conexión
+// VIEJA, que ya no tiene nada que ver con la nueva. No hace nada si no hay
+// ni carreras de Strava ni un estado de sincronización guardado.
 async function purgeStravaRunsForUser(base, headers, userId) {
   const stateRes = await fetch(`${base}/rest/v1/app_state?user_id=eq.${userId}&select=data`, { headers });
   const stateRows = await stateRes.json();
   const data = stateRows && stateRows[0] && stateRows[0].data;
-  if (!data || !Array.isArray(data.runs) || !data.runs.some(r => r.source === 'strava')) return;
+  const hasStravaRuns = data && Array.isArray(data.runs) && data.runs.some(r => r.source === 'strava');
+  const hasSyncStatus = data && data.stravaSync;
+  if (!data || (!hasStravaRuns && !hasSyncStatus)) return;
 
-  data.runs = data.runs.filter(r => r.source !== 'strava');
-  if (Array.isArray(data.shoes)) {
-    data.shoes = data.shoes.map(shoe => ({
-      ...shoe,
-      km: data.runs.filter(r => String(r.shoeId) === String(shoe.id)).reduce((a, r) => a + (r.distanceKm || 0), 0)
-    }));
+  if (hasStravaRuns) {
+    data.runs = data.runs.filter(r => r.source !== 'strava');
+    if (Array.isArray(data.shoes)) {
+      data.shoes = data.shoes.map(shoe => ({
+        ...shoe,
+        km: data.runs.filter(r => String(r.shoeId) === String(shoe.id)).reduce((a, r) => a + (r.distanceKm || 0), 0)
+      }));
+    }
   }
+  if (hasSyncStatus) delete data.stravaSync;
   const patchRes = await fetch(`${base}/rest/v1/app_state?user_id=eq.${userId}`, {
     method: 'PATCH', headers,
     body: JSON.stringify({ data, updated_at: new Date().toISOString() })
@@ -184,4 +193,25 @@ async function purgeStravaRunsForUser(base, headers, userId) {
   if (!patchRes.ok) throw new Error(`purgeStravaRunsForUser: PATCH failed: ${patchRes.status} ${await patchRes.text().catch(() => '')}`);
 }
 
-module.exports = { decodePolyline, fetchSplits, getMondayISO, activityToRun, mergeStravaRuns, purgeStravaRunsForUser };
+// Llama a la función SQL set_strava_sync_status (ver
+// /sql/set_strava_sync_status.sql) para dejar registrado en
+// app_state.data.stravaSync el resultado de este intento de sincronización --
+// tanto el cron de cada 15' (sync-strava.js) como el botón "Sincronizar
+// ahora" (strava-sync-now.js) lo llaman, en cada intento, sea que haya
+// encontrado carreras nuevas o no (encontrar cero carreras nuevas es un
+// intento EXITOSO igual, solo que sin nada para traer). Sin esto, un error
+// (token de Strava revocado, la API de Strava caída, lo que sea) quedaba
+// atrapado en un catch y nunca se enteraba nadie -- ni el usuario ni la app.
+// No relanza si esta llamada en sí falla (mejor perder un registro de estado
+// que romper la sincronización real por un problema en el reporte).
+async function setStravaSyncStatus(base, headers, userId, status) {
+  try {
+    await fetch(`${base}/rest/v1/rpc/set_strava_sync_status`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ p_user_id: userId, p_status: status })
+    });
+  } catch (e) { /* no-op a propósito, ver comentario de arriba */ }
+}
+
+module.exports = { decodePolyline, fetchSplits, getMondayISO, activityToRun, mergeStravaRuns, purgeStravaRunsForUser, setStravaSyncStatus };

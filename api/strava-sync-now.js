@@ -1,5 +1,5 @@
 const verifyUser = require('./_lib/verify-user');
-const { activityToRun, mergeStravaRuns } = require('./_lib/strava-activity-helpers');
+const { activityToRun, mergeStravaRuns, setStravaSyncStatus } = require('./_lib/strava-activity-helpers');
 const { applyCors, isPreflight } = require('./_lib/cors');
 
 module.exports = async (req, res) => {
@@ -44,6 +44,7 @@ module.exports = async (req, res) => {
     const runs = Array.isArray(acts) ? acts.filter(a => ((a.sport_type || a.type || '').includes('Run'))) : [];
 
     if (!runs.length) {
+      await setStravaSyncStatus(base, headers, userId, { ok: true });
       return res.status(200).json({ synced: false, reason: 'no_new_activity' });
     }
 
@@ -69,8 +70,10 @@ module.exports = async (req, res) => {
       await mergeStravaRuns(base, headers, userId, newRuns, 'skip');
     }
 
+    await setStravaSyncStatus(base, headers, userId, { ok: true });
     res.status(200).json({ synced: newRuns.length > 0 });
   } catch (err) {
+    await setStravaSyncStatus(base, headers, userId, { ok: false, error: err.message });
     res.status(500).json({ error: err.message });
   }
 };

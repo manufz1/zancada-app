@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T11:00:00Z';
+const APP_VERSION = '2026-09-03T12:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -529,15 +529,24 @@ async function connectStrava(){
 async function updateStravaStatusDisplay(){
   const el = document.getElementById('strava-status');
   const btn = document.getElementById('strava-connect-btn');
+  const note = document.getElementById('strava-sync-note');
   if(!el || !currentUserId) return;
   try{
     const { data } = await supabaseClient.from('strava_connections').select('athlete_id').eq('user_id', currentUserId).maybeSingle();
     if(data){
       el.textContent = t('perfil_strava_connected'); el.className = 'tag tag-mixto';
       if(btn){ btn.textContent = t('perfil_strava_disconnect'); btn.onclick = disconnectStrava; }
+      // Mismo aviso que el cartel de Historial (ver getStravaSyncIssue), pero acá como
+      // nota corta -- este es justo el lugar donde ya está el botón para reconectar.
+      const issue = getStravaSyncIssue();
+      if(note){
+        if(issue){ note.textContent = issue.title; note.style.color = issue.severity==='error' ? 'var(--danger)' : 'var(--clay)'; note.style.display = 'block'; }
+        else { note.style.display = 'none'; }
+      }
     } else {
       el.textContent = t('perfil_native'); el.className = 'tag tag-soon';
       if(btn){ btn.textContent = t('perfil_strava_connect'); btn.onclick = connectStrava; }
+      if(note) note.style.display = 'none';
     }
   }catch(e){}
 }
@@ -1220,6 +1229,7 @@ function enterApp(){
   autoClearPastEvent();
   repairCorruptedCustomDays();
   checkProactiveCoachNudge();
+  checkInactivityCheckin();
   checkPainCheckins();
   refreshEstimatedHrMax();
   checkHrMaxFromRuns();
@@ -1618,6 +1628,29 @@ function checkProactiveCoachNudge(){
   state.proactiveNudgeFor = state.weekStart;
   state.chat.push({role:'coach', text: t(key), ts:Date.now()});
   renderChat();
+  persist();
+}
+/* ---- "che, hace unos días que no te veo" -- reenganche por inactividad ----
+   A diferencia de checkWeekRollover (que mide semanas SIN CARRERAS REGISTRADAS, y
+   ajusta el plan hacia abajo, pero solo corre al cruzar un lunes), esto mide días
+   sin ABRIR LA APP -- sin importar si siguió entrenando (por ej. alguien que
+   sincroniza todo por Strava puede seguir corriendo sin entrar nunca acá). Es
+   justo el tipo de abandono silencioso que un mensaje corto y humano puede
+   frenar: a nadie le gusta sentir que "la app lo dejó ir" sin decir nada. Se
+   guarda como state.lastAppOpenTs y se pisa en CADA apertura (se lee el valor
+   viejo antes de pisarlo) -- así el mensaje sale como mucho una vez por ausencia,
+   nunca dos veces seguidas para la misma vuelta. */
+function checkInactivityCheckin(){
+  const now = Date.now();
+  const last = state.lastAppOpenTs;
+  state.lastAppOpenTs = now;
+  if(!state.onboarded) return;
+  if(!last) return; // primera vez que existe este campo (usuario nuevo, o ya usaba la app antes de este cambio) -- nada todavía con qué comparar
+  const daysSince = Math.floor((now - last) / 86400000);
+  if(daysSince >= 4){
+    state.chat.push({role:'coach', text: t('coach_inactivity_checkin', {days: daysSince}), ts: now});
+    renderChat();
+  }
   persist();
 }
 function pickSpacedDays(days, count){
@@ -3983,8 +4016,63 @@ function predictRaceTime(targetKm){
 function getGoalRaceKm(){
   return {'5k':5, '10k':10, '15k':15, '21k':21.0975, '42k':42.195}[state.profile.goal] || null;
 }
+// Antes, si la sincronización con Strava fallaba (token revocado, la API de Strava
+// caída, lo que sea) o simplemente dejaba de correr, no había NINGÚN aviso -- el cron
+// atrapaba el error en un catch y no quedaba registrado en ningún lado (ver el
+// comentario largo en set_strava_sync_status.sql). El corredor solo se enteraba el día
+// que notaba "che, no me aparecen las carreras de esta semana" -- para entonces ya
+// venía arrastrando el problema un tiempo. Este cartel usa app_state.data.stravaSync
+// (que ahora sí se guarda en cada intento, exitoso o no) para avisar apenas se detecta
+// -- ya sea un error puntual, o simplemente que hace demasiado que no se actualiza
+// (36 horas: de sobra para el cron de cada 15', así que si pasó tanto tiempo es señal
+// real de que algo viene fallando, no solo mala suerte de timing).
+// Devuelve null si no hay nada para avisar, o {severity, title, detail} -- 'error' si el
+// intento más reciente falló (detail trae el mensaje tal cual, mismo criterio que ya usa
+// syncTodayNow() al mostrarlo en un toast), 'stale' si hace 36+ horas que no hay una
+// sincronización EXITOSA (de sobra para el cron de cada 15', así que si pasó tanto tiempo
+// es señal real de que algo viene fallando, no solo mala suerte de timing). Se usa tanto
+// en el cartel de Historial (buildStravaSyncBanner) como en la nota corta de Perfil
+// (updateStravaStatusDisplay), para no repetir el mismo cálculo dos veces.
+function getStravaSyncIssue(){
+  const sync = state.stravaSync;
+  if(!sync) return null; // nunca se conectó Strava, o nunca corrió ningún intento todavía
+  if(sync.lastError) return {severity:'error', title:t('hist_strava_sync_error_title'), detail:sync.lastError};
+  if(sync.lastSuccessAt){
+    const hoursSince = (Date.now() - new Date(sync.lastSuccessAt).getTime()) / 3600000;
+    if(hoursSince >= 36){
+      const days = Math.floor(hoursSince/24);
+      const title = days>=1 ? t('hist_strava_stale_days', {days}) : t('hist_strava_stale_1day');
+      return {severity:'stale', title, detail:null};
+    }
+  }
+  return null;
+}
+// Antes, si la sincronización con Strava fallaba (token revocado, la API de Strava
+// caída, lo que sea) o simplemente dejaba de correr, no había NINGÚN aviso -- el cron
+// atrapaba el error en un catch y no quedaba registrado en ningún lado (ver el
+// comentario largo en set_strava_sync_status.sql). El corredor solo se enteraba el día
+// que notaba "che, no me aparecen las carreras de esta semana" -- para entonces ya
+// venía arrastrando el problema un tiempo. Este cartel avisa apenas se detecta.
+function buildStravaSyncBanner(){
+  const issue = getStravaSyncIssue();
+  if(!issue) return '';
+  const color = issue.severity==='error' ? 'var(--danger)' : 'var(--clay)';
+  const bg = issue.severity==='error' ? 'var(--danger-dim)' : 'var(--clay-dim)';
+  const detailHtml = issue.detail ? `<p class="muted" style="margin:4px 0 10px; font-size:12.5px;">${escapeHtml(issue.detail)}</p>` : '';
+  return `<div class="card" style="border-color:${color}; background:${bg};">
+    <div style="display:flex; align-items:flex-start; gap:10px;">
+      <span class="icon-sq" style="width:20px; height:20px; color:${color}; flex-shrink:0; margin-top:1px;">${ICONS.warn}</span>
+      <div style="min-width:0; flex:1;">
+        <p style="margin:0; font-size:13.5px; font-weight:700; color:${color};">${issue.title}</p>
+        ${detailHtml}
+        <button class="btn btn-outline btn-sm" style="margin-top:${issue.detail?'0':'10px'};" onclick="syncTodayNow()"><span class="icon-sq" style="width:14px; height:14px;">${ICONS.refresh}</span> ${t('plan_sync_button')}</button>
+      </div>
+    </div>
+  </div>`;
+}
 function renderHistory(){
   const el = document.getElementById('history-list');
+  const stravaSyncCard = buildStravaSyncBanner();
   const weekRuns = (state.runs||[]).filter(r => getMondayISO(new Date(r.date)) === state.weekStart);
   document.getElementById('home-runs-count').textContent = weekRuns.length;
   const tr = computeTrends();
@@ -4052,7 +4140,7 @@ function renderHistory(){
       return `<div class="pr-medal"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${t('pr_label_'+b.key)}</span><span class="pr-medal-locked">${t('pr_medal_locked')}</span></div>`;
     }).join('')}</div>
   </div>`;
-  if(!state.runs || state.runs.length===0){ el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
+  if(!state.runs || state.runs.length===0){ el.innerHTML = stravaSyncCard + trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><div class="icon-sq" style="width:34px; height:34px; margin:0 auto 12px; color:var(--mist-dim);">${ICONS.empty}</div><p class="muted" style="margin:0;">${t('hist_empty')}</p></div>`; animateHistTrendBars(); return; }
   // Buscador simple + encabezados de mes -- con varios meses de historial cargado, una
   // lista plana se vuelve incómoda de recorrer. El buscador filtra por lo que se ve en
   // cada tarjeta (fecha, zapatilla, "manual"/Strava); los encabezados de mes se insertan
@@ -4067,12 +4155,12 @@ function renderHistory(){
     return haystack.includes(query);
   });
   if(query && !filteredRuns.length){
-    el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><p class="muted" style="margin:0;">${t('hist_search_empty')}</p></div>`;
+    el.innerHTML = stravaSyncCard + trendsCard + longTrendCard + mixCard + prCard + `<div class="card" style="text-align:center; padding:32px 18px;"><p class="muted" style="margin:0;">${t('hist_search_empty')}</p></div>`;
     animateHistTrendBars();
     return;
   }
   let lastMonthKey = null;
-  el.innerHTML = trendsCard + longTrendCard + mixCard + prCard + filteredRuns.map(r=>{
+  el.innerHTML = stravaSyncCard + trendsCard + longTrendCard + mixCard + prCard + filteredRuns.map(r=>{
     const shoe = state.shoes.find(s=>String(s.id)===String(r.shoeId));
     const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);

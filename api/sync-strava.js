@@ -1,5 +1,5 @@
 const requireCronSecret = require('./_lib/require-cron-secret');
-const { activityToRun, mergeStravaRuns } = require('./_lib/strava-activity-helpers');
+const { activityToRun, mergeStravaRuns, setStravaSyncStatus } = require('./_lib/strava-activity-helpers');
 
 module.exports = async (req, res) => {
   if (!requireCronSecret(req)) {
@@ -55,8 +55,10 @@ module.exports = async (req, res) => {
         }
 
         synced++;
+        await setStravaSyncStatus(base, headers, conn.user_id, { ok: true });
       } catch (e) {
         errors++;
+        await setStravaSyncStatus(base, headers, conn.user_id, { ok: false, error: e.message });
       }
     }
 
