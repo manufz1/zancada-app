@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T22:02:30Z';
+const APP_VERSION = '2026-09-03T23:07:58Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -5315,13 +5315,14 @@ async function startDynamicVideo(runId){
       // Mapa real: recortamos del mosaico precargado la ventana que
       // corresponde a la posición actual de la cámara (sin ctx.clip() a
       // propósito -- el recorte lo hace el propio ancho/alto del destino)
-      // más un velo oscuro para que la ruta y el marcador se lean bien
-      // encima de calles/edificios claros.
+      // más un velo bien sutil, solo para que el trazado y el marcador no
+      // se pierdan sobre calles muy claras -- antes era más oscuro y tapaba
+      // demasiado el mapa real.
       try{
         const sx = camX - followMap.originWX - routeData.availW/2;
         const sy = camY - followMap.originWY - routeData.availH/2;
         ctx.drawImage(followMap.canvas, sx, sy, routeData.availW, routeData.availH, mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
         ctx.fillRect(mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
       }catch(e){
         ctx.fillStyle = 'rgba(255,255,255,0.10)';
@@ -5435,13 +5436,26 @@ async function startDynamicVideo(runId){
     return;
   }
 
+  // El tipo real del archivo grabado lo sabe el propio MediaRecorder
+  // (recorder.mimeType) -- lo usamos en vez de nuestra variable "mimeType"
+  // (que es solo lo que NOSOTROS pedimos) porque en algunos navegadores el
+  // valor real puede diferir. Y le sacamos el ";codecs=..." de la cola: el
+  // resto de la app comparte archivos (la imagen de la carrera, el .ics del
+  // calendario) siempre con un tipo MIME "pelado" como 'image/png', nunca
+  // con parámetros de codec -- ese es justo el tipo de string que
+  // navigator.canShare()/el share sheet de iOS puede no reconocer como
+  // "compartible" y hacer que la app caiga al método de descarga directa
+  // (que en el WebView empaquetado no sabe qué hacer con un video y por eso
+  // se veía como "formato incompatible").
+  const recordedMimeType = ((recorder.mimeType || mimeType || 'video/webm').split(';')[0] || 'video/webm').trim();
+
   const chunks = [];
   recorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
   rdVideoState = { recorder, cancelled:false, raf:null, url:null, blob:null };
 
   recorder.onstop = ()=>{
     if(!rdVideoState || rdVideoState.cancelled) return;
-    const blob = new Blob(chunks, {type: mimeType || 'video/webm'});
+    const blob = new Blob(chunks, {type: recordedMimeType});
     rdVideoState.blob = blob;
     const url = URL.createObjectURL(blob);
     rdVideoState.url = url;
