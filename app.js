@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T20:40:00Z';
+const APP_VERSION = '2026-09-03T21:30:22Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4993,30 +4993,62 @@ function rdRoundRectPath(ctx, x, y, w, h, r){
   ctx.closePath();
 }
 
+const MAP_TILE_SIZE = 256;
+
+// Proyección Web Mercator estándar (la misma matemática que usan los mapas
+// tipo slippy-map / Leaflet / Google Maps), en píxeles de "mundo" a un zoom
+// dado. La usamos tanto para ubicar los puntos de la ruta como para elegir
+// qué tiles de mapa real pedir -- así quedan perfectamente alineados.
+function webMercatorProject(lat, lon, zoom){
+  const scale = MAP_TILE_SIZE * Math.pow(2, zoom);
+  const x = (lon + 180) / 360 * scale;
+  const latRad = lat * Math.PI / 180;
+  const y = (1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * scale;
+  return { x, y };
+}
+
+// Elige el zoom más alto (mapa más "acercado", con más detalle de calles)
+// cuyo recuadro de la ruta todavía entra dentro del área disponible del
+// mapa del video. Si la ruta es muy chica (o casi no se movió), esto termina
+// en el zoom máximo permitido -- que es justo lo que queremos: un mapa bien
+// acercado en vez del cálculo de escala artificial que usábamos antes.
+function chooseMapZoom(latMin, latMax, lonMin, lonMax, availW, availH){
+  for(let zoom=17; zoom>=3; zoom--){
+    const p1 = webMercatorProject(latMax, lonMin, zoom);
+    const p2 = webMercatorProject(latMin, lonMax, zoom);
+    const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+    if(w <= availW*0.9 && h <= availH*0.9) return zoom;
+  }
+  return 3;
+}
+
 // Proyecta los puntos GPS reales de la carrera dentro de un rectángulo del
-// canvas (corrigiendo la distorsión por latitud con cos(lat), igual que un
-// mapa). El video dibuja la ruta de un solo color parejo (el verde de la
-// marca, ver drawFrame en startDynamicVideo) -- acá solo armamos las
-// coordenadas de pantalla y la distancia acumulada real de cada punto.
+// canvas usando Web Mercator (la misma proyección que un mapa real), para
+// que la ruta quede pixel-perfecta sobre las tiles de mapa que se cargan por
+// separado (ver loadMapTilesForVideo, más abajo). El video dibuja la ruta de
+// un solo color parejo (el verde de la marca, ver drawFrame en
+// startDynamicVideo) -- acá armamos las coordenadas de pantalla, la
+// distancia acumulada real de cada punto, y los datos de zoom/centro que
+// necesita el mapa real para alinearse con la ruta.
 function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
-  const pts = r.points||[];
+  // Filtramos puntos sin lat/lon numérica (defensivo: un solo punto corrupto
+  // en el estado guardado no debería tirar abajo el cálculo de toda la ruta).
+  const pts = (r.points||[]).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
   if(pts.length<2) return null;
   let latMin=Infinity, latMax=-Infinity, lonMin=Infinity, lonMax=-Infinity;
   pts.forEach(p=>{
     if(p.lat<latMin) latMin=p.lat; if(p.lat>latMax) latMax=p.lat;
     if(p.lon<lonMin) lonMin=p.lon; if(p.lon>lonMax) lonMax=p.lon;
   });
-  const cosLat = Math.max(0.15, Math.cos((latMin+latMax)/2 * Math.PI/180));
-  const spanX = Math.max(1e-6, (lonMax-lonMin)*cosLat);
-  const spanY = Math.max(1e-6, (latMax-latMin));
+  const lonMid = (lonMin+lonMax)/2, latMid = (latMin+latMax)/2;
   const availW = rectW - pad*2, availH = rectH - pad*2;
-  const scale = Math.min(availW/spanX, availH/spanY);
-  const offX = rectX + pad + (availW - spanX*scale)/2;
-  const offY = rectY + pad + (availH - spanY*scale)/2;
-  const proj = pts.map(p=>({
-    x: offX + (p.lon-lonMin)*cosLat*scale,
-    y: offY + (latMax-p.lat)*scale
-  }));
+  const zoom = chooseMapZoom(latMin, latMax, lonMin, lonMax, availW, availH);
+  const center = webMercatorProject(latMid, lonMid, zoom);
+  const cx = rectX + pad + availW/2, cy = rectY + pad + availH/2;
+  const proj = pts.map(p=>{
+    const wp = webMercatorProject(p.lat, p.lon, zoom);
+    return { x: cx + (wp.x - center.x), y: cy + (wp.y - center.y) };
+  });
 
   const cum=[0];
   for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+haversine(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
@@ -5030,7 +5062,84 @@ function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   // proporcional a la distancia recorrida -- una aproximación honesta, sin
   // inventar precisión que no tenemos.
   const hasRealTime = pts[0].t!=null && pts[pts.length-1].t!=null && pts[pts.length-1].t > pts[0].t;
-  return { proj, cum, totalDist, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null };
+
+  return {
+    proj, cum, totalDist, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null,
+    zoom, centerWX: center.x, centerWY: center.y, availW, availH
+  };
+}
+
+// Carga tiles de mapa real (el mismo servidor CARTO que ya usa el mapa en
+// vivo de la app, pestaña Ruta) y arma un canvas con el mosaico recortado
+// exactamente al área visible del recuadro del mapa del video, en el mismo
+// sistema de coordenadas que computeVideoRouteData -- así la ruta queda
+// alineada con las calles reales.
+//
+// Devuelve null ante CUALQUIER problema (una tile que falla, timeout, sin
+// conexión, canvas contaminado por CORS, etc.) para garantizar que esto
+// nunca puede producir algo peor que la tarjeta plana de antes -- en el peor
+// caso simplemente no se ve el mapa real y queda el fondo de siempre.
+async function loadMapTilesForVideo(routeData, availW, availH){
+  if(!routeData || routeData.zoom==null) return null;
+  try{
+    const { zoom, centerWX, centerWY } = routeData;
+    const wx0 = centerWX - availW/2, wx1 = centerWX + availW/2;
+    const wy0 = centerWY - availH/2, wy1 = centerWY + availH/2;
+    const txMin = Math.floor(wx0/MAP_TILE_SIZE), txMax = Math.floor(wx1/MAP_TILE_SIZE);
+    const tyMin = Math.floor(wy0/MAP_TILE_SIZE), tyMax = Math.floor(wy1/MAP_TILE_SIZE);
+    const tileCountX = txMax-txMin+1, tileCountY = tyMax-tyMin+1;
+    if(tileCountX<=0 || tileCountY<=0 || tileCountX*tileCountY>64) return null;
+
+    const maxTile = Math.pow(2, zoom);
+    const subdomains = ['a','b','c','d'];
+    const loadTile = (tx, ty) => new Promise(resolve=>{
+      if(ty<0 || ty>=maxTile){ resolve(null); return; }
+      const wrappedX = ((tx % maxTile) + maxTile) % maxTile;
+      const s = subdomains[Math.abs(tx+ty) % subdomains.length];
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      let done = false;
+      const finish = (val)=>{ if(done) return; done=true; resolve(val); };
+      const timer = setTimeout(()=>finish(null), 6000);
+      img.onload = ()=>{ clearTimeout(timer); finish(img); };
+      img.onerror = ()=>{ clearTimeout(timer); finish(null); };
+      img.src = `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wrappedX}/${ty}.png?key=cb1_2i8k_1_882919874396f1a734cae151`;
+    });
+
+    const jobs = [];
+    for(let ty=tyMin; ty<=tyMax; ty++){
+      for(let tx=txMin; tx<=txMax; tx++) jobs.push({tx, ty, promise: loadTile(tx, ty)});
+    }
+    const results = await Promise.all(jobs.map(j=>j.promise));
+    if(results.every(img=>!img)) return null;
+
+    const off = document.createElement('canvas');
+    off.width = tileCountX*MAP_TILE_SIZE;
+    off.height = tileCountY*MAP_TILE_SIZE;
+    const octx = off.getContext('2d');
+    jobs.forEach((j,i)=>{
+      const img = results[i];
+      if(!img) return;
+      try{ octx.drawImage(img, (j.tx-txMin)*MAP_TILE_SIZE, (j.ty-tyMin)*MAP_TILE_SIZE); }catch(e){}
+    });
+
+    // Chequeo de "taint": si alguna tile contaminó el canvas (cross-origin
+    // sin CORS bien habilitado), getImageData tira excepción. En ese caso NO
+    // copiamos nada de esto al canvas de grabación -- un canvas contaminado
+    // rompe captureStream() en silencio (graba cuadros vacíos).
+    try{ octx.getImageData(0,0,1,1); }catch(e){ return null; }
+
+    const cropX = wx0 - txMin*MAP_TILE_SIZE, cropY = wy0 - tyMin*MAP_TILE_SIZE;
+    const final = document.createElement('canvas');
+    final.width = Math.max(1, Math.round(availW));
+    final.height = Math.max(1, Math.round(availH));
+    const fctx = final.getContext('2d');
+    fctx.drawImage(off, cropX, cropY, availW, availH, 0, 0, availW, availH);
+    try{ fctx.getImageData(0,0,1,1); }catch(e){ return null; }
+    return final;
+  }catch(e){
+    return null;
+  }
 }
 
 function closeDynamicVideo(){
@@ -5072,9 +5181,20 @@ async function startDynamicVideo(runId){
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
 
-  const mapX=34, mapY=176, mapW=W-68, mapH=640;
-  const routeData = computeVideoRouteData(r, mapX, mapY, mapW, mapH, 26);
+  const mapX=34, mapY=176, mapW=W-68, mapH=640, mapPad=26;
+  const routeData = computeVideoRouteData(r, mapX, mapY, mapW, mapH, mapPad);
   if(!routeData || routeData.totalDist<=0){ showToast(t('rd_video_error'), 'error'); return; }
+
+  // Mapa real: intentamos cargar tiles de calles (el mismo servidor CARTO
+  // que ya usa el mapa en vivo de la app, pestaña Ruta) para mostrar detrás
+  // de la ruta, en vez de la tarjeta plana de siempre. Si algo falla -- sin
+  // conexión, CORS, timeout, lo que sea -- mapTilesCanvas queda en null y
+  // drawFrame usa el fondo plano de toda la vida: esto nunca puede dejar el
+  // video peor de lo que ya estaba.
+  let mapTilesCanvas = null;
+  try{
+    mapTilesCanvas = await loadMapTilesForVideo(routeData, routeData.availW, routeData.availH);
+  }catch(e){ mapTilesCanvas = null; }
 
   video.style.display='none'; video.removeAttribute('src');
   actions.style.display='none';
@@ -5129,9 +5249,19 @@ async function startDynamicVideo(runId){
     ctx.fillText(dateStr, W-40, 68);
     ctx.textAlign = 'left';
 
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';
-    rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
-    ctx.fill();
+    if(mapTilesCanvas){
+      // Mapa real: pegamos el mosaico de tiles ya recortado al área interior
+      // del recuadro (sin ctx.clip() a propósito, por la misma razón que el
+      // resto de este video la evita) más un velo oscuro para que la ruta y
+      // el marcador se lean bien encima de calles/edificios claros.
+      ctx.drawImage(mapTilesCanvas, mapX+mapPad, mapY+mapPad);
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(mapX+mapPad, mapY+mapPad, routeData.availW, routeData.availH);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+      ctx.fill();
+    }
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
@@ -5145,26 +5275,36 @@ async function startDynamicVideo(runId){
     // segmento como antes (cientos de llamadas por cuadro en una carrera
     // larga, y el color salía de una variable CSS por punto -- ninguna de
     // las dos cosas se veía bien en el WebView de la app empaquetada).
+    // Envuelto en try/catch a propósito: si algo de esto tira una excepción
+    // en el teléfono, preferimos ver el mensaje de error dibujado en rojo
+    // (aparece en el video) a que la carátula quede muda sobre qué pasó.
     let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
-    if(cursor < routeData.proj.length-1){
-      const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
-      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
-      curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
-      curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
-    }
-    ctx.beginPath();
-    ctx.moveTo(routeData.proj[0].x, routeData.proj[0].y);
-    for(let i=1;i<=cursor;i++) ctx.lineTo(routeData.proj[i].x, routeData.proj[i].y);
-    ctx.lineTo(curX, curY);
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx.stroke();
-    ctx.lineWidth = 7; ctx.strokeStyle = '#D6FF3F';
-    ctx.stroke();
+    try{
+      if(cursor < routeData.proj.length-1){
+        const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
+        const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+        curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
+        curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
+      }
+      ctx.beginPath();
+      ctx.moveTo(routeData.proj[0].x, routeData.proj[0].y);
+      for(let i=1;i<=cursor;i++) ctx.lineTo(routeData.proj[i].x, routeData.proj[i].y);
+      ctx.lineTo(curX, curY);
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.stroke();
+      ctx.lineWidth = 7; ctx.strokeStyle = '#D6FF3F';
+      ctx.stroke();
 
-    ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle = '#D6FF3F'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+      ctx.lineWidth=3; ctx.strokeStyle = '#D6FF3F'; ctx.stroke();
+    }catch(drawErr){
+      ctx.textAlign='left';
+      ctx.font = '700 15px monospace';
+      ctx.fillStyle = '#FF5A5A';
+      ctx.fillText('ERROR: '+drawErr.message, mapX+10, mapY+mapH/2);
+    }
 
     let currentTimeSec;
     if(routeData.hasRealTime){
