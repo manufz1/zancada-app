@@ -1,5 +1,5 @@
 const requireCronSecret = require('./_lib/require-cron-secret');
-const { decodePolyline, fetchSplits } = require('./_lib/strava-activity-helpers');
+const { decodePolyline, fetchStreams } = require('./_lib/strava-activity-helpers');
 
 module.exports = async (req, res) => {
   // Antes este secreto se mandaba por query string (?secret=...), lo que lo
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
         for (const run of data.runs) {
           if (run.source !== 'strava' || !run.stravaId) continue;
           const hasBasics = run.elevationGain !== undefined && run.calories !== undefined;
-          const hasCurrentSplits = run.splitsV === 2;
+          const hasCurrentSplits = run.splitsV === 3;
           if (hasBasics && hasCurrentSplits) continue; // ya tiene todo, con la versión más nueva de parciales
 
           if (!hasBasics) {
@@ -62,8 +62,12 @@ module.exports = async (req, res) => {
             }
           }
           if (!hasCurrentSplits) {
-            run.splits = await fetchSplits(run.stravaId, accessToken);
-            run.splitsV = 2;
+            const streams = await fetchStreams(run.stravaId, accessToken);
+            run.splits = streams.splits;
+            run.series = streams.series;
+            if (streams.elevationGain != null) run.elevationGain = streams.elevationGain;
+            if (streams.elevationLoss != null) run.elevationLoss = streams.elevationLoss;
+            run.splitsV = 3;
           }
           changed = true;
           runsUpdated++;

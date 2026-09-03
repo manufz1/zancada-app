@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T16:15:00Z';
+const APP_VERSION = '2026-09-03T19:30:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -98,7 +98,9 @@ const ICONS = {
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-  medal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5 10.5 8M15.5 2.5 13.5 8"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.2l1.1 2.2 2.4.35-1.75 1.7.4 2.4-2.15-1.15-2.15 1.15.4-2.4-1.75-1.7 2.4-.35z" fill="currentColor" stroke="none"/></svg>'
+  medal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5 10.5 8M15.5 2.5 13.5 8"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.2l1.1 2.2 2.4.35-1.75 1.7.4 2.4-2.15-1.15-2.15 1.15.4-2.4-1.75-1.7 2.4-.35z" fill="currentColor" stroke="none"/></svg>',
+  locate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/></svg>',
+  video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.2l6-3.2v10l-6-3.2z"/></svg>'
 };
 
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
@@ -3683,6 +3685,103 @@ function classifyHR(bpm){
   const z = state.profile.hrZones; if(!z) return 2;
   if(bpm<=z[1].max) return 1; if(bpm<=z[2].max) return 2; if(bpm<=z[3].max) return 3; if(bpm<=z[4].max) return 4; return 5;
 }
+// Zona de ritmo RELATIVA al propio promedio de la carrera (no a un umbral de
+// laboratorio ni a un test de esfuerzo que Zancada no le pide a nadie) --
+// clasifica cada tramo como más lento/más rápido que el promedio de ESE
+// entrenamiento puntual. Es deliberadamente distinto de las zonas de FC
+// (que sí están personalizadas con state.profile.hrZones): no tenemos base
+// para decir "esto es tu ritmo de maratón", así que no lo afirmamos.
+function classifyPaceRelative(paceMin, avgPaceMin){
+  if(!avgPaceMin || avgPaceMin<=0) return 3;
+  const ratio = paceMin/avgPaceMin;
+  if(ratio > 1.15) return 1;
+  if(ratio > 1.05) return 2;
+  if(ratio >= 0.95) return 3;
+  if(ratio >= 0.85) return 4;
+  return 5;
+}
+// Deriva splits por km reales a partir de los puntos GPS de una carrera
+// trackeada en vivo (con t=segundos desde el arranque, ver onPosition).
+// Antes esto solo existía para carreras sincronizadas de Strava -- las
+// trackeadas desde el celular no guardaban ni la hora de cada punto, así que
+// no había forma de calcular ritmo real por tramo.
+function computeSplitsFromPoints(points){
+  if(!points || points.length < 2) return [];
+  const cum = [0];
+  for(let i=1;i<points.length;i++){
+    cum.push(cum[i-1] + haversine(points[i-1].lat,points[i-1].lon,points[i].lat,points[i].lon));
+  }
+  const totalKm = cum[cum.length-1];
+  const numFullKm = Math.floor(totalKm);
+  if(numFullKm < 1 && totalKm*1000 < 50) return [];
+  function buildSegment(fromIdx, toIdx, fromTime, label){
+    const segKm = cum[toIdx] - cum[fromIdx];
+    const segTime = (points[toIdx].t||0) - fromTime;
+    const paceMin = segKm>0 ? (segTime/60)/segKm : 0;
+    let elevGain = 0;
+    for(let j=fromIdx+1;j<=toIdx;j++){
+      if(points[j].alt!=null && points[j-1].alt!=null){ const d=points[j].alt-points[j-1].alt; if(d>0) elevGain+=d; }
+    }
+    return {km:label, paceMin: Math.round(paceMin*100)/100, elevGain: Math.round(elevGain), avgHr:null, avgCadence:null};
+  }
+  const splits = [];
+  let startIdx = 0, startTime = points[0].t||0;
+  for(let km=1; km<=numFullKm; km++){
+    let idx = startIdx;
+    while(idx<cum.length && cum[idx]<km) idx++;
+    if(idx>=cum.length) idx = cum.length-1;
+    splits.push(buildSegment(startIdx, idx, startTime, km));
+    startIdx = idx; startTime = points[idx].t||0;
+  }
+  const lastIdx = cum.length-1;
+  const remainderKm = cum[lastIdx] - cum[startIdx];
+  if(remainderKm*1000 > 50){
+    splits.push(buildSegment(startIdx, lastIdx, startTime, Math.round(remainderKm*100)/100));
+  }
+  return splits;
+}
+// Ascenso/descenso total a partir de la altitud del GPS del celular. No todos
+// los dispositivos la reportan (ni siquiera de forma constante en todos sus
+// puntos) -- devolvemos null/null cuando no hay ningún dato real de altitud
+// en vez de inventar un número, para que la pantalla de detalle simplemente
+// no muestre esa fila en esos casos.
+function computeElevationFromPoints(points){
+  if(!points || points.length<2) return {gain:null, loss:null};
+  let gain=0, loss=0, any=false;
+  for(let i=1;i<points.length;i++){
+    if(points[i].alt!=null && points[i-1].alt!=null){
+      any = true;
+      const d = points[i].alt - points[i-1].alt;
+      if(d>0) gain+=d; else loss+=-d;
+    }
+  }
+  return any ? {gain:Math.round(gain), loss:Math.round(loss)} : {gain:null, loss:null};
+}
+// Curva de ritmo en el tiempo para el gráfico de la pestaña "Gráficos" en
+// carreras trackeadas en vivo (sin FC -- eso necesitaría un sensor externo
+// que hoy la app no lee). Promediamos en ventanas de ~30s para suavizar el
+// ruido normal del GPS punto a punto.
+function computePaceSeriesFromPoints(points){
+  if(!points || points.length<3) return null;
+  const windowSec = 30;
+  const out = {t:[], paceMin:[]};
+  let i = 0;
+  while(i<points.length-1){
+    const t0 = points[i].t||0;
+    let j = i, distKm = 0;
+    while(j<points.length-1 && (points[j+1].t||0)-t0 < windowSec){
+      distKm += haversine(points[j].lat,points[j].lon,points[j+1].lat,points[j+1].lon);
+      j++;
+    }
+    const dt = (points[j].t||0) - t0;
+    if(dt>0 && distKm>0.01){
+      out.t.push(Math.round((t0 + (points[j].t||0))/2));
+      out.paceMin.push(Math.round(((dt/60)/distKm)*100)/100);
+    }
+    i = j>i ? j : i+1;
+  }
+  return out.t.length>=2 ? out : null;
+}
 function initLiveMap(){
   if(liveMap){ liveMap.remove(); liveMap=null; }
   liveMap = L.map('liveMap', {zoomControl:false, attributionControl:true}).setView([0,0], 15);
@@ -3739,11 +3838,17 @@ function actuallyStartRun(saved){
   tracker.timerId = setInterval(()=>{ if(tracker.running){ tracker.elapsedSec++; updateLiveStats(); tickWorkoutGuide(); if(tracker.elapsedSec % 15 === 0) saveRunProgress(); } }, 1000);
 }
 function onPosition(pos){
-  const {latitude:lat, longitude:lon, accuracy} = pos.coords;
+  const {latitude:lat, longitude:lon, accuracy, altitude} = pos.coords;
   if(accuracy && accuracy>50) return;
   const last = tracker.points[tracker.points.length-1];
   if(last){ const d=haversine(last.lat,last.lon,lat,lon); if(d>0.002) tracker.distanceKm+=d; }
-  tracker.points.push({lat,lon});
+  // t = segundos desde el arranque de la carrera, alt = altitud del GPS si el
+  // dispositivo la da (no todos la reportan, y aun cuando la dan puede faltar
+  // en puntos sueltos -- por eso el resto del código nunca asume que todos
+  // los puntos la tienen). Con esto podemos calcular ritmo real por tramo y
+  // ascenso/descenso para carreras trackeadas desde el celular, algo que
+  // antes solo teníamos para las carreras sincronizadas de Strava.
+  tracker.points.push({lat, lon, t:tracker.elapsedSec, alt:(typeof altitude==='number' && !isNaN(altitude)) ? altitude : null});
   updateLiveMap(lat,lon);
   updateLiveStats();
   maybeAnnounceKm();
@@ -3824,7 +3929,15 @@ async function closeSummary(){
   checkShoeWearAlerts();
   const runDate = new Date().toISOString();
   const runId = Date.now();
-  state.runs.push({id:runId, date:runDate, distanceKm:tracker.distanceKm, durationSec:tracker.elapsedSec, hrLog:tracker.hrLog, points:tracker.points, shoeId:shoeId||null});
+  const elev = computeElevationFromPoints(tracker.points);
+  const paceSeries = computePaceSeriesFromPoints(tracker.points);
+  state.runs.push({
+    id:runId, date:runDate, distanceKm:tracker.distanceKm, durationSec:tracker.elapsedSec,
+    hrLog:tracker.hrLog, points:tracker.points, shoeId:shoeId||null,
+    splits: computeSplitsFromPoints(tracker.points), splitsV:3,
+    elevationGain: elev.gain, elevationLoss: elev.loss,
+    series: paceSeries ? {t: paceSeries.t, hr: null, paceMin: paceSeries.paceMin} : null
+  });
   checkNewPR(state.runs[state.runs.length-1]);
   autoMarkSessionDone(runDate, runId);
   clearRunProgress();
@@ -4251,31 +4364,15 @@ function analyzeSplitPacing(splits){
   else kind = 'even';
   return { kind, diffPct };
 }
-function renderSplitsSection(splits){
-  if(!splits || !splits.length) return '';
-  const pacingAnalysis = analyzeSplitPacing(splits);
-  const paces = splits.map(s=>s.paceMin);
-  const maxPace = Math.max(...paces), minPace = Math.min(...paces);
-  const range = (maxPace - minPace) || 1;
-  const rows = splits.map(s=>{
-    const pct = 22 + ((s.paceMin - minPace) / range) * 73;
-    const paceStr = `${Math.floor(s.paceMin)}:${String(Math.round((s.paceMin%1)*60)).padStart(2,'0')}`;
-    const elevStr = s.elevGain ? `+${s.elevGain}m` : '—';
-    const hrStr = s.avgHr ? `${s.avgHr}bpm` : '—';
-    return `<div style="display:flex; align-items:center; gap:9px; margin-bottom:9px;">
-      <span class="mono" style="width:44px; font-size:12px; color:var(--mist); flex-shrink:0;">${s.km}km</span>
-      <div style="flex:1; height:24px; background:var(--asphalt-3); border-radius:5px; overflow:hidden; position:relative;">
-        <div style="height:100%; width:${pct}%; background:#4A9EFF; border-radius:5px;"></div>
-        <span style="position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:700; color:#fff;">${paceStr}/km</span>
-      </div>
-      <span class="mono muted" style="font-size:10px; width:80px; text-align:right; flex-shrink:0;">${elevStr} · ${hrStr}</span>
-    </div>`;
-  }).join('');
-  return `<div class="card" style="margin-top:10px;">
-    ${pacingAnalysis ? `<p style="font-weight:700; margin-bottom:10px;">${t('hist_split_'+pacingAnalysis.kind)}</p>` : ''}
-    <p class="muted" style="margin-bottom:14px; font-size:12px;">${t('hist_splits_hint')}</p>
-    ${rows}
-  </div>`;
+/* ================= DETALLE DE CARRERA (pestañas Ruta/Ritmo/Segmentos/Gráficos/Detalles) =================
+   rdCurrent guarda la carrera activa y los valores derivados que varias pestañas
+   necesitan (ritmo promedio, FC promedio, calorías) para no recalcularlos en cada
+   una. Cada pestaña se renderiza recién la primera vez que se abre (panel.dataset.rendered),
+   no las cinco de una -- así abrir el detalle de una carrera no arma de entrada un
+   mapa Leaflet + dos gráficos que la mayoría de las veces la persona ni va a mirar. */
+let rdCurrent = null;
+function zoneColorVar(n){
+  return (getComputedStyle(document.documentElement).getPropertyValue('--zone'+n) || '').trim() || '#8B9296';
 }
 function openRunDetail(runId){
   if(swipeSuppressClick) return;
@@ -4284,52 +4381,318 @@ function openRunDetail(runId){
   const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
   const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
   const cal = r.calories || Math.round((state.profile.weight||70)*r.distanceKm*1.036);
+  const hasRoute = !!(r.points && r.points.length>1);
+  const hasSplits = !!(r.splits && r.splits.length>0);
+  const hasHrSeries = !!(r.series && r.series.hr && r.series.t && r.series.hr.filter(v=>v!=null).length>1);
+  const hasPaceSeries = !!(r.series && r.series.paceMin && r.series.t && r.series.paceMin.filter(v=>v!=null).length>1);
+  rdCurrent = {r, paceMin, avgHr, cal, hasRoute, hasSplits, hasHrSeries, hasPaceSeries};
+
+  const tabs = [];
+  if(hasRoute) tabs.push('ruta');
+  if(hasSplits) tabs.push('ritmo');
+  if(hasSplits) tabs.push('segmentos');
+  if(hasHrSeries || hasPaceSeries) tabs.push('graficos');
+  tabs.push('detalles');
+  rdCurrent.tabs = tabs;
+  const tabLabels = {ruta:t('rd_tab_ruta'), ritmo:t('rd_tab_ritmo'), segmentos:t('rd_tab_segmentos'), graficos:t('rd_tab_graficos'), detalles:t('rd_tab_detalles')};
   const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'long', day:'numeric', month:'long', year:'numeric'});
 
-  const rows = [];
-  rows.push([t('run_km'), `${fmtDist(r.distanceKm)} ${distUnit()}`]);
-  rows.push([t('run_time'), fmtTime(r.durationSec)]);
-  rows.push([`${t('run_pace_word')} /${distUnit()}`, fmtPace(paceMin)]);
-  if(avgHr) rows.push([t('hist_avg_hr'), avgHr+' bpm']);
-  if(r.maxHr) rows.push([t('hist_max_hr'), r.maxHr+' bpm']);
-  if(r.elevationGain) rows.push([t('hist_elevation'), isImperial() ? Math.round(r.elevationGain*3.28084)+' ft' : Math.round(r.elevationGain)+' m']);
-  if(r.avgCadence) rows.push([t('hist_cadence'), Math.round(r.avgCadence*2)+' spm']);
-  rows.push([t('run_calories'), cal]);
+  document.getElementById('run-detail-content').innerHTML = `
+    <h2 class="display" style="font-size:20px; margin-bottom:2px;">${escapeHtml(r.name) || dateStr}</h2>
+    ${r.name ? `<p class="muted" style="margin-bottom:10px;">${dateStr}</p>` : '<div style="margin-bottom:10px;"></div>'}
+    <div class="rd-tabs">${tabs.map(tb=>`<button class="rd-tab-btn" id="rd-tabbtn-${tb}" onclick="switchRDTab('${tb}')">${tabLabels[tb]}</button>`).join('')}</div>
+    ${tabs.map(tb=>`<div class="rd-panel" id="rd-panel-${tb}"></div>`).join('')}
+    <button class="btn btn-outline" style="width:100%; margin-top:24px;" onclick="openEditRun('${r.id}')">${t('edit_run_btn')}</button>
+    <button class="btn btn-danger" style="width:100%; margin-top:12px;" onclick="deleteRun('${r.id}')">${t('hist_delete_run')}</button>
+  `;
+  document.getElementById('run-detail-modal').style.display='block';
+  switchRDTab(tabs[0]);
+}
+function switchRDTab(tab){
+  if(!rdCurrent) return;
+  rdCurrent.tabs.forEach(tb=>{
+    const btn = document.getElementById('rd-tabbtn-'+tb);
+    const panel = document.getElementById('rd-panel-'+tb);
+    if(btn) btn.classList.toggle('active', tb===tab);
+    if(panel) panel.classList.toggle('active', tb===tab);
+  });
+  const panel = document.getElementById('rd-panel-'+tab);
+  if(!panel) return;
+  if(panel.dataset.rendered==='1'){
+    if(tab==='ruta' && detailMap) setTimeout(()=>detailMap.invalidateSize(), 50);
+    return;
+  }
+  panel.dataset.rendered = '1';
+  if(tab==='ruta') renderRDRuta(panel);
+  else if(tab==='ritmo') renderRDRitmo(panel);
+  else if(tab==='segmentos') renderRDSegmentos(panel);
+  else if(tab==='graficos') renderRDGraficos(panel);
+  else if(tab==='detalles') renderRDDetalles(panel);
+}
+// Corta el recorrido (r.points) en tramos por km alineados con r.splits, y le
+// asigna a cada tramo el color de zona de ritmo (relativa al promedio de ESA
+// carrera, ver classifyPaceRelative) -- así el mapa de la pestaña Ruta se ve
+// coloreado por velocidad como en la referencia, en vez de una línea plana.
+function buildColoredRouteSegments(r){
+  const points = r.points||[];
+  if(points.length<2) return [];
+  if(!r.splits || !r.splits.length || points.length<3){
+    return [{latlngs:points.map(p=>[p.lat,p.lon]), color: zoneColorVar(3)}];
+  }
+  const cum=[0];
+  for(let i=1;i<points.length;i++) cum.push(cum[i-1]+haversine(points[i-1].lat,points[i-1].lon,points[i].lat,points[i].lon));
+  const avgPace = rdCurrent.paceMin;
+  const segs = [];
+  let startIdx = 0;
+  r.splits.forEach((split, i)=>{
+    const isLast = i===r.splits.length-1;
+    const targetCum = isLast ? cum[cum.length-1] : split.km;
+    let idx = startIdx;
+    while(idx<cum.length-1 && cum[idx]<targetCum) idx++;
+    const chunk = points.slice(startIdx, idx+1);
+    if(chunk.length>=2){
+      const zone = classifyPaceRelative(split.paceMin, avgPace);
+      segs.push({latlngs:chunk.map(p=>[p.lat,p.lon]), color: zoneColorVar(zone)});
+    }
+    startIdx = idx;
+  });
+  return segs.length ? segs : [{latlngs:points.map(p=>[p.lat,p.lon]), color: zoneColorVar(3)}];
+}
+function renderRDRuta(panel){
+  const {r, paceMin, cal} = rdCurrent;
+  const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'long', day:'numeric', month:'long'});
+  const timeStr = new Date(r.date).toLocaleTimeString(LOCALE_MAP[lang], {hour:'numeric', minute:'2-digit'});
+  const paces = (r.splits||[]).map(s=>s.paceMin).filter(p=>p>0);
+  const slowest = paces.length ? Math.max(...paces) : paceMin;
+  const fastest = paces.length ? Math.min(...paces) : paceMin;
+  panel.innerHTML = `
+    <div class="rd-map-full">
+      <div id="rd-route-map" style="height:100%; width:100%;"></div>
+      <div class="rd-map-controls"><button onclick="rdRecenterMap()" data-i18n-aria="aria_recenter">${ICONS.locate}</button></div>
+    </div>
+    <div class="rd-big-dist">${fmtDist(r.distanceKm)} <span style="font-size:19px; font-weight:700; color:var(--mist);">${distUnit()}</span></div>
+    <p class="muted" style="margin-top:2px; text-transform:capitalize;">${dateStr}, ${timeStr}</p>
+    <button class="rd-video-btn" style="margin-top:12px;" onclick="startDynamicVideo('${r.id}')"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.video}</span>${t('rd_dynamic_video')}</button>
+    ${paces.length>1 ? `
+      <div class="rd-legend-bar"></div>
+      <div class="rd-legend-labels"><span>${t('rd_slowest')} ${fmtPace(slowest)}/${distUnit()}</span><span>${t('rd_fastest')} ${fmtPace(fastest)}/${distUnit()}</span></div>
+    ` : ''}
+    <div class="rd-stat-row">
+      <div><span class="mono">${fmtTime(r.durationSec)}</span><span class="muted" style="font-size:11px;">${t('run_time')}</span></div>
+      <div><span class="mono">${fmtPace(paceMin)}</span><span class="muted" style="font-size:11px;">${t('run_pace_word')}/${distUnit()}</span></div>
+      <div><span class="mono">${cal}</span><span class="muted" style="font-size:11px;">${t('run_calories')}</span></div>
+    </div>
+  `;
+  setTimeout(()=>{
+    if(detailMap){ detailMap.remove(); detailMap=null; }
+    detailMap = L.map('rd-route-map', {zoomControl:false, attributionControl:true});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2i8k_1_882919874396f1a734cae151', {maxZoom:20, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(detailMap);
+    const segs = buildColoredRouteSegments(r);
+    const allLatLngs = [];
+    segs.forEach(seg=>{ L.polyline(seg.latlngs, {color:seg.color, weight:5, lineCap:'round', lineJoin:'round'}).addTo(detailMap); allLatLngs.push(...seg.latlngs); });
+    if(allLatLngs.length) detailMap.fitBounds(L.latLngBounds(allLatLngs), {padding:[20,20]});
+    applyStaticTranslations();
+  }, 60);
+}
+function rdRecenterMap(){
+  if(!detailMap || !rdCurrent) return;
+  const pts = rdCurrent.r.points;
+  if(pts && pts.length) detailMap.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])), {padding:[20,20]});
+}
+function renderRDRitmo(panel){
+  const {r, paceMin} = rdCurrent;
+  const splits = r.splits||[];
+  const splitPaces = splits.map(s=>s.paceMin).filter(p=>p>0);
+  const fastest = splitPaces.length ? Math.min(...splitPaces) : paceMin;
+  const maxPaceForBar = Math.max(...splitPaces, paceMin) * 1.02 || 1;
+  const pacingAnalysis = analyzeSplitPacing(splits);
+  panel.innerHTML = `
+    <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:20px;">
+      <div><span class="mono" style="font-size:22px; font-weight:800; display:block;">${fmtPace(paceMin)}</span><span class="muted" style="font-size:12px;">${t('rd_avg_pace')}</span></div>
+      <div><span class="mono" style="font-size:22px; font-weight:800; display:block;">${fmtPace(fastest)}</span><span class="muted" style="font-size:12px;">${t('rd_fastest_pace')}</span></div>
+    </div>
+    ${pacingAnalysis ? `<p style="font-weight:700; margin-bottom:14px; font-size:13.5px;">${t('hist_split_'+pacingAnalysis.kind)}</p>` : ''}
+    <div class="muted" style="font-size:11px; margin-bottom:8px; display:flex; justify-content:space-between;"><span>${distUnit()}</span><span>${t('run_pace_word')} (/${distUnit()})</span></div>
+    ${splits.map(s=>{
+      const zone = classifyPaceRelative(s.paceMin, paceMin);
+      const widthPct = s.paceMin>0 ? Math.max(22, Math.min(100, (s.paceMin/maxPaceForBar)*100)) : 22;
+      return `<div class="pace-bar-row">
+        <div class="pace-bar-label">${s.km}</div>
+        <div class="pace-bar-track"><div class="pace-bar-fill" style="width:${widthPct}%; background:${zoneColorVar(zone)};">${fmtPace(s.paceMin)}</div></div>
+      </div>`;
+    }).join('')}
+  `;
+}
+function renderRDSegmentos(panel){
+  const {r, paceMin, avgHr} = rdCurrent;
+  const splits = r.splits||[];
+  const anyHr = splits.some(s=>s.avgHr!=null);
+  const anyCad = splits.some(s=>s.avgCadence!=null);
+  const rows = splits.map(s=>{
+    const segDistKm = Number.isInteger(s.km) ? 1 : s.km;
+    const segSec = Math.round(s.paceMin*60*segDistKm);
+    return `<tr>
+      <td>${s.km}</td>
+      <td>${fmtTime(segSec)}</td>
+      <td>${fmtDist(segDistKm)}</td>
+      <td>${fmtPace(s.paceMin)}</td>
+      ${anyHr ? `<td>${s.avgHr!=null ? s.avgHr : '–'}</td>` : ''}
+      ${anyCad ? `<td>${s.avgCadence!=null ? s.avgCadence : '–'}</td>` : ''}
+    </tr>`;
+  }).join('');
+  panel.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="rd-seg-table">
+      <thead><tr>
+        <th>${t('rd_seg_col')}</th><th>${t('rd_seg_dur')}</th><th>${t('rd_seg_dist')} (${distUnit()})</th><th>${t('run_pace_word')} (/${distUnit()})</th>
+        ${anyHr ? `<th>${t('hist_avg_hr')}</th>` : ''}
+        ${anyCad ? `<th>${t('hist_cadence')}</th>` : ''}
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr>
+          <td>${t('rd_total')}</td><td>${fmtTime(r.durationSec)}</td><td>${fmtDist(r.distanceKm)}</td><td>${fmtPace(paceMin)}</td>
+          ${anyHr ? `<td>${avgHr!=null?avgHr:'–'}</td>` : ''}
+          ${anyCad ? `<td>${r.avgCadence!=null?r.avgCadence:'–'}</td>` : ''}
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+// Área de FC/ritmo en el tiempo, dibujada como SVG a mano (sin librería de
+// gráficos -- no hay bundler en este proyecto, ver comentario de arriba de
+// todo el archivo). invertY=true pone los valores más ALTOS arriba (para FC:
+// más pulsaciones = más arriba); invertY=false deja los valores más BAJOS
+// arriba (para ritmo: correr más rápido = número más chico = arriba, como
+// leería cualquier corredor el gráfico).
+function buildAreaChartSVG(tArr, valArr, colorHex, invertY){
+  const W=300, H=100, padT=6, padB=6;
+  const pairs = tArr.map((tv,i)=>({tv, v:valArr[i]})).filter(p=>p.v!=null);
+  if(pairs.length<2) return '';
+  const vals = pairs.map(p=>p.v);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const spanV = (maxV-minV) || 1;
+  const minT = pairs[0].tv, maxT = pairs[pairs.length-1].tv;
+  const spanT = (maxT-minT) || 1;
+  const pts = pairs.map(p=>{
+    const x = ((p.tv-minT)/spanT) * W;
+    const frac = (p.v-minV)/spanV;
+    const y = invertY ? (padT + (1-frac)*(H-padT-padB)) : (padT + frac*(H-padT-padB));
+    return [x,y];
+  });
+  const linePath = pts.map((p,i)=> (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const areaPath = `M${pts[0][0].toFixed(1)},${H} L` + pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L') + ` L${pts[pts.length-1][0].toFixed(1)},${H} Z`;
+  const gradId = 'rdgrad'+Math.random().toString(36).slice(2,9);
+  return `<svg class="rd-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${colorHex}" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="${colorHex}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${areaPath}" fill="url(#${gradId})" stroke="none"/>
+    <path d="${linePath}" fill="none" stroke="${colorHex}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+// Minutos pasados en cada zona (1-5) a lo largo de una serie en el tiempo.
+// classifyFn recibe (valor, extra) -- extra es el promedio de la carrera para
+// classifyPaceRelative, e ignorado por classifyHR.
+function computeZoneMinutes(tArr, valArr, classifyFn, extra){
+  const mins = {1:0,2:0,3:0,4:0,5:0};
+  for(let i=0;i<tArr.length-1;i++){
+    if(valArr[i]==null) continue;
+    const dt = (tArr[i+1]-tArr[i])/60;
+    if(dt<=0) continue;
+    mins[classifyFn(valArr[i], extra)] += dt;
+  }
+  return mins;
+}
+function buildDonutCSS(zoneMinutes){
+  const total = [1,2,3,4,5].reduce((a,z)=>a+zoneMinutes[z],0);
+  if(total<=0) return `<div style="width:96px; height:96px; border-radius:50%; background:var(--asphalt-3); flex-shrink:0;"></div>`;
+  let acc = 0;
+  const stops = [];
+  [1,2,3,4,5].forEach(z=>{
+    const frac = zoneMinutes[z]/total;
+    if(frac<=0) return;
+    stops.push(`${zoneColorVar(z)} ${(acc*360).toFixed(1)}deg ${((acc+frac)*360).toFixed(1)}deg`);
+    acc += frac;
+  });
+  return `<div style="width:96px; height:96px; border-radius:50%; background:conic-gradient(${stops.join(',')}); flex-shrink:0; position:relative;">
+    <div style="position:absolute; inset:18px; border-radius:50%; background:var(--asphalt-2);"></div>
+  </div>`;
+}
+function fmtZoneMin(min){ return min<1 ? '<1' : Math.round(min); }
+function renderRDGraficos(panel){
+  const {r, paceMin, avgHr} = rdCurrent;
+  let html = '';
+  if(rdCurrent.hasHrSeries){
+    const hrColor = zoneColorVar(5);
+    const maxHr = r.maxHr || Math.max(...r.series.hr.filter(v=>v!=null));
+    const zoneMin = computeZoneMinutes(r.series.t, r.series.hr, classifyHR);
+    html += `<div class="card rd-chart-card">
+      <h3 style="font-size:16px; margin-bottom:14px;">${t('rd_chart_hr')}</h3>
+      <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:12px;">
+        <div><span class="mono" style="font-size:20px; font-weight:800; display:block;">${avgHr||'–'}</span><span class="muted" style="font-size:11.5px;">${t('rd_avg_hr_full')}</span></div>
+        <div><span class="mono" style="font-size:20px; font-weight:800; display:block;">${maxHr||'–'}</span><span class="muted" style="font-size:11.5px;">${t('hist_max_hr')}</span></div>
+      </div>
+      ${buildAreaChartSVG(r.series.t, r.series.hr, hrColor, true)}
+      <div class="rd-donut-row">
+        ${buildDonutCSS(zoneMin)}
+        <div class="rd-donut-legend">
+          ${[1,2,3,4,5].map(z=>zoneMin[z]>0.05 ? `<div class="rd-donut-legend-row"><span class="rd-donut-legend-name"><span class="dot" style="background:${zoneColorVar(z)};"></span>${t('zdesc_'+z)}</span><span class="rd-donut-legend-val">${fmtZoneMin(zoneMin[z])} ${t('rd_min_short')}</span></div>` : '').join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+  if(rdCurrent.hasPaceSeries){
+    const paceColor = zoneColorVar(2);
+    const fastest = Math.min(...r.series.paceMin.filter(v=>v!=null));
+    const zoneMin = computeZoneMinutes(r.series.t, r.series.paceMin, classifyPaceRelative, paceMin);
+    html += `<div class="card rd-chart-card">
+      <h3 style="font-size:16px; margin-bottom:14px;">${t('rd_chart_pace')}</h3>
+      <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:12px;">
+        <div><span class="mono" style="font-size:20px; font-weight:800; display:block;">${fmtPace(paceMin)}</span><span class="muted" style="font-size:11.5px;">${t('rd_avg_pace')}</span></div>
+        <div><span class="mono" style="font-size:20px; font-weight:800; display:block;">${fmtPace(fastest)}</span><span class="muted" style="font-size:11.5px;">${t('rd_fastest_pace')}</span></div>
+      </div>
+      ${buildAreaChartSVG(r.series.t, r.series.paceMin, paceColor, false)}
+      <div class="rd-donut-row">
+        ${buildDonutCSS(zoneMin)}
+        <div class="rd-donut-legend">
+          ${[1,2,3,4,5].map(z=>zoneMin[z]>0.05 ? `<div class="rd-donut-legend-row"><span class="rd-donut-legend-name"><span class="dot" style="background:${zoneColorVar(z)};"></span>${t('rd_pacezone_'+z)}</span><span class="rd-donut-legend-val">${fmtZoneMin(zoneMin[z])} ${t('rd_min_short')}</span></div>` : '').join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+  panel.innerHTML = html;
+}
+function renderRDDetalles(panel){
+  const {r, paceMin, avgHr, cal} = rdCurrent;
+  const speedKmh = r.durationSec>0 ? (r.distanceKm/(r.durationSec/3600)) : 0;
+  const tiles = [];
+  tiles.push([t('run_time'), fmtTime(r.durationSec)]);
+  tiles.push([t('run_calories'), cal+' kcal']);
+  tiles.push([`${t('run_pace_word')} /${distUnit()}`, fmtPace(paceMin)]);
+  tiles.push([t('rd_avg_speed'), (isImperial()? (speedKmh*0.621371).toFixed(2)+' mph' : speedKmh.toFixed(2)+' km/h')]);
+  if(r.avgCadence) tiles.push([t('hist_cadence'), Math.round(r.avgCadence)+' spm']);
+  if(avgHr) tiles.push([t('hist_avg_hr'), avgHr+' bpm']);
+  if(r.maxHr) tiles.push([t('hist_max_hr'), r.maxHr+' bpm']);
+  if(r.elevationGain!=null) tiles.push([t('rd_ascent'), isImperial() ? Math.round(r.elevationGain*3.28084)+' ft' : Math.round(r.elevationGain)+' m']);
+  if(r.elevationLoss!=null) tiles.push([t('rd_descent'), isImperial() ? Math.round(r.elevationLoss*3.28084)+' ft' : Math.round(r.elevationLoss)+' m']);
 
   const shoeSelect = `<select onchange="changeRunShoe('${r.id}', this.value)" style="background:var(--asphalt-3); border:1.5px solid var(--asphalt-4); color:var(--chalk); padding:6px 8px; border-radius:6px; font-family:inherit; font-size:13px; max-width:60%;">
     <option value="">${t('hist_no_shoe')}</option>
     ${state.shoes.map(s=>`<option value="${s.id}" ${String(s.id)===String(r.shoeId)?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
   </select>`;
 
-  document.getElementById('run-detail-content').innerHTML = `
-    <h2 class="display" style="font-size:22px; margin-bottom:2px;">${escapeHtml(r.name) || dateStr}</h2>
-    ${r.name ? `<p class="muted" style="margin-bottom:12px;">${dateStr}</p>` : ''}
-    ${r.points && r.points.length>1 ? `<div class="map-wrap" style="height:220px;"><div id="run-detail-map" style="height:100%; width:100%;"></div></div>` : ''}
+  panel.innerHTML = `
     <div class="card">
-      ${rows.map(([label,val])=>`<div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--asphalt-3);"><span class="muted">${label}</span><span class="mono" style="font-weight:700;">${val}</span></div>`).join('')}
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 0; gap:8px; flex-wrap:wrap;"><span class="muted">${t('hist_shoe')}</span>${shoeSelect}</div>
+      <div class="rd-stat-grid">
+        ${tiles.map(([lbl,val])=>`<div class="rd-stat-tile"><div><div class="rd-tile-val mono">${val}</div><div class="rd-tile-lbl">${lbl}</div></div></div>`).join('')}
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--asphalt-3); gap:8px; flex-wrap:wrap;"><span class="muted">${t('hist_shoe')}</span>${shoeSelect}</div>
     </div>
     ${r.hrLog && r.hrLog.length>1 ? `<div class="hist-hrlist" style="margin-top:12px;">${r.hrLog.map(h=>`<span class="zone-chip zone-${classifyHR(h.bpm)}">${h.bpm} bpm</span>`).join('')}</div>` : ''}
-    ${r.splits && r.splits.length ? `<button class="btn" style="width:100%; margin-top:20px; background:#4A9EFF; color:#fff; border:none;" onclick="toggleSplitsPanel()">${t('hist_splits_title')}</button><div id="splits-panel" style="display:none;">${renderSplitsSection(r.splits)}</div>` : ''}
-    <button class="btn btn-outline" style="width:100%; margin-top:20px;" onclick="openEditRun('${r.id}')">${t('edit_run_btn')}</button>
-    <button class="btn btn-danger" style="width:100%; margin-top:12px;" onclick="deleteRun('${r.id}')">${t('hist_delete_run')}</button>
   `;
-  document.getElementById('run-detail-modal').style.display='block';
-
-  if(r.points && r.points.length>1){
-    setTimeout(()=>{
-      if(detailMap){ detailMap.remove(); detailMap=null; }
-      detailMap = L.map('run-detail-map', {zoomControl:false, attributionControl:true});
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2i8k_1_882919874396f1a734cae151', {maxZoom:20, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(detailMap);
-      const latlngs = r.points.map(p=>[p.lat,p.lon]);
-      const poly = L.polyline(latlngs, {color:'#0B5D2E', weight:4, lineCap:'round', lineJoin:'round'}).addTo(detailMap);
-      detailMap.fitBounds(poly.getBounds(), {padding:[16,16]});
-    }, 60);
-  }
-}
-function toggleSplitsPanel(){
-  const panel = document.getElementById('splits-panel');
-  if(panel) panel.style.display = panel.style.display==='none' ? 'block' : 'none';
 }
 async function deleteRun(runId){
   if(!(await showConfirm(t('hist_delete_confirm'), {danger:true, confirmText:t('delete_word')}))) return;
@@ -4605,6 +4968,306 @@ function drawRouteSilhouette(ctx, points, x, y, w, h, lineWidth, dotRadius){
 function closeRunDetail(){
   document.getElementById('run-detail-modal').style.display='none';
   if(detailMap){ detailMap.remove(); detailMap=null; }
+}
+
+/* ================= VIDEO DE SEGUIMIENTO DINÁMICO =================
+   Genera, 100% en el dispositivo (canvas + MediaRecorder, sin backend ni
+   librerías externas), un video real y descargable/compartible: la ruta se
+   va dibujando de a poco, coloreada por zona de ritmo igual que el mapa de
+   la pestaña Ruta, con un punto que la recorre y las estadísticas reales
+   (distancia, tiempo, ritmo promedio hasta ese punto) actualizándose a
+   medida que avanza. Reusa la misma identidad visual que ya tiene la
+   tarjeta para compartir (shareRunImage): verde #D6FF3F, Bebas Neue para
+   el logo, JetBrains Mono para los números grandes. */
+let rdVideoState = null;
+
+// Dibuja un rectángulo con esquinas redondeadas a mano (ctx.roundRect no
+// está disponible en todos los WebView de Android/iOS que usa la app empaquetada).
+function rdRoundRectPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+// Proyecta los puntos GPS reales de la carrera dentro de un rectángulo del
+// canvas (corrigiendo la distorsión por latitud con cos(lat), igual que un
+// mapa) y le asigna a cada punto el color de zona de ritmo que le
+// corresponde según los parciales reales (mismo criterio que el mapa de la
+// pestaña Ruta: classifyPaceRelative contra el ritmo promedio de ESTA
+// carrera). Ningún dato se inventa: si no hay parciales, toda la ruta queda
+// de un solo color neutro.
+function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
+  const pts = r.points||[];
+  if(pts.length<2) return null;
+  let latMin=Infinity, latMax=-Infinity, lonMin=Infinity, lonMax=-Infinity;
+  pts.forEach(p=>{
+    if(p.lat<latMin) latMin=p.lat; if(p.lat>latMax) latMax=p.lat;
+    if(p.lon<lonMin) lonMin=p.lon; if(p.lon>lonMax) lonMax=p.lon;
+  });
+  const cosLat = Math.max(0.15, Math.cos((latMin+latMax)/2 * Math.PI/180));
+  const spanX = Math.max(1e-6, (lonMax-lonMin)*cosLat);
+  const spanY = Math.max(1e-6, (latMax-latMin));
+  const availW = rectW - pad*2, availH = rectH - pad*2;
+  const scale = Math.min(availW/spanX, availH/spanY);
+  const offX = rectX + pad + (availW - spanX*scale)/2;
+  const offY = rectY + pad + (availH - spanY*scale)/2;
+  const proj = pts.map(p=>({
+    x: offX + (p.lon-lonMin)*cosLat*scale,
+    y: offY + (latMax-p.lat)*scale
+  }));
+
+  const cum=[0];
+  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+haversine(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
+  const totalDist = cum[cum.length-1];
+
+  const neutral = zoneColorVar(3);
+  let colors = new Array(pts.length).fill(neutral);
+  if(r.splits && r.splits.length && totalDist>0){
+    const avgPace = (r.durationSec/60)/totalDist;
+    let startIdx = 0;
+    r.splits.forEach((split, i)=>{
+      const isLast = i===r.splits.length-1;
+      const targetCum = isLast ? totalDist : split.km;
+      let idx = startIdx;
+      while(idx<cum.length-1 && cum[idx]<targetCum) idx++;
+      const zone = classifyPaceRelative(split.paceMin, avgPace);
+      const col = zoneColorVar(zone);
+      for(let j=startIdx;j<=idx;j++) colors[j]=col;
+      startIdx = idx;
+    });
+  }
+
+  // Las carreras trackeadas en vivo (después de este cambio) guardan tiempo
+  // real por punto GPS (points[].t); las sincronizadas desde Strava sólo
+  // traen la posición (polilínea decodificada), sin marca de tiempo por
+  // punto. Cuando hay tiempo real lo usamos (refleja mejor los cambios de
+  // ritmo reales dentro de la carrera); si no, el tiempo se reparte de forma
+  // proporcional a la distancia recorrida -- una aproximación honesta, sin
+  // inventar precisión que no tenemos.
+  const hasRealTime = pts[0].t!=null && pts[pts.length-1].t!=null && pts[pts.length-1].t > pts[0].t;
+  return { proj, cum, totalDist, colors, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null };
+}
+
+function closeDynamicVideo(){
+  if(rdVideoState){
+    rdVideoState.cancelled = true;
+    if(rdVideoState.raf) cancelAnimationFrame(rdVideoState.raf);
+    if(rdVideoState.recorder && rdVideoState.recorder.state!=='inactive'){
+      try{ rdVideoState.recorder.stop(); }catch(e){}
+    }
+    if(rdVideoState.url) URL.revokeObjectURL(rdVideoState.url);
+  }
+  rdVideoState = null;
+  const overlay = document.getElementById('rd-video-overlay');
+  const canvas = document.getElementById('rd-video-canvas');
+  const video = document.getElementById('rd-video-preview');
+  const actions = document.getElementById('rd-video-actions');
+  const progressEl = document.getElementById('rd-video-progress');
+  if(overlay) overlay.style.display='none';
+  if(video){ try{ video.pause(); }catch(e){} video.removeAttribute('src'); try{ video.load(); }catch(e){} video.style.display='none'; }
+  if(canvas) canvas.style.display='none';
+  if(actions) actions.style.display='none';
+  if(progressEl) progressEl.textContent='';
+}
+
+async function startDynamicVideo(runId){
+  if(rdVideoState) closeDynamicVideo();
+  const r = state.runs.find(x => String(x.id) === String(runId));
+  if(!r || !r.points || r.points.length<2){ showToast(t('rd_video_error'), 'error'); return; }
+  if(typeof MediaRecorder==='undefined' || !document.createElement('canvas').captureStream){
+    showToast(t('rd_video_unsupported'), 'error');
+    return;
+  }
+
+  const overlay = document.getElementById('rd-video-overlay');
+  const canvas = document.getElementById('rd-video-canvas');
+  const video = document.getElementById('rd-video-preview');
+  const progressEl = document.getElementById('rd-video-progress');
+  const actions = document.getElementById('rd-video-actions');
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  const routeData = computeVideoRouteData(r, 34, 176, W-68, 640, 24);
+  if(!routeData || routeData.totalDist<=0){ showToast(t('rd_video_error'), 'error'); return; }
+
+  video.style.display='none'; video.removeAttribute('src');
+  actions.style.display='none';
+  canvas.style.display='block';
+  overlay.style.display='flex';
+  progressEl.textContent = t('rd_video_generating');
+
+  try{
+    await Promise.all([
+      document.fonts.load('400 60px "Bebas Neue"'),
+      document.fonts.load('700 64px "JetBrains Mono"'),
+      document.fonts.load('700 24px "Inter"'),
+    ]);
+    await document.fonts.ready;
+  }catch(e){}
+
+  const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {day:'numeric', month:'long', year:'numeric'});
+  const totalDist = routeData.totalDist;
+  const ANIM_MS = Math.round(Math.min(12000, Math.max(6000, 1500 + totalDist*900)));
+  const bg1 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt-2')||'#1c2126').trim() || '#1c2126';
+  const bg2 = (getComputedStyle(document.documentElement).getPropertyValue('--asphalt')||'#14181b').trim() || '#14181b';
+
+  let mimeType = '';
+  ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].forEach(c=>{
+    if(!mimeType && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) mimeType=c;
+  });
+
+  let stream, recorder;
+  try{
+    stream = canvas.captureStream(30);
+    recorder = mimeType ? new MediaRecorder(stream, {mimeType, videoBitsPerSecond:4000000}) : new MediaRecorder(stream);
+  }catch(e){
+    closeDynamicVideo();
+    showToast(t('rd_video_unsupported'), 'error');
+    return;
+  }
+
+  const chunks = [];
+  recorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+  rdVideoState = { recorder, cancelled:false, raf:null, url:null, blob:null };
+
+  recorder.onstop = ()=>{
+    if(!rdVideoState || rdVideoState.cancelled) return;
+    const blob = new Blob(chunks, {type: mimeType || 'video/webm'});
+    rdVideoState.blob = blob;
+    const url = URL.createObjectURL(blob);
+    rdVideoState.url = url;
+    canvas.style.display='none';
+    video.src = url;
+    video.style.display='block';
+    video.play().catch(()=>{});
+    progressEl.textContent='';
+    actions.style.display='flex';
+  };
+
+  function drawFrame(p, virtualDist, cursor){
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
+    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#D6FF3F';
+    ctx.font = '400 54px "Bebas Neue", Arial, sans-serif';
+    ctx.fillText('ZANCADA', 40, 78);
+    ctx.fillStyle = 'rgba(237,239,239,0.6)';
+    ctx.font = '500 22px "Inter", Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(dateStr, W-40, 68);
+    ctx.textAlign = 'left';
+
+    const mapX=34, mapY=176, mapW=W-68, mapH=640;
+    ctx.save();
+    rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+
+    ctx.lineWidth = 8; ctx.lineCap='round'; ctx.lineJoin='round';
+    for(let i=0;i<cursor;i++){
+      ctx.strokeStyle = routeData.colors[i+1]||routeData.colors[i];
+      ctx.beginPath();
+      ctx.moveTo(routeData.proj[i].x, routeData.proj[i].y);
+      ctx.lineTo(routeData.proj[i+1].x, routeData.proj[i+1].y);
+      ctx.stroke();
+    }
+    let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
+    if(cursor < routeData.proj.length-1){
+      const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
+      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+      curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
+      curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
+      ctx.strokeStyle = routeData.colors[cursor+1]||routeData.colors[cursor];
+      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.lineWidth=3; ctx.strokeStyle = routeData.colors[cursor]||'#D6FF3F'; ctx.stroke();
+    ctx.restore();
+
+    let currentTimeSec;
+    if(routeData.hasRealTime){
+      const nextIdx = Math.min(cursor+1, routeData.times.length-1);
+      const dA=routeData.cum[cursor], dB=routeData.cum[nextIdx];
+      const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
+      currentTimeSec = routeData.times[cursor] + (routeData.times[nextIdx]-routeData.times[cursor])*frac;
+    } else {
+      currentTimeSec = totalDist>0 ? (virtualDist/totalDist)*r.durationSec : 0;
+    }
+    const currentPace = virtualDist>0.05 ? (currentTimeSec/60)/virtualDist : null;
+
+    const statsY = mapY+mapH+70;
+    ctx.textAlign='center';
+    ctx.fillStyle = '#EDEFEF';
+    ctx.font = '700 88px "JetBrains Mono", monospace';
+    ctx.fillText(fmtDist(virtualDist), W/2, statsY);
+    ctx.fillStyle = 'rgba(237,239,239,0.55)';
+    ctx.font = '700 24px "Inter", Arial, sans-serif';
+    ctx.fillText(distUnit().toUpperCase(), W/2, statsY+38);
+
+    const rowY = statsY+118;
+    const colW = (W-80)/2;
+    ctx.font = '700 46px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#EDEFEF';
+    ctx.fillText(fmtTime(Math.round(currentTimeSec)), 40+colW/2, rowY);
+    ctx.fillText(currentPace!=null ? (fmtPace(currentPace)+'/'+distUnit()) : '--:--', 40+colW+colW/2, rowY);
+    ctx.font = '700 20px "Inter", Arial, sans-serif';
+    ctx.fillStyle = 'rgba(237,239,239,0.55)';
+    ctx.fillText(t('run_time').toUpperCase(), 40+colW/2, rowY+34);
+    ctx.fillText(t('run_pace_word').toUpperCase(), 40+colW+colW/2, rowY+34);
+
+    const barY = H-56, barW = W-80, barH=6;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    rdRoundRectPath(ctx, 40, barY, barW, barH, 3); ctx.fill();
+    ctx.fillStyle = '#D6FF3F';
+    rdRoundRectPath(ctx, 40, barY, Math.max(barH, barW*p), barH, 3); ctx.fill();
+    ctx.textAlign='left';
+  }
+
+  recorder.start();
+  let cursor = 0;
+  const t0 = performance.now();
+  function frame(now){
+    if(!rdVideoState || rdVideoState.cancelled) return;
+    const p = Math.min(1, (now-t0)/ANIM_MS);
+    const virtualDist = p*totalDist;
+    while(cursor < routeData.proj.length-2 && routeData.cum[cursor+1]<=virtualDist) cursor++;
+    drawFrame(p, virtualDist, cursor);
+    if(progressEl) progressEl.textContent = Math.round(p*100)+'%';
+    if(p<1){
+      rdVideoState.raf = requestAnimationFrame(frame);
+    } else {
+      if(progressEl) progressEl.textContent = t('rd_video_finishing');
+      setTimeout(()=>{ if(rdVideoState && !rdVideoState.cancelled) recorder.stop(); }, 400);
+    }
+  }
+  rdVideoState.raf = requestAnimationFrame(frame);
+}
+
+async function downloadDynamicVideo(){
+  if(!rdVideoState || !rdVideoState.blob) return;
+  const blob = rdVideoState.blob;
+  const dateSlug = (rdCurrent && rdCurrent.r && rdCurrent.r.date ? rdCurrent.r.date : new Date().toISOString()).slice(0,10);
+  const fileName = `zancada-${dateSlug}.webm`;
+  try{
+    const file = new File([blob], fileName, {type: blob.type||'video/webm'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Zancada'});
+      return;
+    }
+  }catch(e){ /* si el share falla o lo cancela, seguimos con la descarga directa */ }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
 }
 function changeRunShoe(runId, newShoeId){
   const r = state.runs.find(x => String(x.id) === String(runId));

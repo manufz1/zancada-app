@@ -43,19 +43,29 @@ function decodePolyline(encoded) {
   return points;
 }
 
-async function fetchSplits(activityId, accessToken) {
+// Antes esto solo traía "splits" (promedios por km). Para las pestañas de
+// detalle de carrera (Ruta/Ritmo/Segmentos/Gráficos) hace falta además la
+// curva completa de FC y ritmo a lo largo del tiempo, así que ahora también
+// devolvemos `series`: una versión reducida (como máximo ~120 puntos, no
+// tiene sentido guardar miles de muestras de Strava para un gráfico que en
+// pantalla no tiene más de unos cientos de píxeles de ancho) de FC y ritmo
+// en el tiempo, más el ascenso/descenso total de toda la actividad (Strava
+// solo da el ascenso en el resumen de la actividad, no el descenso).
+async function fetchStreams(activityId, accessToken) {
   try {
-    const res = await fetch(`https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,distance,altitude,heartrate&key_by_type=true`, {
+    const res = await fetch(`https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,distance,altitude,heartrate,cadence,velocity_smooth&key_by_type=true`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     const streams = await res.json();
-    if (!streams || !streams.distance || !streams.time) return [];
+    if (!streams || !streams.distance || !streams.time) return { splits: [], series: null, elevationGain: null, elevationLoss: null };
     const distArr = streams.distance.data, timeArr = streams.time.data;
     const altArr = streams.altitude ? streams.altitude.data : null;
     const hrArr = streams.heartrate ? streams.heartrate.data : null;
+    const cadArr = streams.cadence ? streams.cadence.data : null;
+    const velArr = streams.velocity_smooth ? streams.velocity_smooth.data : null;
     const totalDistM = distArr[distArr.length - 1];
     const numFullKm = Math.floor(totalDistM / 1000);
-    if (numFullKm < 1 && totalDistM < 50) return [];
+
     function buildSegment(fromIdx, toIdx, fromTime, label) {
       const segDistKm = (distArr[toIdx] - distArr[fromIdx]) / 1000;
       const segTime = timeArr[toIdx] - fromTime;
@@ -69,27 +79,71 @@ async function fetchSplits(activityId, accessToken) {
         const slice = hrArr.slice(fromIdx, toIdx + 1);
         if (slice.length) avgHr = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
       }
-      return { km: label, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr };
+      let avgCadence = null;
+      if (cadArr) {
+        // Strava reporta la cadencia de UNA pierna (rpm) para correr -- *2 para
+        // mostrar pasos totales por minuto, igual que el resto de la app.
+        const slice = cadArr.slice(fromIdx, toIdx + 1).filter(c => c != null);
+        if (slice.length) avgCadence = Math.round((slice.reduce((a, b) => a + b, 0) / slice.length) * 2);
+      }
+      return { km: label, paceMin: Math.round(paceMin * 100) / 100, elevGain: Math.round(elevGain), avgHr, avgCadence };
     }
+
     const splits = [];
-    let startIdx = 0, startTime = 0;
-    for (let km = 1; km <= numFullKm; km++) {
-      const targetDist = km * 1000;
-      let idx = startIdx;
-      while (idx < distArr.length && distArr[idx] < targetDist) idx++;
-      if (idx >= distArr.length) idx = distArr.length - 1;
-      splits.push(buildSegment(startIdx, idx, startTime, km));
-      startIdx = idx; startTime = timeArr[idx];
+    if (numFullKm >= 1 || totalDistM >= 50) {
+      let startIdx = 0, startTime = 0;
+      for (let km = 1; km <= numFullKm; km++) {
+        const targetDist = km * 1000;
+        let idx = startIdx;
+        while (idx < distArr.length && distArr[idx] < targetDist) idx++;
+        if (idx >= distArr.length) idx = distArr.length - 1;
+        splits.push(buildSegment(startIdx, idx, startTime, km));
+        startIdx = idx; startTime = timeArr[idx];
+      }
+      // último tramo suelto, si quedó algo más que unos metros sin contar
+      const lastIdx = distArr.length - 1;
+      const remainderM = distArr[lastIdx] - distArr[startIdx];
+      if (remainderM > 50) {
+        const remainderKmLabel = Math.round((remainderM / 1000) * 100) / 100;
+        splits.push(buildSegment(startIdx, lastIdx, startTime, remainderKmLabel));
+      }
     }
-    // último tramo suelto, si quedó algo más que unos metros sin contar
-    const lastIdx = distArr.length - 1;
-    const remainderM = distArr[lastIdx] - distArr[startIdx];
-    if (remainderM > 50) {
-      const remainderKmLabel = Math.round((remainderM / 1000) * 100) / 100;
-      splits.push(buildSegment(startIdx, lastIdx, startTime, remainderKmLabel));
+
+    let elevationGain = null, elevationLoss = null;
+    if (altArr && altArr.length > 1) {
+      elevationGain = 0; elevationLoss = 0;
+      for (let j = 1; j < altArr.length; j++) {
+        const d = altArr[j] - altArr[j - 1];
+        if (d > 0) elevationGain += d; else elevationLoss += -d;
+      }
+      elevationGain = Math.round(elevationGain); elevationLoss = Math.round(elevationLoss);
     }
-    return splits;
-  } catch (e) { return []; }
+
+    const n = timeArr.length;
+    const maxPoints = 120;
+    const bucketSize = Math.max(1, Math.ceil(n / maxPoints));
+    const series = { t: [], hr: hrArr ? [] : null, paceMin: velArr ? [] : null };
+    for (let i = 0; i < n; i += bucketSize) {
+      const end = Math.min(i + bucketSize, n);
+      series.t.push(timeArr[Math.floor((i + end - 1) / 2)]);
+      if (hrArr) {
+        const slice = hrArr.slice(i, end);
+        series.hr.push(Math.round(slice.reduce((a, b) => a + b, 0) / slice.length));
+      }
+      if (velArr) {
+        // descartamos paradas (semáforos, cruces) para que no rompan la escala del gráfico
+        const slice = velArr.slice(i, end).filter(v => v > 0.3);
+        if (slice.length) {
+          const avgVel = slice.reduce((a, b) => a + b, 0) / slice.length; // m/s
+          series.paceMin.push(Math.round((1000 / avgVel / 60) * 100) / 100);
+        } else {
+          series.paceMin.push(null);
+        }
+      }
+    }
+
+    return { splits, series, elevationGain, elevationLoss };
+  } catch (e) { return { splits: [], series: null, elevationGain: null, elevationLoss: null }; }
 }
 
 function getMondayISO(d) {
@@ -107,7 +161,7 @@ function getMondayISO(d) {
 // del plan de esa semana, y que la función SQL descarta antes de guardar el
 // run definitivo — no quedan guardados en el run final.
 async function activityToRun(act, accessToken) {
-  const splits = accessToken ? await fetchSplits(act.id, accessToken) : [];
+  const streams = accessToken ? await fetchStreams(act.id, accessToken) : { splits: [], series: null, elevationGain: null, elevationLoss: null };
   const startDate = new Date(act.start_date);
   return {
     id: 'strava_' + act.id,
@@ -116,15 +170,21 @@ async function activityToRun(act, accessToken) {
     name: act.name || null,
     distanceKm: act.distance / 1000,
     durationSec: act.moving_time,
-    elevationGain: act.total_elevation_gain || 0,
+    // Preferimos el ascenso calculado de la propia curva de altitud (coherente
+    // con elevationLoss, que Strava no da en el resumen de la actividad) y
+    // caemos al total_elevation_gain del resumen si por lo que sea no hubo
+    // stream de altitud disponible.
+    elevationGain: streams.elevationGain != null ? streams.elevationGain : (act.total_elevation_gain || 0),
+    elevationLoss: streams.elevationLoss,
     avgHr: act.average_heartrate ? Math.round(act.average_heartrate) : null,
     maxHr: act.max_heartrate ? Math.round(act.max_heartrate) : null,
-    avgCadence: act.average_cadence || null,
+    avgCadence: act.average_cadence ? Math.round(act.average_cadence * 2) : null,
     calories: act.calories ? Math.round(act.calories) : null,
     hrLog: act.average_heartrate ? [{ t: 0, bpm: Math.round(act.average_heartrate) }] : [],
     points: act.map ? decodePolyline(act.map.summary_polyline) : [],
-    splits,
-    splitsV: 2,
+    splits: streams.splits,
+    splitsV: 3,
+    series: streams.series,
     shoeId: null,
     source: 'strava',
     // campos de paso, ver comentario de arriba:
@@ -214,4 +274,4 @@ async function setStravaSyncStatus(base, headers, userId, status) {
   } catch (e) { /* no-op a propósito, ver comentario de arriba */ }
 }
 
-module.exports = { decodePolyline, fetchSplits, getMondayISO, activityToRun, mergeStravaRuns, purgeStravaRunsForUser, setStravaSyncStatus };
+module.exports = { decodePolyline, fetchStreams, getMondayISO, activityToRun, mergeStravaRuns, purgeStravaRunsForUser, setStravaSyncStatus };
