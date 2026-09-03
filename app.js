@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T19:58:00Z';
+const APP_VERSION = '2026-09-03T20:40:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4995,11 +4995,9 @@ function rdRoundRectPath(ctx, x, y, w, h, r){
 
 // Proyecta los puntos GPS reales de la carrera dentro de un rectángulo del
 // canvas (corrigiendo la distorsión por latitud con cos(lat), igual que un
-// mapa) y le asigna a cada punto el color de zona de ritmo que le
-// corresponde según los parciales reales (mismo criterio que el mapa de la
-// pestaña Ruta: classifyPaceRelative contra el ritmo promedio de ESTA
-// carrera). Ningún dato se inventa: si no hay parciales, toda la ruta queda
-// de un solo color neutro.
+// mapa). El video dibuja la ruta de un solo color parejo (el verde de la
+// marca, ver drawFrame en startDynamicVideo) -- acá solo armamos las
+// coordenadas de pantalla y la distancia acumulada real de cada punto.
 function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   const pts = r.points||[];
   if(pts.length<2) return null;
@@ -5024,23 +5022,6 @@ function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+haversine(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
   const totalDist = cum[cum.length-1];
 
-  const neutral = zoneColorVar(3);
-  let colors = new Array(pts.length).fill(neutral);
-  if(r.splits && r.splits.length && totalDist>0){
-    const avgPace = (r.durationSec/60)/totalDist;
-    let startIdx = 0;
-    r.splits.forEach((split, i)=>{
-      const isLast = i===r.splits.length-1;
-      const targetCum = isLast ? totalDist : split.km;
-      let idx = startIdx;
-      while(idx<cum.length-1 && cum[idx]<targetCum) idx++;
-      const zone = classifyPaceRelative(split.paceMin, avgPace);
-      const col = zoneColorVar(zone);
-      for(let j=startIdx;j<=idx;j++) colors[j]=col;
-      startIdx = idx;
-    });
-  }
-
   // Las carreras trackeadas en vivo (después de este cambio) guardan tiempo
   // real por punto GPS (points[].t); las sincronizadas desde Strava sólo
   // traen la posición (polilínea decodificada), sin marca de tiempo por
@@ -5049,7 +5030,7 @@ function computeVideoRouteData(r, rectX, rectY, rectW, rectH, pad){
   // proporcional a la distancia recorrida -- una aproximación honesta, sin
   // inventar precisión que no tenemos.
   const hasRealTime = pts[0].t!=null && pts[pts.length-1].t!=null && pts[pts.length-1].t > pts[0].t;
-  return { proj, cum, totalDist, colors, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null };
+  return { proj, cum, totalDist, hasRealTime, times: hasRealTime ? pts.map(p=>p.t) : null };
 }
 
 function closeDynamicVideo(){
@@ -5123,6 +5104,17 @@ async function startDynamicVideo(runId){
   // así que la ruta se mantiene dentro del recuadro por la propia proyección
   // (computeVideoRouteData ya la acota con padding) en vez de recortarla a mano.
   function drawFrame(p, virtualDist, cursor){
+    // Reseteamos sombra explícitamente: en el WebView de la app empaquetada
+    // (iOS) usar ctx.shadowBlur en un canvas que se está grabando con
+    // captureStream() puede dejar el resto del cuadro -- todo lo que se
+    // dibuja con fill()/stroke() después, no el texto -- sin grabarse, aunque
+    // en el canvas en vivo se vea bien. Por eso ya no usamos sombra en nada
+    // de este video (antes la tarjeta del mapa tenía una, y todo lo que se
+    // dibujaba después -- la propia tarjeta, la ruta, el marcador -- no
+    // aparecía en el video final, aunque el texto sí).
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
     const grad = ctx.createLinearGradient(0,0,0,H);
     grad.addColorStop(0, bg1); grad.addColorStop(1, bg2);
     ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
@@ -5137,48 +5129,42 @@ async function startDynamicVideo(runId){
     ctx.fillText(dateStr, W-40, 68);
     ctx.textAlign = 'left';
 
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 22;
-    ctx.shadowOffsetY = 6;
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
     rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
     ctx.fill();
-    ctx.restore();
-    ctx.save();
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     rdRoundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
     ctx.stroke();
-    ctx.restore();
 
-    // Halo oscuro debajo de la línea de la ruta, para que se lea bien apenas
-    // arranca el trazado (cuando todavía hay muy poco recorrido dibujado).
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    [{w:12, color:'rgba(0,0,0,0.35)'}, {w:7, color:null}].forEach(pass=>{
-      ctx.lineWidth = pass.w;
-      for(let i=0;i<cursor;i++){
-        ctx.strokeStyle = pass.color || routeData.colors[i+1] || routeData.colors[i];
-        ctx.beginPath();
-        ctx.moveTo(routeData.proj[i].x, routeData.proj[i].y);
-        ctx.lineTo(routeData.proj[i+1].x, routeData.proj[i+1].y);
-        ctx.stroke();
-      }
-    });
+    // Trazo parejo de un solo color (el verde de la marca). Se arma UNA sola
+    // vez con beginPath()/moveTo/lineTo (no Path2D, por las dudas -- el
+    // camino queda activo en el contexto así que se puede llamar a stroke()
+    // dos veces sin rehacerlo) y se dibuja con dos stroke() nomás (halo
+    // oscuro + línea verde), en vez de un beginPath()/stroke() por cada
+    // segmento como antes (cientos de llamadas por cuadro en una carrera
+    // larga, y el color salía de una variable CSS por punto -- ninguna de
+    // las dos cosas se veía bien en el WebView de la app empaquetada).
     let curX = routeData.proj[cursor].x, curY = routeData.proj[cursor].y;
     if(cursor < routeData.proj.length-1){
       const dA = routeData.cum[cursor], dB = routeData.cum[cursor+1];
       const frac = dB>dA ? Math.max(0, Math.min(1, (virtualDist-dA)/(dB-dA))) : 0;
       curX = routeData.proj[cursor].x + (routeData.proj[cursor+1].x-routeData.proj[cursor].x)*frac;
       curY = routeData.proj[cursor].y + (routeData.proj[cursor+1].y-routeData.proj[cursor].y)*frac;
-      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
-      ctx.lineWidth = 7; ctx.strokeStyle = routeData.colors[cursor+1]||routeData.colors[cursor];
-      ctx.beginPath(); ctx.moveTo(routeData.proj[cursor].x, routeData.proj[cursor].y); ctx.lineTo(curX,curY); ctx.stroke();
     }
+    ctx.beginPath();
+    ctx.moveTo(routeData.proj[0].x, routeData.proj[0].y);
+    for(let i=1;i<=cursor;i++) ctx.lineTo(routeData.proj[i].x, routeData.proj[i].y);
+    ctx.lineTo(curX, curY);
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.stroke();
+    ctx.lineWidth = 7; ctx.strokeStyle = '#D6FF3F';
+    ctx.stroke();
+
     ctx.beginPath(); ctx.arc(curX,curY,17,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
     ctx.beginPath(); ctx.arc(curX,curY,8,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle = routeData.colors[cursor]||'#D6FF3F'; ctx.stroke();
+    ctx.lineWidth=3; ctx.strokeStyle = '#D6FF3F'; ctx.stroke();
 
     let currentTimeSec;
     if(routeData.hasRealTime){
