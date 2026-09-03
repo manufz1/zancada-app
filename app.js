@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-02T22:05:00Z';
+const APP_VERSION = '2026-09-02T23:10:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -2944,17 +2944,33 @@ if(window.visualViewport){
   // WebKit directamente no vuelve a calcular dónde va el elemento fijo hasta que
   // pasa OTRA cosa que fuerce ese recálculo.
   //
-  // El primer intento acá scrolleaba la página 1px y volvía a 0 -- ese truco solo
-  // funciona si hay algo para scrollear, y en esta pantalla #app mide justo lo que
-  // mide la pantalla (sin overflow), así que ese scroll probablemente nunca movía
-  // nada de verdad y por lo tanto nunca forzaba ningún recálculo. Este segundo intento
-  // usa un truco distinto que no depende de que haya scroll disponible: esconder y
-  // volver a mostrar sincrónicamente el <body> entero (display:none -> leer offsetHeight
-  // fuerza el reflow ahí mismo -> display original). Como todo pasa en el mismo tick de
-  // JS sin ceder el control al navegador, no llega a pintarse el estado "oculto" -- no
-  // hay parpadeo -- pero WebKit sí se ve obligado a recalcular la posición de TODOS los
-  // elementos position:fixed de la página, tabbar incluida.
+  // El primer intento acá scrolleaba la página 1px y volvía a 0 -- pero en esta
+  // pantalla #app medía justo lo que mide la pantalla (sin overflow), así que ese
+  // scroll nunca tenía nada real para mover y por lo tanto nunca forzaba ningún
+  // recálculo. Por eso el segundo intento lo reemplazó por completo con un truco de
+  // reflow síncrono (esconder y volver a mostrar <body> con display:none/offsetHeight).
+  // Ese cambio fue el error: investigando de nuevo el bug (que seguía intacto después
+  // de OCHO intentos distintos) encontramos reportes públicos confirmados -- incluyendo
+  // un bug abierto de WebKit y varios hilos del foro de Apple Developer -- de que en
+  // iOS 26 específicamente, window.visualViewport.height/offsetTop no siempre vuelven
+  // del todo a su valor real inmediatamente al cerrar el teclado (afecta incluso a
+  // apple.com; Apple lo reconoció y lo mejoró parcialmente recién en beta de iOS 26.1).
+  // La causa es a nivel de compositor: WebKit no vuelve a "anclar" los elementos
+  // position:fixed contra el viewport visual hasta que ocurre un scroll DE VERDAD --
+  // un reflow de layout (como el truco de display:none) no alcanza, porque no es un
+  // problema de layout sino de dónde el compositor cree que está el viewport visual.
+  // Por eso ahora volvemos al scroll de 1px real, pero arreglando la razón por la que
+  // había fallado la primera vez: agregamos un spacer invisible al final de #app
+  // (#scrollNudgeSpacer en index.html) que garantiza siempre unos pocos px de overflow
+  // real en el documento, así este scroll SIEMPRE tiene algo para mover de verdad.
   function forceFixedLayoutReflow(){
+    const scroller = document.scrollingElement || document.documentElement;
+    const restingTop = scroller.scrollTop; // normalmente 0
+    scroller.scrollTop = restingTop + 2;
+    scroller.scrollTop = restingTop;
+    // Además, como red de seguridad, mantenemos el truco de reflow síncrono anterior
+    // -- no soluciona este bug puntual pero tampoco molesta, y cubre otros casos de
+    // elementos position:fixed desactualizados que si sean de layout.
     const original = document.body.style.display;
     document.body.style.display = 'none';
     void document.body.offsetHeight; // fuerza el reflow síncrono, ahí mismo
@@ -2962,11 +2978,14 @@ if(window.visualViewport){
     syncCoachChatLayout();
   }
   // La primera llamada ya ocurre arriba, dentro del blur principal (línea con
-  // forceFixedLayoutReflow() junto a reapplyDuringAnimation()). Acá solo agregamos una
-  // segunda pasada 350ms más tarde, por si el teclado todavía estaba a mitad de la
-  // animación de cierre cuando se disparó el blur (en un teléfono real puede tardar
-  // más que en el simulador).
-  chatInputEl.addEventListener('blur', ()=> setTimeout(forceFixedLayoutReflow, 350));
+  // forceFixedLayoutReflow() junto a reapplyDuringAnimation()). Acá agregamos dos
+  // pasadas más -- a 350ms y a 900ms -- por si el teclado todavía estaba a mitad de la
+  // animación de cierre cuando se disparó el blur, o si (como reportan los hilos de
+  // Apple) visualViewport tarda más de lo esperado en asentarse en un teléfono real.
+  chatInputEl.addEventListener('blur', ()=>{
+    setTimeout(forceFixedLayoutReflow, 350);
+    setTimeout(forceFixedLayoutReflow, 900);
+  });
 })();
 /* ---- detectar version nueva y recargar la app sola (sin tener que cerrarla) ---- */
 let appUpdateChecking = false;

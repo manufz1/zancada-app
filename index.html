@@ -13,18 +13,20 @@ try{
   if(localStorage.getItem('zancada_theme') === 'light') document.documentElement.setAttribute('data-theme','light');
 }catch(e){}
 </script>
-<!-- interactive-widget=resizes-content (como estaba antes) le pide a iOS que
-     encoja el VIEWPORT DE LAYOUT entero cuando se abre el teclado, y lo vuelva a
-     agrandar solo al cerrarlo. Todo este tiempo el bug de "la tabbar queda más
-     arriba, con un hueco vacío debajo, después de cerrar el teclado" probablemente
-     era justo esto: WebKit no siempre restaura ese viewport encogido a tiempo (o
-     del todo), y como nav.tabbar es position:fixed con bottom:var(--safe-bottom)
-     puro CSS (sin ningún cálculo propio en JS), queda anclada al fondo de un
-     viewport que todavía cree que es más chico de lo que en realidad es -- de ahí
-     el hueco. Con resizes-visual, el viewport de LAYOUT nunca se toca (siempre mide
-     lo mismo); es el VISUAL viewport (window.visualViewport) el que se encoge con
-     el teclado, y eso ya lo veníamos leyendo bien en syncCoachChatLayout(). Con este
-     cambio, la tabbar deja de depender de que iOS "se acuerde" de restaurar nada. -->
+<!-- interactive-widget: OJO -- confirmado (bugs.webkit.org #259770, todavía "NEW" sin
+     resolver) que Safari/WebKit NO IMPLEMENTA esta propiedad en absoluto, así que este
+     valor no tiene ningún efecto real en iPhone (sí importa en Chrome/Android, por eso
+     lo dejamos en resizes-visual, el comportamiento que además ya es el nativo de
+     Safari: el viewport de LAYOUT nunca se achica con el teclado, solo el VISUAL
+     viewport). El bug real de "la tabbar queda más arriba, con hueco vacío debajo,
+     después de cerrar el teclado" es OTRA cosa, confirmada por reportes públicos de
+     2025-2026 (WebKit bug #217754, varios hilos de Apple Developer Forums) como un bug
+     de iOS 26 específico: window.visualViewport.height/offsetTop no siempre vuelven del
+     todo a su valor real inmediatamente al cerrar el teclado (afecta hasta apple.com;
+     Apple lo reconoció y lo mejoró parcialmente recién en beta de iOS 26.1, sin arreglo
+     completo todavía). Es un bug a nivel de compositor de WebKit, no de layout -- ver el
+     comentario largo junto a forceFixedLayoutReflow() en app.js para el mecanismo real
+     y el fix aplicado (un scroll de verdad, no un simple reflow). -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no, interactive-widget=resizes-visual">
 <title>Zancada</title>
 <meta name="description" content="Zancada es tu coach de running: planes de entrenamiento personalizados, seguimiento de carreras y un coach con IA, todo en una sola app.">
@@ -1336,6 +1338,17 @@ try{
     <button class="nav-btn" data-view="perfil" onclick="showView('perfil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 5-5.5 7.5-5.5s6 1.5 7.5 5.5"/></svg><span data-i18n="nav_profile"></span></button>
   </nav>
 </div>
+<!-- Spacer invisible que garantiza SIEMPRE unos pocos px de overflow real en el
+     documento. Es clave para forceFixedLayoutReflow() en app.js: ese truco necesita
+     poder scrollear la página de verdad (1-2px) para forzar a WebKit a recalcular
+     los elementos position:fixed (tabbar) después de cerrar el teclado -- sin este
+     spacer, #app mide justo lo que mide la pantalla (sin overflow), así que ese
+     scroll "de mentira" no tiene nada para mover y nunca fuerza nada. Es un bug de
+     iOS 26 confirmado públicamente (visualViewport no vuelve del todo a su tamaño
+     real tras cerrar el teclado, afecta hasta apple.com) -- ver el comentario largo
+     junto a forceFixedLayoutReflow(). Este div no se ve nunca: mide 4px de alto,
+     0 de ancho visible y comparte el fondo de la página. -->
+<div id="scrollNudgeSpacer" style="height:4px; width:1px; background:var(--asphalt); pointer-events:none;" aria-hidden="true"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
