@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T04:00:00Z';
+const APP_VERSION = '2026-09-03T05:00:00Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -396,6 +396,16 @@ async function loadUserAndEnter(user, isRetry){
       if(pending && pending.data && (pending.data.runs||[]).length > (state.runs||[]).length){
         // había una carrera guardada en el teléfono que no llegó a subirse la última vez -> la recuperamos
         state = pending.data; lang = state.lang || lang;
+        persist();
+      }
+      // Al mantener profile.tz al día en cada apertura (no solo en el onboarding)
+      // cubrimos tanto a corredores que ya venían usando la app antes de que
+      // existiera este campo (lo tienen undefined) como a alguien que viaja y abre
+      // la app desde otro huso horario -- así el recordatorio diario del servidor
+      // siempre le llega a la hora local de donde esté HOY, no de donde se registró.
+      const deviceTz = detectDeviceTz();
+      if(deviceTz && state.profile && state.profile.tz !== deviceTz){
+        state.profile.tz = deviceTz;
         persist();
       }
       if(!state.chat || !state.chat.length) seedCoachGreeting(); else renderChat();
@@ -1112,7 +1122,12 @@ async function finishOnboard(){
   const hrMax = estimateHrMax(age);
   const hrKnown = false;
 
-  state.profile = {email:pendingEmail, name, weight, height, birth, terrain, trainingDays: trainingDays.length?trainingDays:['tue','thu','sun'], goal, raceDate, runnerType, currentWeeklyKm, hrMax, hrKnown, hrZones:computeZones(hrMax)};
+  // profile.tz guarda el huso horario del CELULAR del corredor (ej. "America/New_York"
+  // para un amigo en Estados Unidos, distinto al nuestro en Argentina) -- lo usa el
+  // recordatorio diario del lado del servidor (api/send-reminders.js) para mandar el
+  // aviso a la hora local de cada uno, no a una sola hora fija para todo el mundo.
+  // detectDeviceTz() está definida más abajo, junto al resto de fecha/hora.
+  state.profile = {email:pendingEmail, name, weight, height, birth, terrain, trainingDays: trainingDays.length?trainingDays:['tue','thu','sun'], goal, raceDate, runnerType, currentWeeklyKm, hrMax, hrKnown, hrZones:computeZones(hrMax), tz:detectDeviceTz()};
   state.profile.weeklyKm = calcWeeklyKm(state.profile);
   state.weekNumber = 1;
   state.weekStart = getMondayISO(new Date());
@@ -2390,6 +2405,17 @@ function renderPainLog(){
 // fecha a mano con los componentes LOCALES de la fecha (año/mes/día), nunca se va para
 // el otro lado del huso horario. todayISO() ahora es un caso particular de esto (hoy
 // = "la fecha local de este instante").
+// Devuelve el huso horario IANA del dispositivo (ej. "America/Argentina/Buenos_Aires",
+// "America/New_York") tal como lo tiene configurado el sistema operativo -- no hace
+// falta preguntarle nada al corredor, el navegador ya lo sabe. Se guarda en
+// state.profile.tz para que el recordatorio diario del servidor (que no tiene forma de
+// saber en qué huso horario está cada celular) le mande el aviso a la hora local de
+// cada uno, sea cual sea el país. undefined en navegadores viejísimos que no soportan
+// Intl -- ahí el servidor cae a un huso por default en vez de romperse.
+function detectDeviceTz(){
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; }
+  catch(e){ return undefined; }
+}
 function localDateISO(d){
   const dt = d ? new Date(d) : new Date();
   const y = dt.getFullYear();
