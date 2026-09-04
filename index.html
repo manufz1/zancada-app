@@ -77,11 +77,11 @@ try{
     --toast-error-bg:#3a1f1c; --toast-error-fg:#FF9A8D;
     --shadow-card:0 4px 14px rgba(0,0,0,.22); --shadow-lg:0 16px 48px rgba(0,0,0,.5);
     --hivis-glow:rgba(214,255,63,.32);
-    --zone1:#5B9BFF; --zone1-bg:rgba(91,155,255,.16); --zone1-bg-live:rgba(91,155,255,.13);
-    --zone2:#4ADE80; --zone2-bg:rgba(74,222,128,.16); --zone2-bg-live:rgba(74,222,128,.13);
-    --zone3:#FACC15; --zone3-bg:rgba(250,204,21,.16); --zone3-bg-live:rgba(250,204,21,.13);
-    --zone4:#FB923C; --zone4-bg:rgba(251,146,60,.16); --zone4-bg-live:rgba(251,146,60,.13);
-    --zone5:#FF6B5D; --zone5-bg:rgba(255,107,93,.16); --zone5-bg-live:rgba(255,107,93,.13);
+    --zone1:#A6C8FF; --zone1-bg:rgba(166,200,255,.16); --zone1-bg-live:rgba(166,200,255,.13);
+    --zone2:#93E2AE; --zone2-bg:rgba(147,226,174,.16); --zone2-bg-live:rgba(147,226,174,.13);
+    --zone3:#F6DC8C; --zone3-bg:rgba(246,220,140,.16); --zone3-bg-live:rgba(246,220,140,.13);
+    --zone4:#FDBD8C; --zone4-bg:rgba(253,189,140,.16); --zone4-bg-live:rgba(253,189,140,.13);
+    --zone5:#FFA39B; --zone5-bg:rgba(255,163,155,.16); --zone5-bg-live:rgba(255,163,155,.13);
     --cs:dark;
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
   }
@@ -424,11 +424,20 @@ try{
   .rd-tab-btn.active{color:var(--hivis-text); border-bottom-color:var(--hivis);}
   .rd-panel{display:none;}
   .rd-panel.active{display:block;}
-  .rd-map-full{position:relative; isolation:isolate; height:340px; margin:0 -24px 16px; background:var(--asphalt-3);}
+  .rd-map-full{position:relative; isolation:isolate; height:340px; margin:0 -24px 16px; background:var(--asphalt-3); transition:height .3s cubic-bezier(.22,.9,.3,1);}
+  .rd-map-full.rd-map-dragging{transition:none;}
   .rd-map-full .leaflet-control-attribution{background:rgba(18,20,21,.75); color:var(--mist-dim); font-size:9px; padding:1px 5px;}
   .rd-map-full .leaflet-control-attribution a{color:var(--mist);}
   .rd-map-controls{position:absolute; top:12px; right:12px; z-index:10; display:flex; flex-direction:column; gap:8px;}
   .rd-map-controls button{width:38px; height:38px; border-radius:50%; background:rgba(18,20,21,.82); border:1.5px solid var(--asphalt-4); color:var(--chalk); cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  /* Agarradera para arrastrar el mapa de la pestaña Ruta hacia arriba y agrandarlo
+     (a pantalla casi completa), y volver a arrastrarlo hacia abajo para achicarlo --
+     el touch-action:none evita que el navegador intente hacer scroll de la página
+     mientras el dedo está sobre la agarradera. */
+  .rd-map-handle{position:absolute; left:50%; bottom:10px; transform:translateX(-50%); width:42px; height:5px; border-radius:999px;
+    background:rgba(255,255,255,.55); z-index:11; box-shadow:0 1px 5px rgba(0,0,0,.35); touch-action:none; cursor:grab;}
+  .rd-ruta-below{transition:opacity .26s ease, max-height .3s ease, margin .3s ease; max-height:600px; opacity:1;}
+  .rd-ruta-below.rd-collapsed{opacity:0; max-height:0; margin:0; overflow:hidden; pointer-events:none;}
   .rd-big-dist{font-size:44px; font-weight:800; line-height:1;}
   .rd-legend-bar{height:6px; border-radius:999px; margin:14px 0 6px; background:linear-gradient(90deg, var(--zone2), var(--zone3), var(--zone5));}
   .rd-legend-labels{display:flex; justify-content:space-between; font-size:11.5px; color:var(--mist);}

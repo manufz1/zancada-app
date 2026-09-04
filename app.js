@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-03T23:07:58Z';
+const APP_VERSION = '2026-09-04T02:55:02Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4466,23 +4466,27 @@ function renderRDRuta(panel){
   const slowest = paces.length ? Math.max(...paces) : paceMin;
   const fastest = paces.length ? Math.min(...paces) : paceMin;
   panel.innerHTML = `
-    <div class="rd-map-full">
+    <div class="rd-map-full" id="rd-map-full">
       <div id="rd-route-map" style="height:100%; width:100%;"></div>
       <div class="rd-map-controls"><button onclick="rdRecenterMap()" data-i18n-aria="aria_recenter">${ICONS.locate}</button></div>
+      <div class="rd-map-handle" id="rd-map-handle" onclick="toggleRDMapExpanded()"></div>
     </div>
-    <div class="rd-big-dist">${fmtDist(r.distanceKm)} <span style="font-size:19px; font-weight:700; color:var(--mist);">${distUnit()}</span></div>
-    <p class="muted" style="margin-top:2px; text-transform:capitalize;">${dateStr}, ${timeStr}</p>
-    <button class="rd-video-btn" style="margin-top:12px;" onclick="startDynamicVideo('${r.id}')"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.video}</span>${t('rd_dynamic_video')}</button>
-    ${paces.length>1 ? `
-      <div class="rd-legend-bar"></div>
-      <div class="rd-legend-labels"><span>${t('rd_slowest')} ${fmtPace(slowest)}/${distUnit()}</span><span>${t('rd_fastest')} ${fmtPace(fastest)}/${distUnit()}</span></div>
-    ` : ''}
-    <div class="rd-stat-row">
-      <div><span class="mono">${fmtTime(r.durationSec)}</span><span class="muted" style="font-size:11px;">${t('run_time')}</span></div>
-      <div><span class="mono">${fmtPace(paceMin)}</span><span class="muted" style="font-size:11px;">${t('run_pace_word')}/${distUnit()}</span></div>
-      <div><span class="mono">${cal}</span><span class="muted" style="font-size:11px;">${t('run_calories')}</span></div>
+    <div class="rd-ruta-below" id="rd-ruta-below">
+      <div class="rd-big-dist">${fmtDist(r.distanceKm)} <span style="font-size:19px; font-weight:700; color:var(--mist);">${distUnit()}</span></div>
+      <p class="muted" style="margin-top:2px; text-transform:capitalize;">${dateStr}, ${timeStr}</p>
+      <button class="rd-video-btn" style="margin-top:12px;" onclick="startDynamicVideo('${r.id}')"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.video}</span>${t('rd_dynamic_video')}</button>
+      ${paces.length>1 ? `
+        <div class="rd-legend-bar"></div>
+        <div class="rd-legend-labels"><span>${t('rd_slowest')} ${fmtPace(slowest)}/${distUnit()}</span><span>${t('rd_fastest')} ${fmtPace(fastest)}/${distUnit()}</span></div>
+      ` : ''}
+      <div class="rd-stat-row">
+        <div><span class="mono">${fmtTime(r.durationSec)}</span><span class="muted" style="font-size:11px;">${t('run_time')}</span></div>
+        <div><span class="mono">${fmtPace(paceMin)}</span><span class="muted" style="font-size:11px;">${t('run_pace_word')}/${distUnit()}</span></div>
+        <div><span class="mono">${cal}</span><span class="muted" style="font-size:11px;">${t('run_calories')}</span></div>
+      </div>
     </div>
   `;
+  rdMapExpanded = false;
   setTimeout(()=>{
     if(detailMap){ detailMap.remove(); detailMap=null; }
     detailMap = L.map('rd-route-map', {zoomControl:false, attributionControl:true});
@@ -4494,6 +4498,80 @@ function renderRDRuta(panel){
     applyStaticTranslations();
   }, 60);
 }
+/* ---- arrastrar el mapa de la pestaña Ruta hacia arriba para agrandarlo ----
+   Igual que el resto de los gestos de la app (swipe-to-delete, swipe del plan
+   semanal): se decide con el primer movimiento si es un drag vertical del mapa
+   o si hay que dejar pasar el toque (por ej. un tap en el botón de recentrar,
+   o un scroll normal de la pantalla). Dos estados nada más -- achicado (340px,
+   el de siempre) y agrandado (~72% del alto de pantalla, dejando arriba el
+   título y las pestañas) -- con umbral a mitad de camino para decidir a cuál
+   de los dos "engancha" al soltar. */
+let rdMapExpanded = false;
+let rdMapDragging = false, rdMapDragStartY = 0, rdMapDragStartH = 0, rdMapDragAxisLocked = false;
+let rdMapInvalidateRaf = false;
+const RD_MAP_COLLAPSED_H = 340;
+function rdMapExpandedH(){ return Math.round(window.innerHeight * 0.72); }
+function rdSetMapExpanded(expand, animate){
+  const mapEl = document.getElementById('rd-map-full');
+  const belowEl = document.getElementById('rd-ruta-below');
+  if(!mapEl) return;
+  rdMapExpanded = expand;
+  if(animate===false) mapEl.classList.add('rd-map-dragging'); else mapEl.classList.remove('rd-map-dragging');
+  mapEl.style.height = (expand ? rdMapExpandedH() : RD_MAP_COLLAPSED_H) + 'px';
+  if(belowEl) belowEl.classList.toggle('rd-collapsed', expand);
+  setTimeout(()=>{ if(detailMap) detailMap.invalidateSize(); }, animate===false ? 0 : 320);
+}
+function toggleRDMapExpanded(){
+  if(swipeSuppressClick) return;
+  haptic(8);
+  rdSetMapExpanded(!rdMapExpanded);
+}
+document.addEventListener('touchstart', e=>{
+  const mapEl = e.target.closest ? e.target.closest('#rd-map-full') : null;
+  if(!mapEl || e.target.closest('.rd-map-controls')){ rdMapDragging = false; return; }
+  rdMapDragStartY = e.touches[0].clientY;
+  rdMapDragStartH = mapEl.getBoundingClientRect().height;
+  rdMapDragAxisLocked = false;
+  rdMapDragging = false;
+}, {passive:true});
+document.addEventListener('touchmove', e=>{
+  const mapEl = document.getElementById('rd-map-full');
+  if(!mapEl || rdMapDragStartY===0) return;
+  const dy = rdMapDragStartY - e.touches[0].clientY;
+  const dx = 0;
+  if(!rdMapDragAxisLocked){
+    if(Math.abs(dy) > 8){
+      rdMapDragAxisLocked = true;
+      rdMapDragging = true;
+      mapEl.classList.add('rd-map-dragging');
+    } else { return; }
+  }
+  if(!rdMapDragging) return;
+  const newH = Math.max(RD_MAP_COLLAPSED_H, Math.min(rdMapExpandedH(), rdMapDragStartH + dy));
+  mapEl.style.height = newH + 'px';
+  if(!rdMapInvalidateRaf){
+    rdMapInvalidateRaf = true;
+    requestAnimationFrame(()=>{ rdMapInvalidateRaf = false; if(detailMap) detailMap.invalidateSize(); });
+  }
+  e.preventDefault();
+}, {passive:false});
+document.addEventListener('touchend', ()=>{
+  if(rdMapDragging){
+    const mapEl = document.getElementById('rd-map-full');
+    if(mapEl){
+      const h = mapEl.getBoundingClientRect().height;
+      const mid = (RD_MAP_COLLAPSED_H + rdMapExpandedH()) / 2;
+      mapEl.classList.remove('rd-map-dragging');
+      rdSetMapExpanded(h > mid);
+      haptic(10);
+    }
+    swipeSuppressClick = true;
+    setTimeout(()=>{ swipeSuppressClick = false; }, 300);
+  }
+  rdMapDragStartY = 0;
+  rdMapDragging = false;
+  rdMapDragAxisLocked = false;
+}, {passive:true});
 function rdRecenterMap(){
   if(!detailMap || !rdCurrent) return;
   const pts = rdCurrent.r.points;
@@ -4999,7 +5077,7 @@ const MAP_TILE_SIZE = 256;
 // chico da un acercamiento tipo Strava (se ven las calles cercanas mientras
 // la cámara sigue al corredor); uno grande se parecería más al mapa
 // "panorama fijo" que teníamos antes.
-const FOLLOW_TARGET_METERS = 900;
+const FOLLOW_TARGET_METERS = 550;
 const FOLLOW_MIN_ZOOM = 12, FOLLOW_MAX_ZOOM = 17;
 // Tope de tiles distintas a pedir para armar el mosaico de la cámara
 // dinámica. Si una carrera muy larga necesitaría más que esto al zoom
