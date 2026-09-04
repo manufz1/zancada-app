@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-04T02:55:02Z';
+const APP_VERSION = '2026-09-04T13:47:01Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4468,6 +4468,7 @@ function renderRDRuta(panel){
   panel.innerHTML = `
     <div class="rd-map-full" id="rd-map-full">
       <div id="rd-route-map" style="height:100%; width:100%;"></div>
+      <div class="rd-map-fade"></div>
       <div class="rd-map-controls"><button onclick="rdRecenterMap()" data-i18n-aria="aria_recenter">${ICONS.locate}</button></div>
       <div class="rd-map-handle" id="rd-map-handle" onclick="toggleRDMapExpanded()"></div>
     </div>
@@ -4519,7 +4520,11 @@ function rdSetMapExpanded(expand, animate){
   if(animate===false) mapEl.classList.add('rd-map-dragging'); else mapEl.classList.remove('rd-map-dragging');
   mapEl.style.height = (expand ? rdMapExpandedH() : RD_MAP_COLLAPSED_H) + 'px';
   if(belowEl) belowEl.classList.toggle('rd-collapsed', expand);
-  setTimeout(()=>{ if(detailMap) detailMap.invalidateSize(); }, animate===false ? 0 : 320);
+  // invalidateSize() sólo le avisa a Leaflet que su contenedor cambió de tamaño --
+  // no reencuadra el recorrido. Sin el fitBounds de rdRecenterMap() de acá abajo,
+  // al agrandar el mapa se veía más área de alrededor pero la ruta quedaba chica
+  // y corrida en vez de aprovechar el espacio nuevo (lo mismo al achicarlo).
+  setTimeout(()=>{ if(detailMap){ detailMap.invalidateSize(); rdRecenterMap(); } }, animate===false ? 0 : 320);
 }
 function toggleRDMapExpanded(){
   if(swipeSuppressClick) return;
@@ -4551,7 +4556,7 @@ document.addEventListener('touchmove', e=>{
   mapEl.style.height = newH + 'px';
   if(!rdMapInvalidateRaf){
     rdMapInvalidateRaf = true;
-    requestAnimationFrame(()=>{ rdMapInvalidateRaf = false; if(detailMap) detailMap.invalidateSize(); });
+    requestAnimationFrame(()=>{ rdMapInvalidateRaf = false; if(detailMap){ detailMap.invalidateSize(); rdRecenterMap(); } });
   }
   e.preventDefault();
 }, {passive:false});
@@ -5543,6 +5548,13 @@ async function startDynamicVideo(runId){
     video.play().catch(()=>{});
     progressEl.textContent='';
     actions.style.display='flex';
+    // Arrancamos en paralelo (sin esperar acá) el arreglo del contenedor del
+    // video del lado del servidor -- ver rdRemuxVideoIfNeeded. La vista previa
+    // ya se puede mostrar con el video tal cual sale de MediaRecorder porque
+    // <video> lo reproduce bien; el problema es sólo al exportarlo. Si para
+    // cuando el usuario aprieta compartir/descargar ya terminó, usamos el
+    // arreglado; si no, downloadDynamicVideo() lo espera un toque.
+    rdRemuxVideoIfNeeded();
   };
 
   recorder.start();
@@ -5565,7 +5577,59 @@ async function startDynamicVideo(runId){
   rdVideoState.raf = requestAnimationFrame(frame);
 }
 
+// El video que graba MediaRecorder en Safari/WKWebView (iPhone) queda en MP4
+// "fragmentado" -- un formato válido (por eso el <video> de la vista previa
+// lo reproduce bien) pero que el importador de Fotos de iOS y el validador de
+// adjuntos de WhatsApp rechazan sin avisar bien por qué (el panel de compartir
+// se abre, pero falla al elegir destino). El arreglo real es reprocesarlo del
+// lado del servidor con ffmpeg (api/remux-video.js) para reordenarlo al
+// formato clásico -- no hay forma confiable de hacer esto en el propio
+// celular sin una librería pesada. Si algo falla acá (sin sesión, sin datos
+// móviles en ese momento, el servidor tarda, etc.) nos quedamos con el video
+// original tal cual salió -- nunca dejamos al usuario sin nada.
+async function rdRemuxVideoIfNeeded(){
+  if(!rdVideoState || !rdVideoState.blob) return;
+  const blob = rdVideoState.blob;
+  if(!(blob.type||'').includes('mp4')) return; // el problema es específico de MP4 (Safari); webm no lo necesita
+  rdVideoState.remuxState = 'pending';
+  try{
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(!session || !session.access_token) throw new Error('no session');
+    const resp = await fetch(apiUrl('/api/remux-video'), {
+      method:'POST',
+      headers:{'Content-Type': blob.type, 'Authorization':`Bearer ${session.access_token}`},
+      body: blob
+    });
+    if(!resp.ok) throw new Error('remux http '+resp.status);
+    const fixedBlob = await resp.blob();
+    if(fixedBlob && fixedBlob.size>0 && rdVideoState && !rdVideoState.cancelled){
+      rdVideoState.blob = fixedBlob;
+    }
+  }catch(e){
+    console.warn('rdRemuxVideoIfNeeded: no se pudo optimizar el video del lado del servidor, se comparte el original', e);
+  }finally{
+    if(rdVideoState) rdVideoState.remuxState = 'done';
+  }
+}
 async function downloadDynamicVideo(){
+  if(!rdVideoState || !rdVideoState.blob) return;
+  if(rdVideoState.remuxState === 'pending'){
+    // Le damos un margen a que termine de optimizarse en el servidor -- pero
+    // no de más: si tarda mucho (sin datos móviles, servidor lento), preferimos
+    // compartir el original a dejar al usuario esperando sin poder hacer nada.
+    const downloadBtn = document.querySelector('#rd-video-actions .btn-primary');
+    const originalLabel = downloadBtn ? downloadBtn.textContent : '';
+    if(downloadBtn) downloadBtn.textContent = t('rd_video_optimizing');
+    await Promise.race([
+      new Promise(resolve=>{
+        const iv = setInterval(()=>{
+          if(!rdVideoState || rdVideoState.remuxState !== 'pending'){ clearInterval(iv); resolve(); }
+        }, 150);
+      }),
+      new Promise(resolve=>setTimeout(resolve, 6000))
+    ]);
+    if(downloadBtn) downloadBtn.textContent = originalLabel;
+  }
   if(!rdVideoState || !rdVideoState.blob) return;
   const blob = rdVideoState.blob;
   const dateSlug = (rdCurrent && rdCurrent.r && rdCurrent.r.date ? rdCurrent.r.date : new Date().toISOString()).slice(0,10);
