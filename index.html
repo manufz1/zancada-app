@@ -77,11 +77,16 @@ try{
     --toast-error-bg:#3a1f1c; --toast-error-fg:#FF9A8D;
     --shadow-card:0 4px 14px rgba(0,0,0,.22); --shadow-lg:0 16px 48px rgba(0,0,0,.5);
     --hivis-glow:rgba(214,255,63,.32);
-    --zone1:#A6C8FF; --zone1-bg:rgba(166,200,255,.16); --zone1-bg-live:rgba(166,200,255,.13);
-    --zone2:#93E2AE; --zone2-bg:rgba(147,226,174,.16); --zone2-bg-live:rgba(147,226,174,.13);
-    --zone3:#F6DC8C; --zone3-bg:rgba(246,220,140,.16); --zone3-bg-live:rgba(246,220,140,.13);
-    --zone4:#FDBD8C; --zone4-bg:rgba(253,189,140,.16); --zone4-bg-live:rgba(253,189,140,.13);
-    --zone5:#FFA39B; --zone5-bg:rgba(255,163,155,.16); --zone5-bg-live:rgba(255,163,155,.13);
+    /* Colores de zona (ritmo/FC) del tema oscuro: se probó una versión pastel
+       más suave y se volvió atrás a pedido del usuario -- estos son los
+       saturados/"neon" originales. El tema claro de acá abajo se deja como
+       está, sin tocar (ver su propio comentario: está oscurecido a propósito
+       por contraste WCAG AA sobre fondo blanco). */
+    --zone1:#5B9BFF; --zone1-bg:rgba(91,155,255,.16); --zone1-bg-live:rgba(91,155,255,.13);
+    --zone2:#4ADE80; --zone2-bg:rgba(74,222,128,.16); --zone2-bg-live:rgba(74,222,128,.13);
+    --zone3:#FACC15; --zone3-bg:rgba(250,204,21,.16); --zone3-bg-live:rgba(250,204,21,.13);
+    --zone4:#FB923C; --zone4-bg:rgba(251,146,60,.16); --zone4-bg-live:rgba(251,146,60,.13);
+    --zone5:#FF6B5D; --zone5-bg:rgba(255,107,93,.16); --zone5-bg-live:rgba(255,107,93,.13);
     --cs:dark;
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
   }
@@ -452,7 +457,12 @@ try{
   .pace-bar-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
   .pace-bar-row .pace-bar-label{width:18px; font-size:12.5px; color:var(--mist); flex-shrink:0;}
   .pace-bar-track{flex:1; height:26px; border-radius:8px; background:var(--asphalt-3); overflow:hidden; position:relative;}
-  .pace-bar-fill{height:100%; border-radius:8px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:12px; font-weight:700; color:var(--ink); min-width:38px;}
+  /* A pedido del usuario, las barras de ritmo de la pestaña Ritmo se ven más
+     intensas/vivas que el resto de los usos de --zoneN (mapa de la ruta,
+     donuts de zona) -- en vez de duplicar las variables de color, se le suma
+     un filtro que satura/aclara un poco lo que ya venga de --zoneN, así el
+     resto de la app sigue compartiendo la misma fuente de verdad de colores. */
+  .pace-bar-fill{height:100%; border-radius:8px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-size:12px; font-weight:700; color:var(--ink); min-width:38px; filter:saturate(1.45) brightness(1.06);}
   .rd-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px 12px;}
   .rd-stat-tile{display:flex; align-items:flex-start; gap:9px;}
   .rd-stat-tile .rd-tile-ico{width:26px; height:26px; flex-shrink:0; margin-top:2px; color:var(--hivis-text);}

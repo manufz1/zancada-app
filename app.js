@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-04T13:47:01Z';
+const APP_VERSION = '2026-09-04T13:57:29Z';
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -4475,7 +4475,14 @@ function renderRDRuta(panel){
     <div class="rd-ruta-below" id="rd-ruta-below">
       <div class="rd-big-dist">${fmtDist(r.distanceKm)} <span style="font-size:19px; font-weight:700; color:var(--mist);">${distUnit()}</span></div>
       <p class="muted" style="margin-top:2px; text-transform:capitalize;">${dateStr}, ${timeStr}</p>
-      <button class="rd-video-btn" style="margin-top:12px;" onclick="startDynamicVideo('${r.id}')"><span class="icon-sq" style="width:15px; height:15px;">${ICONS.video}</span>${t('rd_dynamic_video')}</button>
+      <!-- Botón "Video del recorrido" sacado a pedido del usuario: en la web (PWA)
+           nunca se pudo lograr que el video se guarde/comparta de forma confiable
+           en iPhone (ver el historial de intentos alrededor de rdRemuxVideoIfNeeded
+           más abajo). La idea es retomarlo cuando haya apps nativas de Android/iOS
+           (Capacitor), donde compartir un archivo es mucho más directo que por el
+           navegador. El resto del sistema de video (startDynamicVideo y compañía)
+           queda intacto, sin usarse, listo para volver a engancharse acá con solo
+           reponer este botón. -->
       ${paces.length>1 ? `
         <div class="rd-legend-bar"></div>
         <div class="rd-legend-labels"><span>${t('rd_slowest')} ${fmtPace(slowest)}/${distUnit()}</span><span>${t('rd_fastest')} ${fmtPace(fastest)}/${distUnit()}</span></div>
