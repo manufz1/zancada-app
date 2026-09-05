@@ -1150,6 +1150,16 @@ try{
     <div id="run-detail-content"></div>
   </div>
 
+  <div class="overlay" id="achievements-modal" style="display:none;">
+    <button class="week-nav-btn" onclick="closeAchievements()" style="margin-bottom:14px;" data-i18n-aria="aria_back"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg></span></button>
+    <div id="achievements-content"></div>
+  </div>
+
+  <div class="overlay" id="social-feed-modal" style="display:none;">
+    <button class="week-nav-btn" onclick="closeSocialFeed()" style="margin-bottom:14px;" data-i18n-aria="aria_back"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg></span></button>
+    <div id="social-feed-content"></div>
+  </div>
+
   <div class="rd-video-overlay" id="rd-video-overlay">
     <button onclick="closeDynamicVideo()" data-i18n-aria="aria_back" style="position:absolute; top:calc(16px + var(--safe-top)); right:20px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2;"><span class="icon-sq" style="width:16px; height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></button>
     <canvas id="rd-video-canvas" width="720" height="1280" style="display:none;"></canvas>
@@ -1237,6 +1247,45 @@ try{
     <button class="btn btn-primary" style="width:100%; margin-top:28px;" onclick="closePainInfo()" data-i18n="hist_info_ok"></button>
   </div>
 
+  <div class="overlay" id="whats-new-modal" style="display:none; z-index:60;">
+    <h2 class="display" style="font-size:22px;" data-i18n="whats_new_title"></h2>
+    <ul id="whats-new-list" style="margin-top:18px; padding-left:20px; display:flex; flex-direction:column; gap:12px; font-size:14.5px; line-height:1.5; color:var(--chalk);"></ul>
+    <button class="btn btn-primary" style="width:100%; margin-top:24px;" onclick="closeWhatsNew()" data-i18n="whats_new_close"></button>
+  </div>
+
+  <div class="overlay" id="pace-calc-modal" style="display:none; z-index:58;">
+    <h2 class="display" style="font-size:22px;" data-i18n="pace_calc_title"></h2>
+    <p class="lead" data-i18n="pace_calc_subtitle"></p>
+    <div class="field" style="margin-top:20px;">
+      <label data-i18n="pace_calc_distance_label"></label>
+      <select id="pc-distance" onchange="onPaceCalcDistanceChange()">
+        <option value="5">5 km</option>
+        <option value="10">10 km</option>
+        <option value="15">15 km</option>
+        <option value="21.0975">21.1 km</option>
+        <option value="42.195">42.2 km</option>
+        <option value="custom" data-i18n="pace_calc_custom_option"></option>
+      </select>
+    </div>
+    <div class="field" id="pc-custom-km-field" style="display:none;">
+      <label data-i18n="pace_calc_custom_km_label"></label>
+      <input type="number" id="pc-custom-km" step="0.1" min="0.1" oninput="renderPaceCalcResults()">
+    </div>
+    <div class="field">
+      <label data-i18n="pace_calc_time_label"></label>
+      <input type="text" id="pc-time" data-i18n-ph="pace_calc_time_ph" oninput="renderPaceCalcResults()">
+    </div>
+    <div class="field">
+      <label data-i18n="pace_calc_strategy_label"></label>
+      <select id="pc-strategy" onchange="renderPaceCalcResults()">
+        <option value="even" data-i18n="pace_calc_strategy_even"></option>
+        <option value="negative" data-i18n="pace_calc_strategy_negative"></option>
+      </select>
+    </div>
+    <div id="pc-results"></div>
+    <button class="btn btn-outline" style="width:100%; margin-top:16px;" onclick="closePaceCalcModal()" data-i18n="hist_info_ok"></button>
+  </div>
+
   <div class="overlay" id="plan-change-timing-modal" style="display:none; z-index:58;">
     <h2 class="display" style="font-size:22px;" data-i18n="plan_timing_title"></h2>
     <p class="lead" data-i18n="plan_timing_subtitle"></p>
@@ -1304,6 +1353,22 @@ try{
         <p class="muted" id="perfil-sub">—</p>
         <p class="muted" id="perfil-remove-photo" style="display:none; font-size:12px; margin-top:2px; text-decoration:underline; cursor:pointer;" onclick="removeAvatarPhoto(event)" data-i18n="perfil_remove_photo"></p>
       </div>
+    </div>
+
+    <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer;" role="button" tabindex="0" onclick="openAchievements()">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="icon-sq" style="width:26px; height:26px; color:var(--hivis-text); flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5 10.5 8M15.5 2.5 13.5 8"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.2l1.1 2.2 2.4.35-1.75 1.7.4 2.4-2.15-1.15-2.15 1.15.4-2.4-1.75-1.7 2.4-.35z" fill="currentColor" stroke="none"/></svg></span>
+        <div>
+          <h3 style="margin:0 0 2px;" data-i18n="ach_open_title"></h3>
+          <p class="muted" style="margin:0; font-size:12.5px;" id="perfil-ach-summary"></p>
+        </div>
+      </div>
+      <span class="icon-sq" style="width:15px; height:15px; color:var(--mist-dim); flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg></span>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="social_section_title"></h3>
+      <div id="social-section-body"></div>
     </div>
 
     <div class="card">
@@ -1402,6 +1467,7 @@ try{
     <div class="card">
       <h3 data-i18n="perfil_event"></h3>
       <div id="event-box"></div>
+      <button class="small-link" style="margin-top:10px; display:flex; align-items:center; gap:5px;" onclick="openPaceCalcModal()"><span class="icon-sq" style="width:14px; height:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v2"/></svg></span><span data-i18n="pace_calc_open_btn"></span></button>
       <div class="add-row" style="margin-top:10px;"><input type="text" id="ev-name" data-i18n-ph="perfil_ev_name_ph"></div>
       <div class="add-row" style="margin-top:8px;"><input type="number" id="ev-distance" step="0.1" min="0" data-i18n-ph="perfil_ev_dist_ph"></div>
       <div class="add-row" style="margin-top:8px;">

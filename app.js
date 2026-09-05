@@ -1,6 +1,46 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-04T13:57:29Z';
+const APP_VERSION = '2026-09-05T13:55:19Z';
+/* ================= NOVEDADES ("qué hay de nuevo") =================
+   APP_VERSION cambia con CADA build (varias veces por día mientras iteramos),
+   así que no sirve como versión "de release" para mostrarle algo al usuario --
+   compararíamos contra un timestamp que cambió por un fix de un pixel y le
+   mostraríamos "novedades" vacías todo el tiempo. Esta lista es manual y
+   curada a propósito: cada entrada es un cambio real que vale la pena contarle
+   a alguien que ya tiene la app instalada. El id de cada entrada es para
+   siempre -- una vez publicada una entrada, no se le cambia el id ni se borra
+   (si el cambio queda obsoleto, se deja de agregar entradas nuevas nomás). El
+   texto en sí vive en los locales (changelog_<algo> en cada idioma), como el
+   resto de los textos de la app. */
+const CHANGELOG = [
+  {id:'2026-09-gpx-export', key:'changelog_gpx_export'},
+  {id:'2026-09-pace-calc', key:'changelog_pace_calc'},
+  {id:'2026-09-achievements', key:'changelog_achievements'},
+  {id:'2026-09-social', key:'changelog_social'},
+];
+function maybeShowWhatsNew(){
+  if(!state.onboarded) return;
+  let lastSeen;
+  try{ lastSeen = localStorage.getItem('zancada_last_seen_changelog'); }catch(e){ lastSeen = null; }
+  if(lastSeen === null || lastSeen === undefined){
+    // No hay nada guardado -- puede ser una instalación nueva (no tiene sentido
+    // mostrarle "novedades" a alguien que recién está conociendo la app) o
+    // alguien que ya la usaba de antes de que existiera este sistema (tampoco
+    // le podemos mostrar de golpe todo el historial pasado como si fuera nuevo).
+    // En los dos casos, arrancamos "al día" desde ahora en silencio.
+    try{ localStorage.setItem('zancada_last_seen_changelog', CHANGELOG[CHANGELOG.length-1].id); }catch(e){}
+    return;
+  }
+  const lastSeenIdx = CHANGELOG.findIndex(c=>c.id===lastSeen);
+  const unseen = lastSeenIdx>=0 ? CHANGELOG.slice(lastSeenIdx+1) : CHANGELOG;
+  if(!unseen.length) return;
+  document.getElementById('whats-new-list').innerHTML = unseen.map(c=>`<li>${t(c.key)}</li>`).join('');
+  document.getElementById('whats-new-modal').style.display = 'block';
+}
+function closeWhatsNew(){
+  document.getElementById('whats-new-modal').style.display = 'none';
+  try{ localStorage.setItem('zancada_last_seen_changelog', CHANGELOG[CHANGELOG.length-1].id); }catch(e){}
+}
 /* I18N ahora vive en /locales/*.js (cargados antes que este archivo, ver index.html) — window.I18N ya está armado para cuando llegamos acá. */
 /* Cuando la app corre empaquetada nativa (Capacitor, iOS), el HTML/JS vive adentro del
    binario -- no hay un servidor propio sirviendo /api/* como pasa en la PWA web, así que
@@ -100,7 +140,10 @@ const ICONS = {
   eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
   medal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5 10.5 8M15.5 2.5 13.5 8"/><circle cx="12" cy="14.5" r="6.5"/><path d="M12 11.2l1.1 2.2 2.4.35-1.75 1.7.4 2.4-2.15-1.15-2.15 1.15.4-2.4-1.75-1.7 2.4-.35z" fill="currentColor" stroke="none"/></svg>',
   locate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/></svg>',
-  video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.2l6-3.2v10l-6-3.2z"/></svg>'
+  video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.2l6-3.2v10l-6-3.2z"/></svg>',
+  stopwatch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v2"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-10-9.3C.4 8 1.8 4.5 5 3.5c2-.6 4 .2 5.2 2C11.4 3.7 13.4 2.9 15.4 3.5c3.2 1 4.6 4.5 3 7.7-2.5 4.7-10 9.3-10 9.3z"/></svg>',
+  heartFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5s-7.5-4.6-10-9.3C.4 8 1.8 4.5 5 3.5c2-.6 4 .2 5.2 2C11.4 3.7 13.4 2.9 15.4 3.5c3.2 1 4.6 4.5 3 7.7-2.5 4.7-10 9.3-10 9.3z"/></svg>'
 };
 
 /* ================= FEEDBACK: toast / confirm / haptics ================= */
@@ -221,6 +264,10 @@ function showConfirm(message, opts){
 let state = {onboarded:false, profile:{}, plan:[], runs:[], shoes:[], event:null, chat:[], lang:lang, painLog:[], readinessLog:[]};
 let pendingEmail = '';
 let currentUserId = null;
+// Nombre de usuario para la parte social (usernames + seguir amigos + feed + likes).
+// Vive en su propia tabla de Supabase (no adentro de app_state) porque hace falta
+// poder buscarlo entre usuarios sin exponer el resto del perfil -- ver sql/social.sql.
+let myUsername = null;
 /* ---- pantalla de "confirmá tu mail", con reintento automático de login mientras se espera ---- */
 let confirmEmailAddr = '';
 let confirmEmailPw = '';
@@ -1244,6 +1291,8 @@ function enterApp(){
   showView('inicio');
   setTimeout(checkPendingRating, 600);
   setTimeout(maybeShowInstallBanner, 1200);
+  setTimeout(maybeShowWhatsNew, 1800);
+  loadMyUsername().then(()=>renderPerfil());
 }
 async function logout(){ await supabaseClient.auth.signOut(); location.reload(); }
 async function resetApp(){
@@ -1504,6 +1553,10 @@ function buildWeeklyRecapMessage(weekPlan, weekStartIso){
   // la segunda semana seguida, para no sonar como un contador vacío en la primera.
   const metGoal = plannedCount>0 && (doneCount/plannedCount) >= 0.7;
   state.streakWeeks = metGoal ? (state.streakWeeks||0)+1 : 0;
+  // Guardamos también la racha más larga alcanzada alguna vez (no solo la actual) --
+  // la usa la pantalla de Logros para no perder un hito ya conseguido cuando la racha
+  // en curso se corta.
+  state.bestStreakWeeks = Math.max(state.bestStreakWeeks||0, state.streakWeeks);
   if(state.streakWeeks >= 2){
     msg += ' ' + t('coach_streak_line', {n: state.streakWeeks});
   }
@@ -2580,6 +2633,13 @@ function renderPerfil(){
     removeBtn.style.display = 'none';
   }
   renderPainLog();
+
+  const achSummaryEl = document.getElementById('perfil-ach-summary');
+  if(achSummaryEl){
+    const {unlockedCount, totalCount} = getAchievementSections();
+    achSummaryEl.textContent = t('ach_unlocked_count', {unlocked:unlockedCount, total:totalCount});
+  }
+  renderSocialSection();
 
   const editingPersonal = ['perfil-weight','perfil-height','perfil-racedate'].includes(document.activeElement && document.activeElement.id);
   if(!editingPersonal){
@@ -4125,6 +4185,230 @@ function checkNewPR(run){
   showToast(t('pr_toast_new', {label: t('pr_label_'+bucket.key), time: fmtTime(run.durationSec)}), 'success');
   haptic(40);
 }
+/* ---- Logros (pantalla de hitos) ---- */
+// Hitos de distancia total, cantidad de carreras y constancia (racha de semanas
+// cumpliendo el plan). Todo se calcula al vuelo a partir de datos que ya existen
+// (state.runs, state.bestStreakWeeks) -- nada nuevo que persistir salvo
+// bestStreakWeeks, que ya se actualiza en weeklyRecap().
+const ACH_DISTANCE_KM = [50, 100, 250, 500, 1000, 2000];
+const ACH_RUN_COUNT = [10, 25, 50, 100, 250];
+const ACH_STREAK_WEEKS = [2, 4, 8, 12, 26];
+function getAchievementSections(){
+  const totalKm = (state.runs||[]).reduce((a,r)=>a+r.distanceKm,0);
+  const totalRuns = (state.runs||[]).length;
+  const bestStreak = Math.max(state.bestStreakWeeks||0, state.streakWeeks||0);
+
+  const distanceBadges = ACH_DISTANCE_KM.map(km=>{
+    const achieved = totalKm >= km;
+    return {achieved, label: `${fmtDist(km,0)} ${distUnit()}`,
+      progressText: achieved ? null : t('ach_locked_distance_left', {n: `${fmtDist(km-totalKm,0)} ${distUnit()}`})};
+  });
+  const runBadges = ACH_RUN_COUNT.map(n=>{
+    const achieved = totalRuns >= n;
+    return {achieved, label: t('ach_badge_runs_label', {n}),
+      progressText: achieved ? null : t('ach_locked_runs_left', {n: n-totalRuns})};
+  });
+  const streakBadges = ACH_STREAK_WEEKS.map(n=>{
+    const achieved = bestStreak >= n;
+    return {achieved, label: t('ach_badge_streak_label', {n}),
+      progressText: achieved ? null : t('ach_locked_streak_left', {n: n-bestStreak})};
+  });
+  const allBadges = [...distanceBadges, ...runBadges, ...streakBadges];
+  return {distanceBadges, runBadges, streakBadges, unlockedCount: allBadges.filter(b=>b.achieved).length, totalCount: allBadges.length};
+}
+function renderAchievementBadgeGrid(badges){
+  return `<div class="pr-medal-grid">${badges.map(b=>{
+    if(b.achieved) return `<div class="pr-medal achieved"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${b.label}</span><span class="pr-medal-time">${t('ach_unlocked_tag')}</span></div>`;
+    return `<div class="pr-medal"><span class="icon-sq">${ICONS.medal}</span><span class="pr-medal-label">${b.label}</span><span class="pr-medal-locked">${b.progressText}</span></div>`;
+  }).join('')}</div>`;
+}
+function openAchievements(){
+  const {distanceBadges, runBadges, streakBadges, unlockedCount, totalCount} = getAchievementSections();
+  document.getElementById('achievements-content').innerHTML = `
+    <h2 class="display" style="font-size:20px; margin-bottom:2px;">${t('ach_title')}</h2>
+    <p class="muted" style="margin:0 0 4px;">${t('ach_subtitle')}</p>
+    <p style="margin:0 0 16px; font-weight:800; color:var(--hivis-text); font-size:13px;">${t('ach_unlocked_count', {unlocked:unlockedCount, total:totalCount})}</p>
+    <div class="card"><h3>${t('ach_section_distance')}</h3>${renderAchievementBadgeGrid(distanceBadges)}</div>
+    <div class="card"><h3>${t('ach_section_runs')}</h3>${renderAchievementBadgeGrid(runBadges)}</div>
+    <div class="card"><h3>${t('ach_section_streak')}</h3>${renderAchievementBadgeGrid(streakBadges)}</div>
+  `;
+  document.getElementById('achievements-modal').style.display='block';
+}
+function closeAchievements(){
+  document.getElementById('achievements-modal').style.display='none';
+}
+
+/* ================= SOCIAL: usernames + seguir amigos + feed + likes =================
+   Todo esto vive en tablas nuevas y chicas de Supabase (sql/social.sql), separadas de
+   app_state a propósito: app_state es un blob único por usuario con TODO (perfil, plan,
+   carreras con GPS y frecuencia cardíaca) -- exponerlo a otros usuarios, aunque sea un
+   campo, sería un lío de privacidad. Estas tablas nuevas guardan a propósito lo mínimo
+   para que la parte social funcione: un nombre de usuario, quién sigue a quién, y una
+   versión resumida de cada carrera que el usuario decide compartir (distancia, tiempo,
+   fecha -- nunca la ruta ni la frecuencia cardíaca). Compartir una carrera es una acción
+   explícita (botón "Compartir con amigos" en el detalle de esa carrera) -- no se comparte
+   nada solo, ni automáticamente al agregar una carrera nueva. */
+async function loadMyUsername(){
+  if(!currentUserId) return;
+  try{
+    const { data, error } = await supabaseClient.from('usernames').select('username').eq('user_id', currentUserId).maybeSingle();
+    if(!error && data) myUsername = data.username;
+  }catch(e){ console.error('loadMyUsername error', e); }
+}
+async function saveUsername(){
+  const input = document.getElementById('social-username-input');
+  if(!input) return;
+  const raw = input.value.trim().toLowerCase();
+  if(!/^[a-z0-9_]{3,20}$/.test(raw)){ showToast(t('social_username_invalid'), 'error'); return; }
+  try{
+    const { error } = await supabaseClient.from('usernames').upsert({ user_id: currentUserId, username: raw });
+    if(error){
+      if(error.code === '23505') showToast(t('social_username_taken'), 'error');
+      else{ console.error('saveUsername error', error); showToast(t('social_generic_error'), 'error'); }
+      return;
+    }
+    myUsername = raw;
+    showToast(t('social_username_saved'), 'success');
+    renderSocialSection();
+  }catch(e){
+    console.error('saveUsername error', e);
+    showToast(t('social_generic_error'), 'error');
+  }
+}
+async function followByUsername(){
+  const input = document.getElementById('social-follow-input');
+  if(!input) return;
+  const raw = input.value.trim().toLowerCase();
+  if(!raw) return;
+  try{
+    const { data: found, error: findErr } = await supabaseClient.from('usernames').select('user_id').eq('username', raw).maybeSingle();
+    if(findErr || !found){ showToast(t('social_user_not_found'), 'error'); return; }
+    if(String(found.user_id) === String(currentUserId)){ showToast(t('social_cant_follow_self'), 'error'); return; }
+    const { error: insErr } = await supabaseClient.from('follows').insert({ follower_id: currentUserId, followee_id: found.user_id });
+    if(insErr && insErr.code !== '23505'){ console.error('followByUsername error', insErr); showToast(t('social_generic_error'), 'error'); return; }
+    showToast(insErr ? t('social_already_following') : t('social_now_following', {username: raw}), insErr ? 'info' : 'success');
+    input.value = '';
+    renderSocialFollowingList();
+  }catch(e){
+    console.error('followByUsername error', e);
+    showToast(t('social_generic_error'), 'error');
+  }
+}
+async function unfollowUser(userId){
+  try{
+    await supabaseClient.from('follows').delete().eq('follower_id', currentUserId).eq('followee_id', userId);
+    renderSocialFollowingList();
+  }catch(e){ console.error('unfollowUser error', e); showToast(t('social_generic_error'), 'error'); }
+}
+async function renderSocialFollowingList(){
+  const el = document.getElementById('social-following-list');
+  if(!el) return;
+  try{
+    const { data, error } = await supabaseClient.from('follows').select('followee_id, usernames(username)').eq('follower_id', currentUserId).order('created_at', {ascending:false});
+    if(error || !data || !data.length){
+      el.innerHTML = `<p class="muted" style="margin:10px 0 0; font-size:12.5px;">${t('social_following_empty')}</p>`;
+      return;
+    }
+    el.innerHTML = data.map(f=>`<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--asphalt-3);"><span>@${escapeHtml(f.usernames ? f.usernames.username : '?')}</span><button class="small-link" onclick="unfollowUser('${f.followee_id}')">${t('social_unfollow')}</button></div>`).join('');
+  }catch(e){ console.error('renderSocialFollowingList error', e); }
+}
+function renderSocialSection(){
+  const el = document.getElementById('social-section-body');
+  if(!el) return;
+  if(!myUsername){
+    el.innerHTML = `
+      <p class="muted" style="margin:0 0 10px; font-size:12.5px;">${t('social_username_intro')}</p>
+      <div class="field" style="margin-top:0;"><input type="text" id="social-username-input" maxlength="20" placeholder="${t('social_username_ph')}"></div>
+      <button class="btn btn-outline btn-sm" style="width:100%; margin-top:8px;" onclick="saveUsername()">${t('social_username_save_btn')}</button>
+    `;
+  }else{
+    el.innerHTML = `
+      <p style="margin:0 0 12px; font-weight:800;">@${escapeHtml(myUsername)}</p>
+      <div class="field" style="margin-top:0;">
+        <label>${t('social_follow_label')}</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="social-follow-input" maxlength="20" placeholder="${t('social_follow_ph')}" style="flex:1;">
+          <button class="btn btn-outline btn-sm" onclick="followByUsername()">${t('social_follow_btn')}</button>
+        </div>
+      </div>
+      <div id="social-following-list"></div>
+      <button class="btn btn-outline btn-sm" style="width:100%; margin-top:14px;" onclick="openSocialFeed()">${t('social_open_feed_btn')}</button>
+    `;
+    renderSocialFollowingList();
+  }
+}
+async function openSocialFeed(){
+  const el = document.getElementById('social-feed-content');
+  const title = `<h2 class="display" style="font-size:20px; margin-bottom:16px;">${t('social_feed_title')}</h2>`;
+  el.innerHTML = title + `<p class="muted">${t('social_feed_loading')}</p>`;
+  document.getElementById('social-feed-modal').style.display = 'block';
+  try{
+    const { data, error } = await supabaseClient.from('run_feed')
+      .select('id, distance_km, duration_sec, run_date, usernames(username), run_likes(user_id)')
+      .order('run_date', {ascending:false}).limit(50);
+    if(error) throw error;
+    if(!data || !data.length){ el.innerHTML = title + `<p class="muted">${t('social_feed_empty')}</p>`; return; }
+    el.innerHTML = title + data.map(r=>{
+      const likedByMe = (r.run_likes||[]).some(l=>String(l.user_id)===String(currentUserId));
+      const likeCount = (r.run_likes||[]).length;
+      const dateStr = new Date(r.run_date+'T00:00:00').toLocaleDateString(LOCALE_MAP[lang], {day:'numeric', month:'short'});
+      const paceMin = r.distance_km>0 ? (r.duration_sec/60)/r.distance_km : 0;
+      return `<div class="card" style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-weight:800;">@${escapeHtml(r.usernames ? r.usernames.username : '?')}</span>
+          <span class="muted" style="font-size:12px;">${dateStr}</span>
+        </div>
+        <div style="display:flex; gap:20px; margin-top:10px;">
+          <div><div class="mono" style="font-weight:800;">${fmtDist(r.distance_km,2)} ${distUnit()}</div></div>
+          <div><div class="mono" style="font-weight:800;">${fmtTime(r.duration_sec)}</div></div>
+          <div><div class="mono" style="font-weight:800;">${fmtPace(paceMin)}/${distUnit()}</div></div>
+        </div>
+        <button class="small-link" style="margin-top:12px; display:flex; align-items:center; gap:6px; ${likedByMe?'color:var(--hivis-text);':''}" onclick="toggleRunLike('${r.id}', ${likedByMe})">
+          <span class="icon-sq" style="width:15px; height:15px;">${likedByMe ? ICONS.heartFilled : ICONS.heart}</span>${likedByMe ? t('social_liked') : t('social_like')}${likeCount>0 ? ' · '+likeCount : ''}
+        </button>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error('openSocialFeed error', e);
+    el.innerHTML = title + `<p class="muted">${t('social_generic_error')}</p>`;
+  }
+}
+function closeSocialFeed(){
+  document.getElementById('social-feed-modal').style.display = 'none';
+}
+async function toggleRunLike(runFeedId, currentlyLiked){
+  try{
+    if(currentlyLiked) await supabaseClient.from('run_likes').delete().eq('run_feed_id', runFeedId).eq('user_id', currentUserId);
+    else await supabaseClient.from('run_likes').insert({ run_feed_id: runFeedId, user_id: currentUserId });
+    openSocialFeed();
+  }catch(e){ console.error('toggleRunLike error', e); showToast(t('social_generic_error'), 'error'); }
+}
+// Compartir una carrera puntual al feed de amigos -- acción explícita desde el detalle
+// de esa carrera (junto al botón de exportar GPX). Solo manda distancia/tiempo/fecha,
+// nunca la ruta GPS ni la frecuencia cardíaca (esas columnas ni existen en run_feed).
+async function shareRunToFeed(runId){
+  if(!myUsername){ showToast(t('social_need_username_first'), 'error'); return; }
+  const r = state.runs.find(x => String(x.id) === String(runId));
+  if(!r || !r.distanceKm || !r.durationSec) return;
+  try{
+    const { error } = await supabaseClient.from('run_feed').insert({
+      user_id: currentUserId,
+      run_id: String(r.id),
+      distance_km: r.distanceKm,
+      duration_sec: r.durationSec,
+      run_date: localDateISO(r.date),
+    });
+    if(error){
+      if(error.code === '23505') showToast(t('social_already_shared'), 'info');
+      else{ console.error('shareRunToFeed error', error); showToast(t('social_generic_error'), 'error'); }
+      return;
+    }
+    showToast(t('social_share_success'), 'success');
+  }catch(e){
+    console.error('shareRunToFeed error', e);
+    showToast(t('social_generic_error'), 'error');
+  }
+}
 function predictRaceTime(targetKm){
   // Estima el tiempo objetivo para `targetKm` con la fórmula de Riegel (T2 = T1 *
   // (D2/D1)^1.06), usando como referencia la marca personal más cercana en distancia
@@ -4142,6 +4426,109 @@ function predictRaceTime(targetKm){
 }
 function getGoalRaceKm(){
   return {'5k':5, '10k':10, '15k':15, '21k':21.0975, '42k':42.195}[state.profile.goal] || null;
+}
+/* ================= CALCULADORA DE RITMO DE CARRERA =================
+   Dada una distancia y un tiempo objetivo, arma el plan de ritmo km a km del
+   día de la carrera -- "parejo" (mismo ritmo todo el recorrido) o "progresivo"
+   (arranca un poco más lento y termina más rápido, el clásico negative split
+   que además es más seguro que salir demasiado rápido y sufrir los últimos km).
+   Se abre desde la tarjeta de "Próximos eventos" de Perfil, y si hay marcas
+   personales cargadas se sugiere un tiempo con la misma fórmula de Riegel que
+   ya usa el bloque de "ritmo objetivo estimado" de esa misma tarjeta. */
+function parseHMS(str){
+  // Acepta "mm:ss" o "h:mm:ss" (con 1 o 2 dígitos en cada parte) -- lo que
+  // el usuario probablemente tipee a mano en vez de forzarlo a un formato
+  // rígido con inputs separados de horas/minutos/segundos.
+  const parts = String(str||'').trim().split(':').map(p=>p.trim());
+  if(parts.length<2 || parts.length>3 || parts.some(p=>p==='' || isNaN(p))) return null;
+  const nums = parts.map(Number);
+  if(nums.some(n=>n<0)) return null;
+  let sec;
+  if(nums.length===2) sec = nums[0]*60 + nums[1];
+  else sec = nums[0]*3600 + nums[1]*60 + nums[2];
+  return sec>0 ? sec : null;
+}
+function paceCalcCurrentKm(){
+  const sel = document.getElementById('pc-distance');
+  if(!sel) return null;
+  if(sel.value==='custom'){
+    const km = parseFloat(document.getElementById('pc-custom-km').value);
+    return km>0 ? km : null;
+  }
+  return parseFloat(sel.value);
+}
+function onPaceCalcDistanceChange(){
+  const isCustom = document.getElementById('pc-distance').value==='custom';
+  document.getElementById('pc-custom-km-field').style.display = isCustom ? 'block' : 'none';
+  renderPaceCalcResults();
+}
+function openPaceCalcModal(){
+  const goalKm = (state.event && state.event.distanceKm>0) ? state.event.distanceKm : getGoalRaceKm();
+  const sel = document.getElementById('pc-distance');
+  const knownOptions = ['5','10','15','21.0975','42.195'];
+  if(goalKm && knownOptions.includes(String(goalKm))){
+    sel.value = String(goalKm);
+    document.getElementById('pc-custom-km-field').style.display = 'none';
+  } else if(goalKm){
+    sel.value = 'custom';
+    document.getElementById('pc-custom-km').value = goalKm;
+    document.getElementById('pc-custom-km-field').style.display = 'block';
+  } else {
+    sel.value = '10';
+    document.getElementById('pc-custom-km-field').style.display = 'none';
+  }
+  const km = paceCalcCurrentKm();
+  const prediction = km ? predictRaceTime(km) : null;
+  document.getElementById('pc-time').value = prediction ? fmtTime(Math.round(prediction.predictedSec)) : '';
+  document.getElementById('pc-strategy').value = 'even';
+  document.getElementById('pace-calc-modal').style.display = 'block';
+  renderPaceCalcResults();
+}
+function closePaceCalcModal(){ document.getElementById('pace-calc-modal').style.display = 'none'; }
+function renderPaceCalcResults(){
+  const resultsEl = document.getElementById('pc-results');
+  if(!resultsEl) return;
+  const km = paceCalcCurrentKm();
+  const totalSec = parseHMS(document.getElementById('pc-time').value);
+  if(!km || !totalSec){
+    resultsEl.innerHTML = `<p class="muted" style="margin-top:16px; font-size:13px;">${t('pace_calc_need_input')}</p>`;
+    return;
+  }
+  const strategy = document.getElementById('pc-strategy').value;
+  const avgPaceMin = (totalSec/60)/km;
+  const numFullKm = Math.floor(km);
+  const remainderKm = km - numFullKm;
+  const segments = []; // {label, distKm}
+  for(let i=1;i<=numFullKm;i++) segments.push({label:String(i), distKm:1});
+  if(remainderKm>0.005) segments.push({label:fmtDist(km,2), distKm:remainderKm});
+  // Negative split simple: el ritmo de cada tramo va del +4% al -4% del promedio,
+  // de forma lineal a lo largo de la carrera. Con distancias exactas (5, 10, 15km)
+  // esos factores ya promedian justo 1 y el tiempo total cae exacto -- pero
+  // 21.0975/42.195km dejan un último tramo más corto (la "fracción" de km), que
+  // pesa menos que los demás y corre el promedio ponderado unos segundos. Para
+  // que el tiempo acumulado de la última fila SIEMPRE caiga en el objetivo exacto
+  // (no unos segundos de más/menos), se normalizan los factores dividiendo por su
+  // propio promedio ponderado por distancia antes de aplicarlos.
+  const rawFactor = (i)=> (strategy==='negative' && segments.length>1) ? (1.04 - 0.08*(i/(segments.length-1))) : 1;
+  const weightedMeanFactor = segments.reduce((sum, seg, i)=> sum + rawFactor(i)*seg.distKm, 0) / km;
+  let cumSec = 0;
+  const rows = segments.map((seg, i)=>{
+    const segPaceMin = avgPaceMin * (rawFactor(i)/weightedMeanFactor);
+    const segSec = segPaceMin*60*seg.distKm;
+    cumSec += segSec;
+    return `<tr><td>${seg.label}</td><td class="mono">${fmtTime(Math.round(cumSec))}</td><td class="mono">${fmtPace(segPaceMin)}</td></tr>`;
+  });
+  resultsEl.innerHTML = `
+    <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--asphalt-3);">
+      <p class="muted" style="margin:0 0 4px; font-size:12px;">${t('pace_calc_avg_pace_label')}</p>
+      <p class="mono" style="font-size:22px; font-weight:800; color:var(--hivis); margin:0 0 14px;">${fmtPace(avgPaceMin)} /${distUnit()}</p>
+      <div style="max-height:260px; overflow-y:auto;">
+        <table class="rd-seg-table">
+          <thead><tr><th>${t('pace_calc_km_col')}</th><th>${t('pace_calc_cum_col')}</th><th>${t('pace_calc_pace_col')}</th></tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 // Antes, si la sincronización con Strava fallaba (token revocado, la API de Strava
 // caída, lo que sea) o simplemente dejaba de correr, no había NINGÚN aviso -- el cron
@@ -4782,7 +5169,49 @@ function renderRDDetalles(panel){
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--asphalt-3); gap:8px; flex-wrap:wrap;"><span class="muted">${t('hist_shoe')}</span>${shoeSelect}</div>
     </div>
     ${r.hrLog && r.hrLog.length>1 ? `<div class="hist-hrlist" style="margin-top:12px;">${r.hrLog.map(h=>`<span class="zone-chip zone-${classifyHR(h.bpm)}">${h.bpm} bpm</span>`).join('')}</div>` : ''}
+    ${r.points && r.points.length>1 ? `<button class="btn btn-outline" style="width:100%; margin-top:16px;" onclick="downloadRunGPX('${r.id}')">${t('rd_export_gpx')}</button>` : ''}
+    <button class="btn btn-outline" style="width:100%; margin-top:12px;" onclick="shareRunToFeed('${r.id}')">${t('social_share_run_btn')}</button>
   `;
+}
+// Arma el GPX de una carrera a partir de los puntos GPS crudos (r.points).
+// A diferencia del .ics del calendario (que solo agenda), esto le devuelve al
+// usuario su propio recorrido en un formato estándar que cualquier otra app de
+// mapas/entrenamiento sabe abrir -- no depende de tener la carrera sincronizada
+// con Strava para poder sacarla de la app.
+function buildGPX(r){
+  const points = r.points || [];
+  const startMs = new Date(r.date).getTime();
+  const trkpts = points.map(p=>{
+    const ts = new Date(startMs + (p.t||0)*1000).toISOString();
+    const ele = (p.alt!=null && !isNaN(p.alt)) ? `<ele>${p.alt.toFixed(1)}</ele>` : '';
+    return `<trkpt lat="${p.lat}" lon="${p.lon}">${ele}<time>${ts}</time></trkpt>`;
+  }).join('');
+  const name = escapeHtml(r.name || new Date(r.date).toLocaleDateString(LOCALE_MAP[lang]));
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Zancada" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>${name}</name><trkseg>${trkpts}</trkseg></trk>\n</gpx>\n`;
+}
+async function downloadRunGPX(runId){
+  const r = state.runs.find(x => String(x.id) === String(runId));
+  if(!r || !r.points || r.points.length<2) return;
+  const gpx = buildGPX(r);
+  const dateSlug = (r.date||new Date().toISOString()).slice(0,10);
+  const fileName = `zancada-${dateSlug}.gpx`;
+  const blob = new Blob([gpx], {type:'application/gpx+xml'});
+  // Mismo patrón que downloadEventIcs()/shareRunImage(): preferimos el panel
+  // nativo para compartir el archivo, y cae a la descarga clásica si no hay
+  // Web Share API (desktop). El GPX es texto plano bien formado, así que no
+  // arrastra ninguno de los problemas de contenedor que tuvo el video.
+  try{
+    const file = new File([blob], fileName, {type:'application/gpx+xml'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:fileName});
+      return;
+    }
+  }catch(e){ /* si el share falla o lo cancela, seguimos con la descarga directa */ }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
 }
 async function deleteRun(runId){
   if(!(await showConfirm(t('hist_delete_confirm'), {danger:true, confirmText:t('delete_word')}))) return;
