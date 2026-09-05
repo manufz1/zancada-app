@@ -456,6 +456,17 @@ try{
     padding:2px 0 9px; -moz-appearance:textfield; transition:border-color .15s ease;}
   .metric-input::-webkit-outer-spin-button,.metric-input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
   .metric-input:focus{outline:none; border-bottom-color:var(--hivis);}
+  /* Selector de tiempo (horas:minutos:segundos) para la calculadora de ritmo -- 3
+     selects nativos en vez de un campo de texto libre, así se elige el tiempo tocando
+     en vez de tipear números a mano (el picker nativo del celular hace el resto). */
+  .time-picker-row{display:flex; align-items:flex-start; justify-content:center; gap:6px; margin-top:6px;
+    background:var(--asphalt-2); border:1.5px solid var(--asphalt-4); border-radius:var(--radius-sm); padding:10px 6px 8px;}
+  .time-picker-row .tp-col{display:flex; flex-direction:column; align-items:center; flex:1; min-width:0;}
+  .time-picker-row select{width:100%; background:none; border:none; color:var(--chalk); font-size:19px; font-weight:800;
+    font-family:'JetBrains Mono',monospace; text-align:center; text-align-last:center; padding:4px 0; cursor:pointer;}
+  .time-picker-row select:focus{outline:none;}
+  .time-picker-row .tp-colon{color:var(--mist-dim); font-weight:800; font-size:19px; padding-top:4px;}
+  .time-picker-row .tp-unit{font-size:9px; color:var(--mist); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
   /* Tira de días L-D: reemplaza las barras verticales por día/punto -- el punto se
      agranda y se llena de lima en un día de entrenamiento, queda chico y hueco en un
      descanso, y el día de hoy se marca con un anillo fino alrededor. */
@@ -507,15 +518,16 @@ try{
   /* Zona del botón de arrancar: el fondo de líneas de ruta/altimetría es puramente
      decorativo (aria-hidden), muy tenue, para que el espacio vacío alrededor del botón
      dé contexto de "esto registra tu recorrido" antes de arrancar a correr. */
-  .run-idle-cta{position:relative; margin-top:8px; min-height:360px; display:flex; align-items:flex-start; justify-content:center; padding-top:28px;}
+  .run-idle-cta{position:relative; margin-top:8px; min-height:400px; display:flex; align-items:flex-start; justify-content:center; padding-top:28px;}
   .run-bg-route{position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none;}
   .run-bg-route svg{width:100%; height:100%;}
   /* Fondo decorativo detrás del botón START: líneas de nivel (topográficas) tenues +
      un trazo de ruta en lima, más grande y visible que un simple garabato de fondo --
      ocupa el espacio vacío entre el botón y la tabbar en vez de dejarlo en blanco. */
   .run-bg-route .rbr-contour{fill:none; stroke:var(--asphalt-4); stroke-width:1.4; opacity:.6;}
-  .run-bg-route .rbr-route{fill:none; stroke:var(--hivis); stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; opacity:.5;
+  .run-bg-route .rbr-route{fill:none; stroke:var(--hivis); stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; opacity:.55;
     filter:drop-shadow(0 0 5px var(--hivis-glow));}
+  .run-bg-route .rbr-pin{fill:var(--hivis); opacity:.85;}
   .go-circle{position:relative; z-index:1; width:100%; max-width:220px; height:88px; border-radius:999px; margin:0 auto; background:var(--hivis);
     display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--ink); border:none; cursor:pointer;
     box-shadow:0 16px 40px var(--hivis-glow); transition:transform .12s ease, box-shadow .12s ease;}
@@ -1212,11 +1224,14 @@ try{
         </div>
       </div>
       <div class="run-idle-cta">
-        <div class="run-bg-route" aria-hidden="true"><svg viewBox="0 0 320 360" preserveAspectRatio="xMidYMin slice">
-          <path class="rbr-contour" d="M40 40 Q95 12 155 32 T265 62 Q302 92 282 138 T232 205 Q182 233 122 214 T42 168 Q8 118 40 40Z"/>
-          <path class="rbr-contour" d="M72 66 Q112 48 160 62 T233 86 Q256 110 242 138 T198 175 Q160 189 127 175 T84 143 Q66 106 72 66Z"/>
-          <path class="rbr-route" d="M22 150 Q66 96 128 118 T222 96 Q262 128 240 178 T262 258 Q244 308 192 320 T110 340 Q68 330 58 290 T90 232"/>
-          <path class="rbr-contour" d="M45 250 Q98 228 158 250 T262 282 Q294 314 262 344 T188 362"/>
+        <div class="run-bg-route" aria-hidden="true"><svg viewBox="0 0 320 400" preserveAspectRatio="xMidYMin slice">
+          <path class="rbr-contour" d="M30 50 Q70 20 120 35 T210 55 Q250 80 235 120 T190 175 Q150 195 100 180 T35 145 Q10 100 30 50Z"/>
+          <path class="rbr-contour" d="M55 70 Q90 55 130 65 T195 85 Q215 105 205 130 T170 160 Q140 172 112 160 T78 135 Q65 105 55 70Z"/>
+          <path class="rbr-contour" d="M200 195 Q235 180 270 195 T310 225 Q325 250 305 270 T265 290 Q240 297 218 283 T195 255 Q188 223 200 195Z"/>
+          <path class="rbr-contour" d="M40 235 Q75 217 115 230 T180 255 Q200 280 180 305 T130 327 Q95 333 68 315 T40 280 Q28 255 40 235Z"/>
+          <path class="rbr-contour" d="M150 305 Q185 290 222 305 T280 335"/>
+          <path class="rbr-route" d="M60 130 Q100 92 152 108 T232 96 Q272 122 256 168 T272 236 Q292 276 256 306 T176 336 Q124 346 88 314 T70 252 Q54 198 60 130Z"/>
+          <circle class="rbr-pin" cx="60" cy="130" r="4.5"/>
         </svg></div>
         <button class="go-circle" onclick="startRun()"><span class="display" data-i18n="run_start"></span><span style="font-size:12.5px; opacity:.7; margin-top:2px;" data-i18n="run_start_hint"></span></button>
       </div>
@@ -1435,7 +1450,13 @@ try{
     </div>
     <div class="field">
       <label data-i18n="pace_calc_time_label"></label>
-      <input type="text" id="pc-time" data-i18n-ph="pace_calc_time_ph" oninput="renderPaceCalcResults()">
+      <div class="time-picker-row">
+        <div class="tp-col"><select id="pc-time-h" onchange="renderPaceCalcResults()"></select><span class="tp-unit" data-i18n="time_unit_h"></span></div>
+        <span class="tp-colon">:</span>
+        <div class="tp-col"><select id="pc-time-m" onchange="renderPaceCalcResults()"></select><span class="tp-unit" data-i18n="time_unit_min"></span></div>
+        <span class="tp-colon">:</span>
+        <div class="tp-col"><select id="pc-time-s" onchange="renderPaceCalcResults()"></select><span class="tp-unit" data-i18n="time_unit_sec"></span></div>
+      </div>
     </div>
     <div class="field">
       <label data-i18n="pace_calc_strategy_label"></label>
@@ -1740,7 +1761,7 @@ try{
   <nav class="tabbar" id="tabbar" style="display:none;">
     <button class="nav-btn active" data-view="inicio" onclick="showView('inicio')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg><span data-i18n="nav_home"></span></button>
     <button class="nav-btn" data-view="plan" onclick="showView('plan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg><span data-i18n="nav_plan"></span></button>
-    <button class="nav-btn nav-btn-primary" data-view="correr" onclick="showView('correr')" data-i18n-aria="nav_run"><span class="nav-primary-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 17c0-1.2.7-2.3 1.8-2.8l5-2.3c.6-.3 1.3-.3 1.9 0l2.6 1.3c1.6.8 3.4 1.2 5.2 1.2h1.5v3.6H2.5V17z"/><path d="M9.3 11.9l.9-3.4M4.3 14.2c1.3.5 2.7.8 4.1.8"/></svg></span></button>
+    <button class="nav-btn nav-btn-primary" data-view="correr" onclick="showView('correr')" data-i18n-aria="nav_run"><span class="nav-primary-circle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 19.2v-1.9c0-1 .6-1.9 1.6-2.2l5.6-1.9c.6-.2 1.3-.1 1.8.2l1.5.9c2 1.2 4.3 1.9 6.6 2l2.2.1c.8 0 1.5.6 1.6 1.4l.1.7c.1.6-.3 1.2-.9 1.3l-1.3.3c-.4.1-.7.4-.7.9v.3z"/><path d="M8.3 13.8l.9-3.6c.2-.7-.2-1.4-.9-1.6-.6-.1-1.3.2-1.5.9l-1.3 3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
     <button class="nav-btn" data-view="history" onclick="showView('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 3-6.3"/><path d="M4 5v4h4"/><path d="M12 8v4l3 2"/></svg><span data-i18n="nav_history"></span></button>
     <button class="nav-btn" data-view="perfil" onclick="showView('perfil')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 5-5.5 7.5-5.5s6 1.5 7.5 5.5"/></svg><span data-i18n="nav_profile"></span></button>
   </nav>
