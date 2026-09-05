@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-05T14:26:51Z';
+const APP_VERSION = '2026-09-05T15:00:53Z';
 /* ================= NOVEDADES ("qué hay de nuevo") =================
    APP_VERSION cambia con CADA build (varias veces por día mientras iteramos),
    así que no sirve como versión "de release" para mostrarle algo al usuario --
@@ -2130,18 +2130,19 @@ function renderHome(){
     goalWrap.style.display = 'none';
   }
 
-  // Tira de días L-D: un punto por día (chico y hueco en descanso, grande y lima en
-  // entrenamiento), con el día de hoy marcado con un anillo -- reemplaza las barras
-  // verticales de antes, que quedaban gruesas y no siempre alineadas con la letra del
-  // día debajo.
+  // Tira de días L-D: un trazo vertical fino por día (chico en descanso, alto y lima
+  // según el volumen planeado en entrenamiento), con el día de hoy remarcado --
+  // mini gráfico de barras en vez de la fila de puntos/barras gruesas de antes.
   const todayIdx = (new Date().getDay()+6)%7;
+  const maxPlanDist = Math.max(...state.plan.map(d=>d.dist||0), 1);
   const barsEl = document.getElementById('home-week-bars');
   barsEl.innerHTML = state.plan.map((d,i)=>{
     const isRest = d.dist===0;
     const isToday = i===todayIdx;
+    const h = isRest ? 4 : Math.max(10, Math.round((d.dist/maxPlanDist)*44));
     return `<div class="wd-col ${isRest?'rest':'training'} ${isToday?'today':''}">
+      <div class="wd-bar-wrap"><div class="wd-bar" style="height:${h}px"></div></div>
       <div class="wd-lbl">${t('day_'+d.day).slice(0,2)}</div>
-      <div class="wd-dot-wrap ${isToday?'today':''}"><div class="wd-dot"></div></div>
     </div>`;
   }).join('');
 
@@ -2372,8 +2373,9 @@ function renderPlan(){
         <div class="day-badge"><div class="d">${t('day_'+d.day).slice(0,3)}</div>${dateLbl?`<div class="mono muted" style="font-size:10px; margin-top:2px;">${dateLbl}</div>`:''}</div>
         <div class="day-info">
           <div class="day-info-title-row"><span class="t">${lblType}</span>${d.dist>0?`<span class="day-km-inline">${fmtDist(d.dist,1)} ${distUnit()}</span>`:''}</div>
+          ${meta?`<div class="day-row-chips">${meta}</div>`:''}
         </div>
-        <div class="day-row-end">${meta?`<div class="day-row-chips">${meta}</div>`:''}${statusIcon}</div>
+        <div class="day-row-end">${statusIcon}</div>
       </div>
       <div class="day-detail" id="detail-${i}">${lblDesc}${zoneDetail}${statusBlock}</div>
     </div>`;

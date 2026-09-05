@@ -397,7 +397,8 @@ try{
   /* Tarjeta destacada -- "próxima sesión" es LA acción del día, así que se diferencia
      del resto de las tarjetas con un borde lima tenue y un degradado interno apenas
      insinuado, no con un color de fondo sólido distinto (eso competiría demasiado). */
-  .card-highlight{background:linear-gradient(160deg, rgba(214,255,63,.07), var(--asphalt-2) 55%); border-color:rgba(214,255,63,.25);}
+  .card-highlight{background:linear-gradient(160deg, rgba(214,255,63,.07), var(--asphalt-2) 55%); border-color:var(--hivis); border-width:1.5px;
+    box-shadow:0 0 0 1px rgba(214,255,63,.25), 0 0 22px rgba(214,255,63,.35), 0 4px 18px rgba(0,0,0,.3);}
   /* Viñetas breves para la descripción de la sesión (entrada en calor / sesión /
      vuelta a la calma vienen como líneas separadas por \n desde planLabel()) -- se
      listan una debajo de otra con una marca chica, en vez de un párrafo corrido. */
@@ -458,19 +459,18 @@ try{
   /* Tira de días L-D: reemplaza las barras verticales por día/punto -- el punto se
      agranda y se llena de lima en un día de entrenamiento, queda chico y hueco en un
      descanso, y el día de hoy se marca con un anillo fino alrededor. */
-  .week-days{display:flex; justify-content:space-between; margin-top:16px;}
-  .week-days .wd-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;}
+  .week-days{display:flex; justify-content:space-between; align-items:flex-end; margin-top:18px; height:66px; gap:4px;}
+  .week-days .wd-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; height:100%; min-width:0;}
   .week-days .wd-lbl{font-size:10px; color:var(--mist); text-transform:uppercase; letter-spacing:.04em;}
-  .week-days .wd-dot-wrap{width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:50%; box-shadow:0 0 0 1.5px transparent; transition:box-shadow .15s ease;}
-  .week-days .wd-dot-wrap.today{box-shadow:0 0 0 1.5px var(--mist-dim);}
-  .week-days .wd-dot{width:9px; height:9px; border-radius:50%; background:var(--asphalt-4); transition:all .2s ease;}
-  .week-days .wd-col.rest .wd-dot{width:6px; height:6px; background:var(--asphalt-4);}
-  .week-days .wd-col.training .wd-dot{width:14px; height:14px; background:var(--hivis); box-shadow:0 0 10px var(--hivis-glow);}
+  .week-days .wd-bar-wrap{flex:1; display:flex; align-items:flex-end;}
+  .week-days .wd-bar{width:7px; border-radius:99px; background:var(--asphalt-4); transition:height .3s cubic-bezier(.22,1,.36,1);}
+  .week-days .wd-col.training .wd-bar{background:var(--hivis); box-shadow:0 0 8px var(--hivis-glow);}
+  .week-days .wd-col.today .wd-bar{box-shadow:0 0 0 1.5px var(--mist-dim), 0 0 8px var(--hivis-glow);}
   .week-days .wd-col.today .wd-lbl{color:var(--chalk); font-weight:700;}
   .coach-snippet{display:flex; gap:12px; align-items:flex-start;}
   .coach-avatar{width:40px; height:40px; border-radius:14px; background:var(--hivis-dim); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
 
-  .day-row{display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--asphalt-3); cursor:pointer; transition:background .12s ease, opacity .12s ease;}
+  .day-row{display:flex; align-items:flex-start; gap:12px; padding:13px 0; border-bottom:1px solid var(--asphalt-3); cursor:pointer; transition:background .12s ease, opacity .12s ease;}
   .day-row:active{background:var(--press);}
   .day-row:last-child{border-bottom:none;}
   .day-badge{width:42px; text-align:center; flex-shrink:0;}
@@ -485,9 +485,10 @@ try{
   .day-km-inline{font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:700; color:var(--hivis-text); flex-shrink:0;
     padding-left:9px; border-left:1px solid var(--asphalt-4);}
   .day-dist{font-family:'JetBrains Mono',monospace; font-size:14.5px; font-weight:700; color:var(--hivis-text); flex-shrink:0;}
-  /* Chips de terreno/zona + ícono de estado, agrupados al final de la fila. */
-  .day-row-end{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;}
-  .day-row-chips{display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;}
+  /* Ícono de estado (check/x) solo, siempre al final de la fila. Los chips de
+     terreno/zona viven debajo del título (ver .day-row-chips), no acá. */
+  .day-row-end{display:flex; align-items:center; flex-shrink:0; padding-top:2px;}
+  .day-row-chips{display:flex; gap:5px; flex-wrap:wrap; margin-top:6px;}
   /* Día de descanso: toda la fila baja de opacidad para que los días CON entrenamiento
      salten a la vista de entrada, sin tener que leer cada renglón. */
   .day-row.day-row-rest{opacity:.5;}
@@ -731,11 +732,11 @@ try{
      costados de antes -- las otras dos veces que se reusa .week-nav-btn (volver del
      detalle de carrera, el calendario) no usan la clase .week-nav y no se ven
      afectadas por esto. */
-  .week-nav{display:flex; align-items:center; justify-content:center; gap:2px; margin:0 auto 16px; max-width:250px;
-    background:var(--asphalt-2); border:1px solid var(--overlay-hairline); border-radius:999px; padding:4px;}
-  .week-nav .week-nav-btn{width:28px; height:28px; background:none; flex-shrink:0;}
-  .week-nav .week-nav-btn:active{background:var(--asphalt-4);}
-  .week-nav-label{margin:0; text-align:center; color:var(--chalk); font-size:13px; font-weight:700; flex:1; letter-spacing:.01em; white-space:nowrap; padding:0 4px;}
+  .week-nav{display:flex; align-items:center; justify-content:center; gap:10px; margin:0 auto 16px; max-width:280px;}
+  .week-nav .week-nav-btn{width:34px; height:34px; background:var(--hivis); color:#0a0a0a; flex-shrink:0; box-shadow:0 3px 12px var(--hivis-glow);}
+  .week-nav .week-nav-btn:active{background:var(--hivis); transform:scale(.88);}
+  .week-nav-label{margin:0; text-align:center; color:var(--chalk); font-size:13px; font-weight:700; flex:1; letter-spacing:.01em; white-space:nowrap;
+    padding:9px 18px; background:var(--asphalt-2); border:1px solid var(--overlay-hairline); border-radius:999px;}
   .week-nav-btn{width:32px; height:32px; border-radius:50%; background:var(--asphalt-3); border:none; color:var(--chalk);
     display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; padding:0;
     transition:transform .12s ease, background .12s ease, opacity .15s ease;}
@@ -1042,7 +1043,7 @@ try{
 
   <section class="view" id="view-inicio">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:14px 0 4px;">
-      <p class="greeting" style="margin:0;"><span data-i18n="home_hi"></span> <span id="home-name" style="font-weight:800;">—</span></p>
+      <p class="greeting" style="margin:0;"><span data-i18n="home_hi"></span> <span id="home-name" style="font-weight:800;">—</span> 👋</p>
       <div class="streak-badge" id="home-streak-badge" style="display:none;"></div>
     </div>
 
