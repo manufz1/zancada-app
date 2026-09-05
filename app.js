@@ -1,6 +1,6 @@
 /* Se actualiza a mano cada vez que se sube una versión nueva — se usa para detectar
    si hay una versión más nueva del index.html publicada y recargar sola la app. */
-const APP_VERSION = '2026-09-05T13:55:19Z';
+const APP_VERSION = '2026-09-05T14:26:51Z';
 /* ================= NOVEDADES ("qué hay de nuevo") =================
    APP_VERSION cambia con CADA build (varias veces por día mientras iteramos),
    así que no sirve como versión "de release" para mostrarle algo al usuario --
@@ -17,6 +17,7 @@ const CHANGELOG = [
   {id:'2026-09-pace-calc', key:'changelog_pace_calc'},
   {id:'2026-09-achievements', key:'changelog_achievements'},
   {id:'2026-09-social', key:'changelog_social'},
+  {id:'2026-09-redesign', key:'changelog_redesign'},
 ];
 function maybeShowWhatsNew(){
   if(!state.onboarded) return;
@@ -1270,6 +1271,7 @@ function enterApp(){
   document.getElementById('onboard').style.display='none';
   document.getElementById('mainHeader').style.display='flex';
   document.getElementById('tabbar').style.display='flex';
+  document.getElementById('coach-fab-wrap').style.display='block';
   syncTabbarHeight();
   applyStaticTranslations();
   document.getElementById('perfil-name').value = state.profile.name;
@@ -2071,7 +2073,10 @@ function renderHome(){
   const today = state.plan[idx];
   const lbl = planLabel(today);
   document.getElementById('home-next-title').textContent = lbl.type;
-  document.getElementById('home-next-desc').textContent = lbl.desc;
+  // lbl.desc trae saltos de línea reales (entrada en calor / sesión / vuelta a la calma,
+  // ver planLabel) -- se listan como viñetas breves en vez de un párrafo corrido.
+  const nextDescLines = lbl.desc.split('\n').filter(Boolean);
+  document.getElementById('home-next-desc').innerHTML = nextDescLines.map(line=>`<div class="next-session-bullet">${line}</div>`).join('');
   document.getElementById('home-next-dist').textContent = today.dist>0 ? fmtDist(today.dist,1)+' '+distUnit() : '';
   document.getElementById('home-next-zone').innerHTML = (today.dist>0 && today.zone) ? `<span class="zone-chip zone-${today.zone}">${t('zone_word')} ${today.zone}</span>` : '';
 
@@ -2125,18 +2130,20 @@ function renderHome(){
     goalWrap.style.display = 'none';
   }
 
-  const maxD = Math.max(...state.plan.map(d=>d.dist),1);
+  // Tira de días L-D: un punto por día (chico y hueco en descanso, grande y lima en
+  // entrenamiento), con el día de hoy marcado con un anillo -- reemplaza las barras
+  // verticales de antes, que quedaban gruesas y no siempre alineadas con la letra del
+  // día debajo.
+  const todayIdx = (new Date().getDay()+6)%7;
   const barsEl = document.getElementById('home-week-bars');
   barsEl.innerHTML = state.plan.map((d,i)=>{
-    if(d.dist===0) return `<div class="bar-col"><div class="bar rest-day"></div><div class="lbl">${t('day_'+d.day).slice(0,2)}</div></div>`;
-    const h = Math.max(14, Math.round((d.dist/maxD)*70));
-    return `<div class="bar-col"><div class="bar hivis" data-h="${h}" style="height:0px; transition-delay:${i*35}ms;"></div><div class="lbl">${t('day_'+d.day).slice(0,2)}</div></div>`;
+    const isRest = d.dist===0;
+    const isToday = i===todayIdx;
+    return `<div class="wd-col ${isRest?'rest':'training'} ${isToday?'today':''}">
+      <div class="wd-lbl">${t('day_'+d.day).slice(0,2)}</div>
+      <div class="wd-dot-wrap ${isToday?'today':''}"><div class="wd-dot"></div></div>
+    </div>`;
   }).join('');
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      barsEl.querySelectorAll('.bar[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
-    });
-  });
 
 
   renderReadinessCard();
@@ -2329,18 +2336,21 @@ function renderPlan(){
     const isToday = wd.mode==='current' && i===todayIdx;
     const isPastDay = wd.mode==='current' && i<todayIdx;
     const canEdit = wd.editable && !isPastDay;
+    // Los chips de terreno/zona (y el de la carrera, si el día es raceDay) van
+    // agrupados al final de la fila, junto al ícono de estado -- no repetidos como
+    // subtítulo del tipo de sesión (un día de descanso ya dice "Descanso" en el
+    // título; no hace falta que lo repita una vez más como si fuera un chip).
     let meta = '';
     if(d.raceDay && state.event){
       meta = `<span class="tag tag-mixto">${escapeHtml(state.event.name)}</span>`;
-    } else {
+    } else if(d.dist>0){
       // d.dist>0 acá es a propósito, no solo d.terrain/d.zone: un día de
       // descanso nunca debería mostrar cartel de terreno/zona, ni siquiera
-      // si por algún dato viejo esos campos quedaran seteados -- así el
-      // cartel de "Descanso" siempre gana en un día sin distancia.
-      if(d.dist>0 && d.terrain) meta += `<span class="tag tag-${d.terrain}">${t('ob_terrain_'+d.terrain)}</span>`;
-      if(d.dist>0 && d.zone) meta += `<span class="zone-chip zone-${d.zone}">${t('zone_word')} ${d.zone}</span>`;
-      if(!meta) meta = t('type_rest');
+      // si por algún dato viejo esos campos quedaran seteados.
+      if(d.terrain) meta += `<span class="tag tag-${d.terrain}">${t('ob_terrain_'+d.terrain)}</span>`;
+      if(d.zone) meta += `<span class="zone-chip zone-${d.zone}">${t('zone_word')} ${d.zone}</span>`;
     }
+    const isRestDay = !(d.dist>0) && !d.raceDay;
     const statusIcon = d.status==='done' ? `<div class="icon-sq" style="width:16px; height:16px; color:var(--hivis);">${ICONS.check}</div>` : d.status==='skipped' ? `<div class="icon-sq" style="width:16px; height:16px; color:var(--danger);">${ICONS.cross}</div>` : '';
     const zoneDetail = d.zone ? `<br><br><span class="zone-chip zone-${d.zone}">${t('zone_word')} ${d.zone}</span> <span class="mono muted">${z[d.zone].min}-${z[d.zone].max} bpm</span>` : '';
     let statusBlock = '';
@@ -2358,10 +2368,12 @@ function renderPlan(){
       statusBlock = `<div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;"><button class="btn btn-outline btn-sm" onclick="markSession(${i},'done')"><span class="icon-sq" style="width:14px; height:14px;">${ICONS.check}</span> ${t('plan_mark_done')}</button><button class="btn btn-outline btn-sm" onclick="markSession(${i},'skipped')"><span class="icon-sq" style="width:14px; height:14px;">${ICONS.cross}</span> ${t('plan_mark_skipped')}</button>${isToday?`<button class="btn btn-outline btn-sm" id="sync-today-btn" onclick="syncTodayNow()"><span class="icon-sq" style="width:14px; height:14px;">${ICONS.refresh}</span> ${t('plan_sync_button')}</button>`:''}</div>`;
     }
     return `<div>
-      <div class="day-row" onclick="toggleDay(${i})">
+      <div class="day-row ${isRestDay?'day-row-rest':''}" onclick="toggleDay(${i})">
         <div class="day-badge"><div class="d">${t('day_'+d.day).slice(0,3)}</div>${dateLbl?`<div class="mono muted" style="font-size:10px; margin-top:2px;">${dateLbl}</div>`:''}</div>
-        <div class="day-info"><div class="t">${lblType}</div><div class="m">${meta}</div></div>
-        <div style="text-align:right;"><div class="day-dist">${d.dist>0? fmtDist(d.dist,1)+' '+distUnit():''}</div>${statusIcon}</div>
+        <div class="day-info">
+          <div class="day-info-title-row"><span class="t">${lblType}</span>${d.dist>0?`<span class="day-km-inline">${fmtDist(d.dist,1)} ${distUnit()}</span>`:''}</div>
+        </div>
+        <div class="day-row-end">${meta?`<div class="day-row-chips">${meta}</div>`:''}${statusIcon}</div>
       </div>
       <div class="day-detail" id="detail-${i}">${lblDesc}${zoneDetail}${statusBlock}</div>
     </div>`;
@@ -3373,6 +3385,9 @@ async function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  // El botón flotante del coach abre esa misma vista -- de pie sobre ella no aporta nada
+  // (taparía el chat), así que se esconde mientras ya estamos adentro.
+  document.getElementById('coach-fab-wrap').style.display = (v==='coach') ? 'none' : 'block';
   document.getElementById('chatBar').classList.toggle('active', v==='coach');
   (document.scrollingElement || document.documentElement).scrollTop = 0;
   // syncAppMinHeight() acá también: #view-coach es la única vista sin contenido real
@@ -4597,14 +4612,14 @@ function renderHistory(){
       <h3 style="margin:0;" data-i18n="hist_trends">${t('hist_trends')}</h3>
       <button onclick="shareWeeklyRecapImage()" style="background:none; border:1.5px solid var(--asphalt-4); color:var(--hivis); font-size:12px; cursor:pointer; padding:5px 9px; border-radius:6px; display:flex; align-items:center; gap:5px; font-weight:700; flex-shrink:0;">${t('hist_share')}</button>
     </div>
-    <div class="stat-row">
-      <div class="stat-box"><div class="n mono">${fmtDist(tr.totalKm,0)}</div><div class="l">${t('hist_total_km')} (${distUnit()})</div></div>
-      <div class="stat-box"><div class="n mono">${tr.totalRuns}</div><div class="l">${t('hist_total_runs')}</div></div>
+    <div class="stat-row-divided">
+      <div class="stat-cell"><div class="n">${fmtDist(tr.totalKm,0)}</div><div class="l">${t('hist_total_km')} (${distUnit()})</div></div>
+      <div class="stat-cell"><div class="n">${tr.totalRuns}</div><div class="l">${t('hist_total_runs')}</div></div>
     </div>
-    <div class="week-bars" id="hist-trend-bars" style="margin-top:14px;">${daily.map((x,i)=>{
+    <div class="trend-bars" id="hist-trend-bars" style="margin-top:16px;">${daily.map((x,i)=>{
       const h = x.km>0 ? Math.max(6, Math.round((x.km/maxKmDay)*70)) : (x.planned ? 4 : 2);
-      const cls = x.km>0 ? 'hivis' : (x.planned ? 'planned-day' : 'rest-day');
-      return `<div class="bar-col"><div class="bar ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*30}ms;"></div><div class="lbl">${x.day}</div></div>`;
+      const cls = x.km>0 ? '' : (x.planned ? 'trend-planned' : 'trend-rest');
+      return `<div class="trend-col"><div class="trend-stroke ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*30}ms;"></div><div class="trend-lbl">${x.day}</div></div>`;
     }).join('')}</div>
   </div>`;
   // Tendencia de forma física a largo plazo: km reales por semana en las últimas 12
@@ -4619,14 +4634,14 @@ function renderHistory(){
   const longTrendCard = `<div class="card">
     <h3 style="margin-bottom:2px;">${t('hist_long_trend_title')}</h3>
     <p class="muted" style="margin:0 0 10px; font-size:12px;">${t('hist_long_trend_subtitle')}</p>
-    <div class="stat-row">
-      <div class="stat-box"><div class="n mono">${fmtDist(avgWeekKm,1)}</div><div class="l">${t('hist_long_trend_avg')} (${distUnit()})</div></div>
-      <div class="stat-box"><div class="n mono">${fmtDist(bestWeekKm,1)}</div><div class="l">${t('hist_long_trend_best')} (${distUnit()})</div></div>
+    <div class="stat-row-divided">
+      <div class="stat-cell"><div class="n">${fmtDist(avgWeekKm,1)}</div><div class="l">${t('hist_long_trend_avg')} (${distUnit()})</div></div>
+      <div class="stat-cell"><div class="n">${fmtDist(bestWeekKm,1)}</div><div class="l">${t('hist_long_trend_best')} (${distUnit()})</div></div>
     </div>
-    <div class="week-bars" id="hist-longtrend-bars" style="margin-top:14px; gap:4px;">${weeklyTrend.map((w,i)=>{
+    <div class="trend-bars" id="hist-longtrend-bars" style="margin-top:16px; gap:4px;">${weeklyTrend.map((w,i)=>{
       const h = w.km>0 ? Math.max(6, Math.round((w.km/maxWeekKm)*70)) : 2;
-      const cls = w.km>0 ? 'hivis' : 'rest-day';
-      return `<div class="bar-col"><div class="bar ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*25}ms;"></div><div class="lbl">${w.day}</div></div>`;
+      const cls = w.km>0 ? '' : 'trend-rest';
+      return `<div class="trend-col"><div class="trend-stroke ${cls}" data-h="${h}" style="height:0px; transition-delay:${i*25}ms;"></div><div class="trend-lbl">${w.day}</div></div>`;
     }).join('')}</div>
   </div>`;
   const qualityCounts = getQualitySessionBreakdown(30);
@@ -4679,6 +4694,7 @@ function renderHistory(){
     const paceMin = r.distanceKm>0.02 ? (r.durationSec/60)/r.distanceKm : 0;
     const avgHr = r.avgHr || (r.hrLog && r.hrLog.length ? Math.round(r.hrLog.reduce((a,h)=>a+h.bpm,0)/r.hrLog.length) : null);
     const cal = r.calories || Math.round((state.profile.weight||70)*r.distanceKm*1.036);
+    const hasMap = !!(r.points && r.points.length>1);
     const dateStr = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {weekday:'short', day:'numeric', month:'short'});
     const monthKey = new Date(r.date).toLocaleDateString(LOCALE_MAP[lang], {month:'long', year:'numeric'});
     let monthHeader = '';
@@ -4689,13 +4705,13 @@ function renderHistory(){
     return `${monthHeader}<div class="swipe-item" data-swipe-id="${r.id}">
       <div class="swipe-action-delete" role="button" tabindex="0" aria-label="${t('aria_delete')}" onclick="deleteRun('${r.id}')"><span class="icon-sq" style="width:20px; height:20px;">${ICONS.trash}</span></div>
       <div class="card hist-card swipe-content" onclick="openRunDetail('${r.id}')" style="cursor:pointer;">
-        <div class="hist-top"><span style="font-weight:700;">${dateStr}</span><span class="hist-date">${r.manual? `<span class="tag tag-soon" style="margin-right:6px;">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto" style="margin-right:6px;">Strava</span>`:''}${fmtTime(r.durationSec)}</span></div>
-        ${r.points && r.points.length>1 ? `<div class="hist-map" id="hist-map-${r.id}"></div>` : ''}
-        <div class="stat-row">
-          <div class="stat-box"><div class="n mono">${fmtDist(r.distanceKm)}</div><div class="l">${distUnit()}</div></div>
-          <div class="stat-box"><div class="n mono">${fmtPace(paceMin)}</div><div class="l">${t('run_pace_word')}</div></div>
-          <div class="stat-box"><div class="n mono">${avgHr||'—'}</div><div class="l">${t('hist_avg_hr')}</div></div>
-          <div class="stat-box"><div class="n mono">${cal}</div><div class="l">${t('run_calories')}</div></div>
+        <div class="hist-top"><span style="font-weight:700;">${dateStr}</span>${hasMap ? '' : `<span class="hist-date">${r.manual? `<span class="tag tag-soon" style="margin-right:6px;">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto" style="margin-right:6px;">Strava</span>`:''}${fmtTime(r.durationSec)}</span>`}</div>
+        ${hasMap ? `<div class="hist-map" id="hist-map-${r.id}"><div class="hist-map-badge">${r.manual? `<span class="tag tag-soon">${t('hist_manual_tag')}</span>`:''}${r.source==='strava'? `<span class="tag tag-mixto">Strava</span>`:''}<span class="hist-map-duration">${fmtTime(r.durationSec)}</span></div></div>` : ''}
+        <div class="stat-row-divided">
+          <div class="stat-cell"><div class="n">${fmtDist(r.distanceKm)}</div><div class="l">${distUnit()}</div></div>
+          <div class="stat-cell"><div class="n">${fmtPace(paceMin)}</div><div class="l">${t('run_pace_word')}</div></div>
+          <div class="stat-cell"><div class="n">${avgHr||'—'}</div><div class="l">${t('hist_avg_hr')}</div></div>
+          <div class="stat-cell"><div class="n">${cal}</div><div class="l">${t('run_calories')}</div></div>
         </div>
         <p class="muted" style="margin-top:10px; font-size:12.5px;">${t('hist_benefit_'+runBenefitKey(r))}</p>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
@@ -4725,7 +4741,7 @@ function animateHistTrendBars(){
     if(!barsEl) return;
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
-        barsEl.querySelectorAll('.bar[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
+        barsEl.querySelectorAll('.trend-stroke[data-h]').forEach(el=>{ el.style.height = el.dataset.h+'px'; });
       });
     });
   });

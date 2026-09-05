@@ -22,6 +22,18 @@ CREATE TABLE IF NOT EXISTS public.chat_usage (
   PRIMARY KEY (user_id, usage_date)
 );
 
+-- Sin esto, cualquiera con la clave pública (anon/authenticated -- la misma
+-- que ya viaja en app.js, visible para cualquiera) podría leer o escribir
+-- esta tabla directo por la REST API de Supabase, sin pasar por chat.js.
+-- Sin RLS habilitado y sin ninguna política, alguien podría por ejemplo
+-- resetear su propio contador para saltarse el límite diario por completo,
+-- o ver cuántos mensajes mandó otro usuario. Habilitar RLS sin definir
+-- ninguna política dentro deja la tabla en "nadie con la clave pública
+-- puede tocarla" -- nuestro backend (api/chat.js) sigue funcionando igual
+-- porque usa la clave de SERVICIO (SUPABASE_SERVICE_KEY), que siempre se
+-- salta el RLS.
+ALTER TABLE public.chat_usage ENABLE ROW LEVEL SECURITY;
+
 -- increment_chat_usage: suma 1 al contador de HOY para p_user_id (creando la
 -- fila si no existía) en una sola operación atómica -- así dos requests que
 -- lleguen al mismo tiempo no pueden leer el mismo valor viejo y "perder" un
@@ -48,3 +60,14 @@ BEGIN
   RETURN v_count <= p_limit;
 END;
 $$;
+
+-- Por las dudas: por default Supabase deja que cualquiera con la clave
+-- pública llame funciones del schema public por la RPC de la REST API
+-- (/rest/v1/rpc/increment_chat_usage), sin pasar por chat.js. Como la
+-- función es SECURITY DEFINER, si alguien la llamara directo con su propia
+-- clave pública y un p_user_id ajeno, podría inflar el contador de OTRO
+-- usuario (no el propio -- el conteo en sí no se puede bajar, solo subir).
+-- Sacándole el permiso de ejecutarla a esos dos roles, ya no queda ninguna
+-- forma de llamarla salvo con la clave de servicio (que es la única que
+-- usa api/chat.js).
+REVOKE EXECUTE ON FUNCTION public.increment_chat_usage(uuid, integer) FROM PUBLIC, anon, authenticated;
